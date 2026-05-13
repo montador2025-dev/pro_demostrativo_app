@@ -6,9 +6,10 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { formatCurrency } from '../../lib/formatters';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { formatCurrency, generateWhatsAppLink, formatPhone } from '../../lib/formatters';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
-import { Users, Shuffle, UserMinus, AlertCircle, TrendingUp, Search, Eye, FileText, CalendarCheck, Edit, Trash2 } from 'lucide-react';
+import { Users, Shuffle, UserMinus, AlertCircle, TrendingUp, Search, Eye, FileText, CalendarCheck, Edit, Trash2, Send, Phone } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { QuoteCategory, User } from '../../types';
 import { toast } from 'sonner';
@@ -93,6 +94,11 @@ export const ManagerDashboard = () => {
     setTargetSalesperson('');
   };
 
+  const handleManagerMessage = (quote: any) => {
+    const msg = `Olá *${quote.clientName}*, aqui é o(a) *${currentUser.name}*, gerente da loja *${myBranch?.name}*. Gostaria de saber se o orçamento de *${formatCurrency(quote.value)}* ainda é de seu interesse e se posso ajudar em algo para fecharmos o negócio.`;
+    window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
+  };
+
   const getCategoryLabel = (cat: QuoteCategory) => {
     const labels: Record<QuoteCategory, string> = {
       card_turning: 'Aguardando Virada do Cartão',
@@ -107,22 +113,27 @@ export const ManagerDashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-100/50 relative overflow-hidden backdrop-blur-xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+      <div className="bg-gradient-to-br from-indigo-600 via-blue-700 to-indigo-800 p-8 rounded-3xl shadow-xl shadow-indigo-900/20 relative overflow-hidden text-white">
+        <div className="absolute right-0 top-0 opacity-15">
+          <svg width="400" height="400" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <path fill="#fff" d="M47.7,-60.2C59.6,-50.3,65.6,-33.5,70.5,-15.8C75.4,1.8,79.2,20.4,72.2,34.4C65.2,48.4,47.4,57.8,29.9,62.8C12.4,67.8,-4.8,68.4,-20.9,64.1C-37.1,59.9,-52.2,50.7,-61.4,36.8C-70.6,22.8,-73.9,4.2,-69,-11.9C-64.2,-28,-51.1,-41.6,-36.8,-51C-22.6,-60.5,-7.2,-65.7,5.5,-72C18.1,-78.4,35.9,-70.1,47.7,-60.2Z" transform="translate(100 100)" />
+          </svg>
+        </div>
         <div className="relative z-10 w-full">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+              <div className="flex items-center gap-3 mb-3">
+                <Badge variant="outline" className="bg-white/10 text-white border-white/20 px-3 py-1 font-medium shadow-none">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2 shadow-glow"></span>
                   {myBranch?.name}
                 </Badge>
               </div>
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">Painel do <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Gerente</span></h1>
-              <p className="text-slate-500 mt-2">Gerencie sua equipe, corrija cadastros e acompanhe as conversões da sua loja.</p>
+              <h1 className="text-4xl font-black tracking-tighter mb-2">Painel de <span className="text-indigo-200">Gestão</span></h1>
+              <p className="text-indigo-100 text-lg font-medium">Bem-vindo, <strong>{currentUser.name}</strong>. Controle sua equipe e métricas.</p>
             </div>
             <Dialog open={isSalespersonOpen} onOpenChange={setIsSalespersonOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg transition-all"><Users className="w-4 h-4 mr-2" /> Novo Vendedor</Button>
+                <Button className="bg-white text-indigo-700 hover:bg-indigo-50 shadow-lg shadow-black/10 font-bold px-6 py-2.5 rounded-xl transition-all"><Users className="w-4 h-4 mr-2" /> Novo Vendedor</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -134,7 +145,7 @@ export const ManagerDashboard = () => {
                     <Label>Nome do Vendedor</Label>
                     <Input placeholder="Ex: João Souza" value={newSalespersonName} onChange={e => setNewSalespersonName(e.target.value)} required />
                   </div>
-                  <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">Cadastrar Vendedor</Button>
+                  <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700">Cadastrar Vendedor</Button>
                 </form>
               </DialogContent>
             </Dialog>
@@ -142,122 +153,169 @@ export const ManagerDashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-none shadow-md bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Vendedores Ativos</CardTitle>
-            <Users className="w-4 h-4 text-blue-500" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50">
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Vendedores Ativos</CardTitle>
+            <Users className="w-5 h-5 text-indigo-500" />
           </CardHeader>
-          <CardContent><div className="text-3xl font-bold text-slate-800">{mySalespeople.length}</div></CardContent>
+          <CardContent className="pt-6"><div className="text-4xl font-black text-slate-900">{mySalespeople.length}</div></CardContent>
         </Card>
-        <Card className="border-none shadow-md bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Orçamentos Ativos (Filial)</CardTitle>
-            <FileText className="w-4 h-4 text-blue-500" />
+        <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50">
+            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Orçamentos Ativos</CardTitle>
+            <FileText className="w-5 h-5 text-indigo-500" />
           </CardHeader>
-          <CardContent><div className="text-3xl font-bold text-slate-800">{myBranchQuotes.length}</div></CardContent>
+          <CardContent className="pt-6"><div className="text-4xl font-black text-slate-900">{myBranchQuotes.length}</div></CardContent>
         </Card>
-        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-600 to-blue-800 text-white transform hover:scale-105 transition-transform duration-300">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-100">Potencial de Venda</CardTitle>
+            <CardTitle className="text-sm font-bold text-blue-100 uppercase tracking-wider">Potencial (Filial)</CardTitle>
             <TrendingUp className="w-5 h-5 text-blue-200" />
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black">{formatCurrency(totalValue)}</div>
-            <p className="text-xs text-blue-200 mt-1">Soma base de todos vendedores</p>
+          <CardContent className="pt-6">
+            <div className="text-3xl font-black tracking-tight">{formatCurrency(totalValue)}</div>
+            <p className="text-xs text-blue-100 mt-2 font-medium">Soma de todo o potencial de venda</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 shadow-sm border-slate-200">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <CardTitle>Equipe Comercial</CardTitle>
-                <CardDescription>Resumo de orçamentos e performance da sua equipe.</CardDescription>
+      <Tabs defaultValue="team" className="w-full">
+        <TabsList className="grid w-full h-auto grid-cols-2 lg:w-[500px] p-1 bg-slate-100 rounded-xl shadow-inner mb-8">
+          <TabsTrigger value="team" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-800 data-[state=active]:shadow-sm transition-all font-bold">
+            Equipe de Vendas
+          </TabsTrigger>
+          <TabsTrigger value="history" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-800 data-[state=active]:shadow-sm transition-all font-bold">
+            Histórico de Orçamentos
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="team" className="space-y-6">
+          <Card className="shadow-lg border-slate-100 rounded-2xl overflow-hidden">
+            <CardHeader className="pb-4 border-b border-indigo-50 bg-indigo-50/30">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-indigo-900 font-bold">Equipe Comercial</CardTitle>
+                  <CardDescription>Resumo de orçamentos e performance da sua equipe.</CardDescription>
+                </div>
+                <div className="relative w-full md:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                  <Input 
+                    placeholder="Buscar vendedor..." 
+                    className="pl-9 bg-white border-slate-200 focus-visible:ring-indigo-500 rounded-xl"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="relative w-full md:w-64">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar vendedor..." 
-                  className="pl-9 bg-slate-50"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead className="text-right">Orçamentos</TableHead>
-                  <TableHead className="text-right">Montante Promissor</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredSalespeople.map(s => {
-                  const sQuotes = myBranchQuotes.filter(q => q.createdBy === s.id && !q.isTransferred);
-                  const sTotal = sQuotes.reduce((acc, q) => acc + q.value, 0);
-                  return (
-                    <TableRow key={s.id} className="hover:bg-slate-50 transition-colors">
-                      <TableCell className="font-medium text-slate-800">{s.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="secondary" className="font-mono">{sQuotes.length}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-blue-700">
-                        {formatCurrency(sTotal)}
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button variant="ghost" size="icon" className="hover:bg-slate-100" title="Editar Nome" onClick={() => setEditUserModal({ isOpen: true, user: s, name: s.name })}>
-                          <Edit className="w-4 h-4 text-slate-500" />
-                        </Button>
-                        <Button variant="outline" size="icon" className="text-blue-600 border-blue-200 hover:bg-blue-50" title="Ver Detalhes do Vendedor" onClick={() => setSellerDetailsId(s.id)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Transferir Vendedor" onClick={() => { setUserToTransfer(s.id); setTransferDialogOpen(true); }}>
-                          <Shuffle className="w-4 h-4 text-slate-500" />
-                        </Button>
-                        <Button variant="ghost" size="icon" title="Desligar e Repassar Clientes" onClick={() => { setUserToReassign(s.id); setReassignDialogOpen(true); }}>
-                           <UserMinus className="w-4 h-4 text-red-500" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="hover:bg-red-50" title="Excluir Definitivamente" onClick={() => setDeleteUserModal({ isOpen: true, user: s })}>
-                           <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow>
+                    <TableHead className="font-bold text-slate-700">Vendedor</TableHead>
+                    <TableHead className="text-right font-bold text-slate-700">Orçamentos</TableHead>
+                    <TableHead className="text-right font-bold text-slate-700">Montante Total</TableHead>
+                    <TableHead className="text-right font-bold text-slate-700">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSalespeople.map(s => {
+                    const sQuotes = myBranchQuotes.filter(q => q.createdBy === s.id && !q.isTransferred);
+                    const sTotal = sQuotes.reduce((acc, q) => acc + q.value, 0);
+                    return (
+                      <TableRow key={s.id} className="hover:bg-slate-50 transition-colors">
+                        <TableCell className="font-semibold text-slate-800">{s.name}</TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="secondary" className="font-mono bg-indigo-50 text-indigo-700 font-bold">{sQuotes.length}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-indigo-700">
+                          {formatCurrency(sTotal)}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="icon" className="hover:bg-slate-100" title="Editar Nome" onClick={() => setEditUserModal({ isOpen: true, user: s, name: s.name })}>
+                            <Edit className="w-4 h-4 text-slate-500" />
+                          </Button>
+                          <Button variant="outline" size="icon" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50" title="Ver Detalhes do Vendedor" onClick={() => setSellerDetailsId(s.id)}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Transferir Vendedor" onClick={() => { setUserToTransfer(s.id); setTransferDialogOpen(true); }}>
+                            <Shuffle className="w-4 h-4 text-slate-500" />
+                          </Button>
+                          <Button variant="ghost" size="icon" title="Desligar e Repassar Clientes" onClick={() => { setUserToReassign(s.id); setReassignDialogOpen(true); }}>
+                            <UserMinus className="w-4 h-4 text-red-500" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="hover:bg-red-50" title="Excluir Definitivamente" onClick={() => setDeleteUserModal({ isOpen: true, user: s })}>
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {filteredSalespeople.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-24 text-center text-slate-400 border-dashed">
+                        {searchTerm ? 'Nenhum vendedor encontrado.' : 'Sua equipe ainda não possui vendedores.'}
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-                {filteredSalespeople.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground border-dashed">
-                      {searchTerm ? 'Nenhum vendedor encontrado.' : 'Sua equipe ainda não possui vendedores.'}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <Card className="bg-amber-50/50 border-amber-200 shadow-sm h-fit">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 text-amber-800">
-              <AlertCircle className="w-5 h-5" />
-              Gestão de Crise
-            </CardTitle>
-            <CardDescription className="text-amber-700/80">Ações estratégicas da filial</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-amber-900/80 leading-relaxed">
-               Na saída ou transferência de um vendedor, repasse a carteira de orçamentos pendentes para outro consultor. Os orçamentos fechados na sua filial permanecerão nos seus relatórios de conversão para manter o histórico íntegro.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="history" className="space-y-6">
+          <Card className="shadow-lg border-slate-100 rounded-2xl overflow-hidden">
+            <CardHeader className="pb-4 border-b border-indigo-50 bg-indigo-50/30">
+              <CardTitle className="text-indigo-900 font-bold">Histórico de Orçamentos</CardTitle>
+              <CardDescription>Acompanhe todos os orçamentos realizados nesta filial.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+               <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow>
+                    <TableHead className="font-bold text-slate-700">Cliente</TableHead>
+                    <TableHead className="font-bold text-slate-700">Vendedor</TableHead>
+                    <TableHead className="font-bold text-slate-700">Produto</TableHead>
+                    <TableHead className="font-bold text-slate-700">Retorno</TableHead>
+                    <TableHead className="font-bold text-slate-700">Valor</TableHead>
+                    <TableHead className="font-bold text-slate-700">Status</TableHead>
+                    <TableHead className="font-bold text-slate-700 text-right">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {myBranchQuotes.map(q => {
+                    const salesperson = mySalespeople.find(s => s.id === q.createdBy);
+                    return (
+                      <TableRow key={q.id}>
+                        <TableCell className="font-medium text-slate-900">{q.clientName}</TableCell>
+                        <TableCell className="text-slate-600">{salesperson?.name || 'Desconhecido'}</TableCell>
+                        <TableCell className="text-slate-600">{q.productInterest || '-'}</TableCell>
+                        <TableCell className="text-slate-600">{new Date(q.returnDate).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="font-bold text-indigo-700">{formatCurrency(q.value)}</TableCell>
+                        <TableCell>
+                          {q.status === 'pending' && <Badge variant="outline" className="bg-amber-50 text-amber-700">Pêndente</Badge>}
+                          {q.status === 'won' && <Badge variant="outline" className="bg-emerald-50 text-emerald-700 font-bold">Ganho</Badge>}
+                          {q.status === 'lost' && <Badge variant="outline" className="bg-rose-50 text-rose-700">Perdido</Badge>}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs font-mono text-slate-500">{formatPhone(q.clientPhone)}</span>
+                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 font-bold h-7" onClick={() => handleManagerMessage(q)}>
+                              <Send className="w-3 h-3 mr-2" /> WhatsApp
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Seller Details Dialog */}
       <Dialog open={!!sellerDetailsId} onOpenChange={(open) => !open && setSellerDetailsId(null)}>

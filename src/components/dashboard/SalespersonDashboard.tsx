@@ -113,17 +113,17 @@ export const SalespersonDashboard = () => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 md:p-8 rounded-2xl shadow-lg relative overflow-hidden text-white">
-        <div className="absolute right-0 top-0 opacity-10">
+      <div className="bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 p-6 md:p-8 rounded-2xl shadow-xl shadow-emerald-500/20 relative overflow-hidden text-white">
+        <div className="absolute right-0 top-0 opacity-15">
           <svg width="300" height="300" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <path fill="#fff" d="M47.7,-60.2C59.6,-50.3,65.6,-33.5,70.5,-15.8C75.4,1.8,79.2,20.4,72.2,34.4C65.2,48.4,47.4,57.8,29.9,62.8C12.4,67.8,-4.8,68.4,-20.9,64.1C-37.1,59.9,-52.2,50.7,-61.4,36.8C-70.6,22.8,-73.9,4.2,-69,-11.9C-64.2,-28,-51.1,-41.6,-36.8,-51C-22.6,-60.5,-7.2,-65.7,5.5,-72C18.1,-78.4,35.9,-70.1,47.7,-60.2Z" transform="translate(100 100)" />
           </svg>
         </div>
         <div className="relative z-10">
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-2">Área de Vendas</h1>
-          <p className="text-teal-100 text-lg">Bem-vindo, <strong>{currentUser.name}</strong>. Pronto para fechar negócios?</p>
+          <h1 className="text-4xl font-black tracking-tighter mb-2">Área de Vendas</h1>
+          <p className="text-emerald-50 text-lg font-medium">Bem-vindo, <strong className="text-white">{currentUser.name}</strong>. Pronto para fechar negócios?</p>
           {myLegacyBranch && (
-            <p className="text-sm bg-black/20 text-white backdrop-blur-md self-start px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 mt-3 border border-white/20 shadow-sm">
+            <p className="text-sm bg-black/20 text-white backdrop-blur-md self-start px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 mt-3 border border-white/20 shadow-sm font-semibold">
                <AlertCircle className="w-4 h-4"/> Conta possui modo legado ativo da loja {myLegacyBranch.name}
             </p>
           )}
