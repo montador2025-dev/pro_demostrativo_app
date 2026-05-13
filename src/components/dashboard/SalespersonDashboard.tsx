@@ -131,59 +131,61 @@ export const SalespersonDashboard = () => {
       </div>
 
       <Tabs defaultValue="new" className="w-full">
-        <TabsList className="grid w-full h-auto grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="new" className="py-2.5">Novo Orçamento Rápido</TabsTrigger>
-          <TabsTrigger value="following" className="py-2.5">
+        <TabsList className="grid w-full h-auto grid-cols-2 lg:w-[400px] p-1 bg-slate-100 rounded-xl shadow-inner mb-8">
+          <TabsTrigger value="new" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all font-medium">
+            Novo Orçamento
+          </TabsTrigger>
+          <TabsTrigger value="following" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all font-medium">
             Acompanhamento 
             {quotesNeedingAttention.length > 0 && (
-              <Badge className="ml-2 bg-red-500 hover:bg-red-600">{quotesNeedingAttention.length}</Badge>
+              <Badge className="ml-2 bg-rose-500 text-white hover:bg-rose-600">{quotesNeedingAttention.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
         
         {/* TAB 1: NEW QUOTE */}
-        <TabsContent value="new" className="mt-6">
-          <Card className="max-w-3xl border-muted/60 shadow-sm">
-            <CardHeader className="bg-primary/5 border-b pb-4">
-              <CardTitle className="flex items-center text-lg">
-                <FileText className="w-5 h-5 mr-3 text-primary" /> Captura Rápida
+        <TabsContent value="new" className="mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="max-w-3xl border-indigo-100 shadow-lg rounded-2xl overflow-hidden bg-white">
+            <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 pb-5">
+              <CardTitle className="flex items-center text-xl text-indigo-900 font-bold">
+                <FileText className="w-6 h-6 mr-3 text-indigo-600" /> Captura Rápida
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-slate-600 mt-1">
                 Gere um orçamento para o cliente e envie um comprovante super profissional pelo WhatsApp no mesmo instante.
               </CardDescription>
             </CardHeader>
             <form onSubmit={e => handleSaveQuote(e, false)}>
-              <CardContent className="space-y-6 pt-6">
+              <CardContent className="space-y-6 pt-6 px-6">
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label className="flex items-center"><User className="w-4 h-4 mr-1 text-muted-foreground"/>Nome do Cliente *</Label>
-                    <Input placeholder="Nome completo" value={clientName} onChange={e => setClientName(e.target.value)} required />
+                    <Label className="flex items-center text-slate-700 font-medium"><User className="w-4 h-4 mr-1.5 text-indigo-500"/>Nome do Cliente *</Label>
+                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" placeholder="Nome completo" value={clientName} onChange={e => setClientName(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center"><Phone className="w-4 h-4 mr-1 text-muted-foreground"/>WhatsApp *</Label>
-                    <Input placeholder="Ex: 11999998888" value={formatPhone(clientPhone)} onChange={handlePhoneChange} required />
+                    <Label className="flex items-center text-slate-700 font-medium"><Phone className="w-4 h-4 mr-1.5 text-green-500"/>WhatsApp *</Label>
+                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" placeholder="Ex: 11999998888" value={formatPhone(clientPhone)} onChange={handlePhoneChange} required />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Produto(s) de Interesse</Label>
-                  <Input placeholder="Ex: Guarda-roupa, Cama Casal..." value={productInterest} onChange={e => setProductInterest(e.target.value)} />
+                  <Label className="text-slate-700 font-medium">Produto(s) de Interesse</Label>
+                  <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" placeholder="Ex: Guarda-roupa, Cama Casal..." value={productInterest} onChange={e => setProductInterest(e.target.value)} />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="space-y-2">
-                    <Label>Valor do Orçamento *</Label>
-                    <Input placeholder="R$ 0,00" value={quoteValueStr} onChange={handleValueChange} required />
+                    <Label className="text-slate-700 font-medium">Valor do Orçamento *</Label>
+                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50 font-semibold text-slate-900" placeholder="R$ 0,00" value={quoteValueStr} onChange={handleValueChange} required />
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center"><CalendarCheck className="w-4 h-4 mr-1 text-muted-foreground"/>Data de Retorno *</Label>
-                    <Input type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} required />
+                    <Label className="flex items-center text-slate-700 font-medium"><CalendarCheck className="w-4 h-4 mr-1.5 text-orange-500"/>Data de Retorno *</Label>
+                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Motivo (Por que não fechou?) *</Label>
+                    <Label className="text-slate-700 font-medium">Motivo (Por que não fechou?) *</Label>
                     <Select value={category} onValueChange={(v) => setCategory(v as QuoteCategory)}>
-                      <SelectTrigger><SelectValue/></SelectTrigger>
+                      <SelectTrigger className="bg-slate-50/50 border-slate-200 focus:ring-indigo-500"><SelectValue/></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="card_turning">Cartão a Virar</SelectItem>
                         <SelectItem value="researching">Só Pesquisando</SelectItem>
@@ -195,9 +197,9 @@ export const SalespersonDashboard = () => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 bg-muted/20 border-t pt-4">
-                <Button variant="outline" type="submit">Apenas Salvar (Sem Avisar)</Button>
-                <Button type="button" className="bg-green-600 hover:bg-green-700 text-white" onClick={(e) => handleSaveQuote(e, true)}>
+              <CardFooter className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 bg-slate-50 border-t border-slate-100 py-5 px-6">
+                <Button variant="outline" type="submit" className="border-slate-300 text-slate-700 hover:bg-slate-100 font-medium">Apenas Salvar (Sem Avisar)</Button>
+                <Button type="button" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 font-medium" onClick={(e) => handleSaveQuote(e, true)}>
                   <Send className="w-4 h-4 mr-2" /> Salvar & Enviar WhatsApp
                 </Button>
               </CardFooter>
@@ -206,69 +208,89 @@ export const SalespersonDashboard = () => {
         </TabsContent>
 
         {/* TAB 2: FOLLOW UPS */}
-        <TabsContent value="following" className="mt-6">
+        <TabsContent value="following" className="mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="space-y-6">
             
             {quotesNeedingAttention.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center justify-between">
-                <div>
-                   <h3 className="text-red-800 font-bold flex items-center"><AlertCircle className="w-5 h-5 mr-2"/> Atenção! Retornos Vencidos ou Para Hoje</h3>
-                   <p className="text-red-700 text-sm mt-1">Você tem clientes esperando seu contato para fechar negócio.</p>
+              <div className="bg-gradient-to-r from-rose-500 to-red-600 rounded-xl p-5 shadow-lg shadow-red-500/20 flex flex-col md:flex-row md:items-center justify-between text-white overflow-hidden relative">
+                <div className="absolute -right-4 -top-4 opacity-10">
+                  <AlertCircle className="w-32 h-32" />
+                </div>
+                <div className="relative z-10">
+                   <h3 className="text-xl font-bold flex items-center mb-1"><AlertCircle className="w-6 h-6 mr-2 animate-pulse text-white"/> Retornos Vencidos ou Para Hoje!</h3>
+                   <p className="text-rose-100">Existem {quotesNeedingAttention.length} cliente(s) esperando seu contato. Um bom retorno garante a venda.</p>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {pendingQuotes.map(quote => {
                 const isOverdue = new Date(quote.returnDate).getTime() <= today.getTime();
                 return (
-                  <Card key={quote.id} className={`overflow-hidden transition-all hover:border-primary/50 relative ${isOverdue ? 'border-red-300 bg-red-50/10' : ''}`}>
-                    {isOverdue && <div className="absolute top-0 left-0 w-1 h-full bg-red-500"></div>}
-                    {!isOverdue && <div className="absolute top-0 left-0 w-1 h-full bg-primary/30"></div>}
+                  <Card key={quote.id} className={`overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative border ${isOverdue ? 'border-rose-200 shadow-rose-100 bg-white' : 'border-indigo-100 bg-white shadow-indigo-100/50 hover:border-indigo-300'}`}>
+                    {isOverdue && <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-400 to-red-600 shadow-[0_0_10px_rgba(225,29,72,0.4)]"></div>}
+                    {!isOverdue && <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-indigo-500"></div>}
                     
-                    <CardHeader className="py-4 pb-2 flex-row items-center justify-between">
-                      <div>
-                        <CardTitle className="text-lg">{quote.clientName}</CardTitle>
-                        <CardDescription>{formatPhone(quote.clientPhone)}</CardDescription>
+                    <CardHeader className="py-5 pb-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <CardTitle className="text-lg font-bold text-slate-800 line-clamp-1" title={quote.clientName}>{quote.clientName}</CardTitle>
+                          <CardDescription className="text-slate-500 flex items-center font-medium mt-1">
+                            {formatPhone(quote.clientPhone)}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline" className={`ml-2 whitespace-nowrap text-xs font-semibold ${isOverdue ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                           {isOverdue ? 'Retornar Hoje' : 'Aberto'}
+                        </Badge>
                       </div>
-                      <div className="text-right">
-                         <div className="font-bold text-xl text-primary">{formatCurrency(quote.value)}</div>
-                         <Badge variant="secondary" className="mt-1 font-mono text-xs text-muted-foreground">{getCategoryLabel(quote.category)}</Badge>
+                      
+                      <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center">
+                        <div className="font-black text-xl text-indigo-700">{formatCurrency(quote.value)}</div>
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{getCategoryLabel(quote.category)}</div>
                       </div>
                     </CardHeader>
-                    <CardContent className="py-2 pb-4">
-                      <div className="flex items-center text-sm text-muted-foreground mt-2">
-                        <CalendarCheck className="w-4 h-4 mr-2" /> 
-                        Retorno Agendado: <strong className={`ml-1 ${isOverdue ? 'text-red-600' : 'text-gray-700'}`}>{new Date(quote.returnDate).toLocaleDateString('pt-BR')}</strong>
+                    <CardContent className="py-2 pb-5">
+                      {quote.productInterest && (
+                         <div className="flex items-center text-sm text-slate-600 font-medium mb-3">
+                           <span className="w-2 h-2 rounded-full bg-amber-400 mr-2 shadow-sm shadow-amber-400/50"></span>
+                           {quote.productInterest}
+                         </div>
+                      )}
+                      <div className="flex items-center text-sm font-medium bg-slate-100/60 p-2 rounded-md">
+                        <CalendarCheck className={`w-4 h-4 mr-2 ${isOverdue ? 'text-rose-500' : 'text-indigo-500'}`} /> 
+                        <span className="text-slate-500 mr-1">Agendado:</span> 
+                        <span className={`${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-800'}`}>{new Date(quote.returnDate).toLocaleDateString('pt-BR')}</span>
                       </div>
                     </CardContent>
-                    <CardFooter className="bg-muted/10 border-t py-3 flex justify-between items-center">
+                    <CardFooter className={`border-t py-4 gap-2 flex-col items-stretch ${isOverdue ? 'bg-rose-50/50' : 'bg-slate-50/50'}`}>
+                        <Button className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-md shadow-[#25D366]/20 font-semibold" onClick={() => handleFollowUpWhatsApp(quote)}>
+                           <Send className="w-4 h-4 mr-2" /> Chamar WhatsApp
+                        </Button>
                         <Select 
                            value={quote.status} 
                            onValueChange={(val) => updateQuoteStatus(quote.id, val as QuoteStatus)}
                         >
-                          <SelectTrigger className="w-[180px] h-8 text-xs">
-                            <SelectValue placeholder="Status" />
+                          <SelectTrigger className="w-full text-slate-600 bg-white border-slate-200">
+                            <SelectValue placeholder="Atualizar Status" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="pending">Aberto / Pendente</SelectItem>
-                            <SelectItem value="won" className="text-green-600 font-medium">Venda Concluída!</SelectItem>
-                            <SelectItem value="lost" className="text-red-600 font-medium">Venda Perdida</SelectItem>
+                            <SelectItem value="won" className="text-emerald-600 font-bold">🎉 Venda Concluída!</SelectItem>
+                            <SelectItem value="lost" className="text-rose-600 font-semibold">❌ Venda Perdida</SelectItem>
                           </SelectContent>
                         </Select>
-
-                        <Button size="sm" variant="outline" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleFollowUpWhatsApp(quote)}>
-                           <Send className="w-3 h-3 mr-2" /> Chamar P/ Retorno
-                        </Button>
                     </CardFooter>
                   </Card>
                 );
               })}
               
               {pendingQuotes.length === 0 && (
-                <div className="text-center py-16 border border-dashed rounded-xl bg-white text-muted-foreground">
-                  <FileText className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
-                  Nenhum orçamento pendente.<br/>Sua carteira está limpa!
+                <div className="md:col-span-2 lg:col-span-3 text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 text-slate-500">
+                  <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
+                    <FileText className="w-10 h-10 text-indigo-300" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800 mb-1">Nenhum orçamento pendente.</h3>
+                  <p>Sua carteira de clientes está limpa!</p>
                 </div>
               )}
             </div>
