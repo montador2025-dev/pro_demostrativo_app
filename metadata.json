@@ -1,6 +1,6 @@
 {
-  "name": "NEXUS CRM & ERP",
-  "description": "Sistema de gestão inteligente com integração WhatsApp, relatórios avançados e controle total de filiais.",
+  "name": "NEXUS CRM - Demostrativo",
+  "description": "NEXUS CRM - Sistema de Gestão Inteligente para demonstração.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
