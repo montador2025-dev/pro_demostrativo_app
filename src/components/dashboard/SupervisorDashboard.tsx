@@ -99,6 +99,218 @@ export const SupervisorDashboard = () => {
   const detailedBranch = branchMetrics.find(bm => bm.id === branchDetailsId);
   const detailedBranchQuotes = detailedBranch ? quotes.filter(q => q.branchId === detailedBranch.id && !q.isTransferred) : [];
 
+  if (branchDetailsId && detailedBranch) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-700 via-blue-800 to-indigo-900 -mx-4 md:-mx-8 -mt-8 p-4 md:p-8 animate-in fade-in duration-700">
+        <div className="max-w-6xl mx-auto space-y-8">
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white/10 backdrop-blur-xl p-8 rounded-[2rem] border border-white/20 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+            <div className="flex items-center gap-6 relative z-10">
+              <div className="bg-white p-4 rounded-2xl shadow-2xl transform hover:rotate-6 transition-transform">
+                <Store className="w-10 h-10 text-indigo-600" />
+              </div>
+              <div className="text-center md:text-left">
+                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-1 select-none">
+                  {detailedBranch.name}
+                </h1>
+                <div className="flex items-center gap-2 text-indigo-100 font-bold uppercase tracking-widest text-xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Relatório Executivo Detalhado
+                </div>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setBranchDetailsId(null)}
+              variant="outline" 
+              className="bg-white text-indigo-900 border-none hover:bg-indigo-50 transition-all font-black px-8 py-6 rounded-2xl shadow-xl hover:shadow-indigo-500/20 active:scale-95 text-lg"
+            >
+              Voltar ao Início
+            </Button>
+          </div>
+
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="bg-white/10 backdrop-blur-md border-white/10 shadow-2xl text-white rounded-3xl overflow-hidden hover:bg-white/15 transition-colors group">
+              <CardHeader className="pb-3 border-b border-white/10 px-6">
+                <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-200 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" /> Gestão da Unidade
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="text-3xl font-black text-white group-hover:translate-x-1 transition-transform">
+                  {detailedBranch.manager?.name || 'Vago'}
+                </div>
+                <p className="text-indigo-200 text-sm mt-1 font-medium italic opacity-70">Responsável Administrativo</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-white/10 backdrop-blur-md border-white/10 shadow-2xl text-white rounded-3xl overflow-hidden hover:bg-white/15 transition-colors group">
+              <CardHeader className="pb-3 border-b border-white/10 px-6">
+                <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-200 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-400" /> Fluxo de Atendimento
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="text-5xl font-black text-white group-hover:scale-110 origin-left transition-transform">
+                  {detailedBranch.quotesCount}
+                </div>
+                <p className="text-indigo-200 text-sm mt-1 font-medium">Orçamentos em Aberto</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-none text-slate-900 rounded-3xl overflow-hidden transform hover:-translate-y-2 transition-all duration-500">
+              <CardHeader className="pb-3 border-b border-indigo-50 bg-indigo-50/80 px-6">
+                <CardTitle className="text-xs font-black uppercase tracking-widest text-indigo-600 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-indigo-500" /> Montante de Venda
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="text-4xl font-black text-indigo-700 tracking-tighter">
+                  {formatCurrency(detailedBranch.totalValue)}
+                </div>
+                <p className="text-slate-500 text-sm mt-1 font-bold">Potencial Bruto Acumulado</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Detailed Content Tabs */}
+          <Tabs defaultValue="vendedores" className="w-full">
+            <TabsList className="bg-white/10 backdrop-blur-md p-1 rounded-2xl border border-white/20 mb-8 w-full md:w-fit">
+              <TabsTrigger value="vendedores" className="data-[state=active]:bg-white data-[state=active]:text-indigo-900 text-white font-black rounded-xl px-10 py-3 transition-all">
+                Equipe de Vendas
+              </TabsTrigger>
+              <TabsTrigger value="orcamentos" className="data-[state=active]:bg-white data-[state=active]:text-indigo-900 text-white font-black rounded-xl px-10 py-3 transition-all">
+                Histórico Comercial
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="vendedores" className="animate-in slide-in-from-left-4 duration-500">
+              <Card className="bg-white border-none shadow-2xl rounded-3xl overflow-hidden border-t-8 border-indigo-500">
+                <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-8">
+                  <CardTitle className="text-indigo-900 text-2xl font-black tracking-tight">Análise Individual por Vendedor</CardTitle>
+                  <CardDescription className="text-slate-500 font-medium">Performance de captação e volume financeiro por consultor.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-slate-100/50">
+                      <TableRow>
+                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Consultor</TableHead>
+                        <TableHead className="text-right px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Volume</TableHead>
+                        <TableHead className="text-right px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Potencial Individual</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailedBranch.salespeople.map(s => {
+                        const sQuotes = detailedBranchQuotes.filter(q => q.createdBy === s.id);
+                        const sTotal = sQuotes.reduce((acc, q) => acc + q.value, 0);
+                        return (
+                          <TableRow key={s.id} className="hover:bg-indigo-50/30 transition-all group">
+                            <TableCell className="px-8 py-6 font-bold text-slate-900 flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center font-black text-lg shadow-lg group-hover:rotate-6 transition-transform">
+                                {s.name.charAt(0)}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-lg tracking-tight">{s.name}</span>
+                                <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">Ativo nesta Unidade</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right px-8 py-6">
+                              <Badge className="bg-indigo-600 text-white border-none px-4 py-1 rounded-lg font-black text-sm shadow-md">
+                                {sQuotes.length} <span className="ml-1 opacity-60 font-medium">unid</span>
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right px-8 py-6">
+                              <div className="font-black text-indigo-700 text-2xl tracking-tighter">
+                                {formatCurrency(sTotal)}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {detailedBranch.salespeople.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-slate-400 py-24 italic bg-slate-50/30">
+                            <div className="flex flex-col items-center gap-4 opacity-30">
+                              <Users className="w-16 h-16" />
+                              <span className="text-xl font-black">Nenhum consultor ativo nesta unidade</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="orcamentos" className="animate-in slide-in-from-right-4 duration-500">
+              <Card className="bg-white border-none shadow-2xl rounded-3xl overflow-hidden border-t-8 border-blue-500">
+                <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-8">
+                  <CardTitle className="text-indigo-900 text-2xl font-black tracking-tight">Fluxo de Negociações</CardTitle>
+                  <CardDescription className="text-slate-500 font-medium">Listagem completa de todos os orçamentos ativos na unidade.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-slate-100/50">
+                      <TableRow>
+                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Cliente & Interesse</TableHead>
+                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Consultor</TableHead>
+                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Agenda Retorno</TableHead>
+                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Situação</TableHead>
+                        <TableHead className="text-right px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Proposta</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailedBranchQuotes.map(q => {
+                        const qSeller = users.find(u => u.id === q.createdBy);
+                        return (
+                          <TableRow key={q.id} className="hover:bg-slate-50 transition-colors">
+                            <TableCell className="px-8 py-6">
+                              <div className="font-black text-slate-900 text-lg tracking-tight">{q.clientName}</div>
+                              <div className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mt-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                                {q.productInterest || 'Serviços Diversos'}
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-8 py-6 font-bold text-slate-600">{qSeller?.name}</TableCell>
+                            <TableCell className="px-8 py-6">
+                              <div className="flex items-center gap-2 text-sm font-black text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl w-fit">
+                                <CalendarCheck className="w-4 h-4 text-indigo-500" />
+                                {new Date(q.returnDate).toLocaleDateString('pt-BR')}
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-8 py-6">
+                              {q.status === 'pending' && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 font-black px-3 py-1 text-xs">Aguardando</Badge>}
+                              {q.status === 'won' && <Badge className="bg-emerald-500 hover:bg-emerald-600 font-black px-3 py-1 text-xs shadow-lg shadow-emerald-200">Ganhamos</Badge>}
+                              {q.status === 'lost' && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 font-black px-3 py-1 text-xs">Perdemos</Badge>}
+                            </TableCell>
+                            <TableCell className="text-right px-8 py-6">
+                              <div className="font-black text-indigo-700 text-2xl tracking-tighter">
+                                {formatCurrency(q.value)}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      {detailedBranchQuotes.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-slate-400 py-24 italic bg-slate-50/30">
+                            Nenhuma movimentação registrada no histórico comercial.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-100/50 relative overflow-hidden backdrop-blur-xl">
@@ -310,149 +522,6 @@ export const SupervisorDashboard = () => {
           )}
         </div>
       </div>
-
-      {/* DETAILED BRANCH DIALOG */}
-      <Dialog open={!!branchDetailsId} onOpenChange={(open) => !open && setBranchDetailsId(null)}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <Store className="w-6 h-6 text-indigo-600" />
-              {detailedBranch?.name}
-            </DialogTitle>
-            <DialogDescription>
-              Visão detalhada de resultados, vendedores e todos os orçamentos processados nesta loja.
-            </DialogDescription>
-          </DialogHeader>
-
-          {detailedBranch && (
-            <div className="space-y-6 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="bg-slate-50 border-none shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-slate-500">Gerente Responsável</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="font-semibold text-lg">{detailedBranch.manager?.name || 'Não atribuído'}</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-slate-50 border-none shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-slate-500">Orçamentos Ativos</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="font-semibold text-lg">{detailedBranch.quotesCount}</div>
-                  </CardContent>
-                </Card>
-                <Card className="bg-indigo-50 border-indigo-100 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-indigo-700">Ticket Potencial Total</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="font-bold text-xl text-indigo-700">{formatCurrency(detailedBranch.totalValue)}</div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Tabs defaultValue="vendedores" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="vendedores">Equipe de Vendas</TabsTrigger>
-                  <TabsTrigger value="orcamentos">Histórico de Orçamentos</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="vendedores" className="mt-4">
-                  <Card className="border-slate-200">
-                    <Table>
-                      <TableHeader className="bg-slate-50">
-                        <TableRow>
-                          <TableHead>Vendedor</TableHead>
-                          <TableHead className="text-right">Volume</TableHead>
-                          <TableHead className="text-right">Montante Gerado</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {detailedBranch.salespeople.map(s => {
-                          const sQuotes = detailedBranchQuotes.filter(q => q.createdBy === s.id);
-                          const sTotal = sQuotes.reduce((acc, q) => acc + q.value, 0);
-                          return (
-                            <TableRow key={s.id}>
-                              <TableCell className="font-medium flex items-center gap-2">
-                                <UserCircle2 className="w-4 h-4 text-slate-400" />
-                                {s.name}
-                              </TableCell>
-                              <TableCell className="text-right"><Badge variant="secondary">{sQuotes.length}</Badge></TableCell>
-                              <TableCell className="text-right font-semibold">{formatCurrency(sTotal)}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                        {detailedBranch.salespeople.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={3} className="text-center text-slate-500 py-6">Nenhum vendedor registrado.</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="orcamentos" className="mt-4">
-                  <Card className="border-slate-200">
-                    <Table>
-                      <TableHeader className="bg-slate-50">
-                        <TableRow>
-                          <TableHead>Cliente & Produto</TableHead>
-                          <TableHead>Contato</TableHead>
-                          <TableHead>Vendedor</TableHead>
-                          <TableHead>Retorno</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {detailedBranchQuotes.map(q => {
-                          const qSeller = users.find(u => u.id === q.createdBy);
-                          return (
-                            <TableRow key={q.id}>
-                              <TableCell>
-                                <div className="font-medium">{q.clientName}</div>
-                                <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                                  <FileText className="w-3 h-3" /> {q.productInterest || 'Não especificado'}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="text-sm font-medium">{q.clientPhone}</div>
-                                <a href={`https://wa.me/${q.clientPhone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 hover:text-green-700 flex items-center gap-1 mt-0.5">
-                                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                  WhatsApp
-                                </a>
-                              </TableCell>
-                              <TableCell className="text-sm">{qSeller?.name}</TableCell>
-                              <TableCell className="text-sm flex items-center gap-1">
-                                <CalendarCheck className="w-3 h-3 text-slate-400" />
-                                {new Date(q.returnDate).toLocaleDateString('pt-BR')}
-                              </TableCell>
-                              <TableCell>
-                                {q.status === 'pending' && <Badge variant="outline" className="bg-amber-50 text-amber-700">Pendente</Badge>}
-                                {q.status === 'won' && <Badge variant="outline" className="bg-green-50 text-green-700">Ganho</Badge>}
-                                {q.status === 'lost' && <Badge variant="outline" className="bg-red-50 text-red-700">Perdido</Badge>}
-                              </TableCell>
-                              <TableCell className="text-right font-semibold">{formatCurrency(q.value)}</TableCell>
-                            </TableRow>
-                          )
-                        })}
-                        {detailedBranchQuotes.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center text-slate-500 py-6">Nenhum orçamento registrado.</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Edit User Modal */}
       <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '' })}>
