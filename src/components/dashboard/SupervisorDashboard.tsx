@@ -6,20 +6,21 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { formatCurrency } from '../../lib/formatters';
-import { Building2, PlusCircle, Users, BarChart3, TrendingUp, Store, ShieldCheck, UserCircle2, Search, FileText, CalendarCheck, Edit, Trash2 } from 'lucide-react';
+import { formatCurrency, generateWhatsAppLink } from '../../lib/formatters';
+import { Building2, PlusCircle, Users, BarChart3, TrendingUp, Store, ShieldCheck, UserCircle2, Search, FileText, CalendarCheck, Edit, Trash2, LayoutDashboard, ListFilter, SlidersHorizontal, ChevronLeft, ClipboardList } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
-import { User, Branch } from '../../types';
+import { User, Branch, Quote } from '../../types';
+import { KanbanBoard } from './KanbanBoard';
+import { cn } from '../../lib/utils';
 
 export const SupervisorDashboard = () => {
-  const { branches, users, quotes, addBranch, updateBranch, deleteBranch, addUser, updateUser, deleteUser } = useAppContext();
+  const { branches, users, quotes, addBranch, updateBranch, addUser, updateUser, deleteUser } = useAppContext();
   
+  const [viewMode, setViewMode] = useState<'pipeline' | 'branches'>('pipeline');
   const [isBranchOpen, setIsBranchOpen] = useState(false);
-  
-  // States for Edit/Delete actions
   const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string }>({ isOpen: false, user: null, name: '' });
   const [deleteUserModal, setDeleteUserModal] = useState<{ isOpen: boolean, user: User | null }>({ isOpen: false, user: null });
   const [editBranchModal, setEditBranchModal] = useState<{ isOpen: boolean, branch: Branch | null, name: string }>({ isOpen: false, branch: null, name: '' });
@@ -34,6 +35,7 @@ export const SupervisorDashboard = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [branchDetailsId, setBranchDetailsId] = useState<string | null>(null);
+  const [filterBranchId, setFilterBranchId] = useState<string>('all');
 
   const handleAddBranch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,55 +54,40 @@ export const SupervisorDashboard = () => {
     setIsManagerOpen(false);
   };
 
-  // Metrics calculation
-  const totalQuotesValue = quotes.reduce((acc, q) => acc + q.value, 0);
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const quotesTodayGlobal = quotes.filter(q => {
-    const returnDate = new Date(q.returnDate);
-    returnDate.setHours(0, 0, 0, 0);
-    return q.status === 'pending' && returnDate.getTime() === today.getTime();
+  const filteredQuotes = quotes.filter(q => {
+    const matchesBranch = filterBranchId === 'all' || q.branchId === filterBranchId;
+    const matchesSearch = q.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesBranch && matchesSearch && !q.isTransferred;
   });
 
-  const totalValueTodayGlobal = quotesTodayGlobal.reduce((acc, q) => acc + q.value, 0);
+  const handleWhatsAppAction = (quote: Quote) => {
+     const msg = `Olá *${quote.clientName}*, estou acompanhando o atendimento na nossa filial e gostaria de saber se tudo ocorreu bem no seu orçamento de *${formatCurrency(quote.value)}*.`;
+     window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
+  };
 
+  // Metrics
+  const totalGlobalValue = filteredQuotes.reduce((acc, q) => acc + q.value, 0);
+  
   const branchMetrics = branches.map(b => {
     const branchQuotes = quotes.filter(q => q.branchId === b.id && !q.isTransferred);
-    const branchSalespeople = salespeople.filter(s => s.branchId === b.id);
-    const branchManager = managers.find(m => m.branchId === b.id);
-    
-    const branchQuotesToday = branchQuotes.filter(q => {
-      const rd = new Date(q.returnDate);
-      rd.setHours(0, 0, 0, 0);
-      return q.status === 'pending' && rd.getTime() === today.getTime();
-    });
-
     return {
       ...b,
-      manager: branchManager,
-      salespeople: branchSalespeople,
-      quotesCount: branchQuotes.length,
+      manager: managers.find(m => m.branchId === b.id),
       totalValue: branchQuotes.reduce((acc, q) => acc + q.value, 0),
-      quotesTodayCount: branchQuotesToday.length,
-      quotesTodayValue: branchQuotesToday.reduce((acc, q) => acc + q.value, 0)
+      salespeople: salespeople.filter(s => s.branchId === b.id)
     };
   });
+
+  const filteredBranches = branchMetrics.filter(bm => 
+    bm.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const handleEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUserModal.user || !editUserModal.name.trim()) return;
     updateUser(editUserModal.user.id, editUserModal.name);
     setEditUserModal({ isOpen: false, user: null, name: '' });
-    toast.success('Usuário atualizado com sucesso!');
-  };
-
-  const handleDeleteUser = () => {
-    if (!deleteUserModal.user) return;
-    deleteUser(deleteUserModal.user.id);
-    setDeleteUserModal({ isOpen: false, user: null });
-    toast.success('Usuário removido!');
+    toast.success('Pessoa atualizada!');
   };
 
   const handleEditBranch = (e: React.FormEvent) => {
@@ -108,525 +95,303 @@ export const SupervisorDashboard = () => {
     if (!editBranchModal.branch || !editBranchModal.name.trim()) return;
     updateBranch(editBranchModal.branch.id, editBranchModal.name);
     setEditBranchModal({ isOpen: false, branch: null, name: '' });
-    toast.success('Filial atualizada!');
   };
 
-  const filteredBranches = branchMetrics.filter(bm => 
-    bm.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (bm.manager?.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  const detailedBranch = branchMetrics.find(bm => bm.id === branchDetailsId);
-  const detailedBranchQuotes = detailedBranch ? quotes.filter(q => q.branchId === detailedBranch.id && !q.isTransferred) : [];
-
-  if (branchDetailsId && detailedBranch) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-700 via-green-800 to-emerald-900 -mx-4 md:-mx-8 -mt-8 p-4 md:p-8 animate-in fade-in duration-700">
-        <div className="max-w-6xl mx-auto space-y-8">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white/10 backdrop-blur-xl p-8 rounded-[2rem] border border-white/20 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            <div className="flex items-center gap-6 relative z-10">
-              <div className="bg-white p-4 rounded-2xl shadow-2xl transform hover:rotate-6 transition-transform">
-                <Store className="w-10 h-10 text-emerald-600" />
-              </div>
-              <div className="text-center md:text-left">
-                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-1 select-none">
-                  {detailedBranch.name}
-                </h1>
-                <div className="flex items-center gap-2 text-emerald-100 font-bold uppercase tracking-widest text-xs">
-                  <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
-                  Relatório Executivo Detalhado
-                </div>
-              </div>
+  if (branchDetailsId) {
+    const b = branchMetrics.find(x => x.id === branchDetailsId);
+    if (b) {
+      return (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-0 lg:p-8 animate-in fade-in duration-500">
+          <div 
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+            onClick={() => setBranchDetailsId(null)}
+          />
+          <div className="relative w-full max-w-6xl h-full lg:h-auto lg:max-h-[90vh] bg-gradient-to-br from-blue-700 to-indigo-900 shadow-[0_50px_100px_-20px_rgba(30,41,59,0.5)] overflow-y-auto lg:rounded-[2.5rem] p-6 sm:p-12 animate-in slide-in-from-bottom-10">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-12 gap-6">
+               <div className="flex items-center gap-6">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setBranchDetailsId(null)} 
+                    className="h-12 w-12 rounded-2xl bg-white/10 hover:bg-white/20 text-white shadow-2xl backdrop-blur-md"
+                  >
+                     <ChevronLeft className="w-6 h-6" />
+                  </Button>
+                  <div>
+                     <h2 className="text-3xl sm:text-5xl font-black tracking-tighter text-white leading-none">{b.name}</h2>
+                     <p className="text-blue-100 font-bold uppercase tracking-[0.2em] text-[10px] mt-2 opacity-60">Relatório Executivo em Tempo Real</p>
+                  </div>
+               </div>
+               <div className="bg-white/10 backdrop-blur-2xl px-8 py-5 rounded-[2rem] border border-white/20 text-white text-left sm:text-right shadow-2xl w-full sm:w-auto">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Montante Gerado</div>
+                  <div className="text-4xl font-black tracking-tighter tabular-nums">{formatCurrency(b.totalValue)}</div>
+               </div>
             </div>
-            <Button 
-              onClick={() => setBranchDetailsId(null)}
-              variant="outline" 
-              className="bg-white text-emerald-900 border-none hover:bg-emerald-50 transition-all font-black px-8 py-6 rounded-2xl shadow-xl hover:shadow-emerald-500/20 active:scale-95 text-lg"
-            >
-              Voltar ao Início
-            </Button>
-          </div>
 
-          {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-white/10 backdrop-blur-md border-white/10 shadow-2xl text-white rounded-3xl overflow-hidden hover:bg-white/15 transition-colors group">
-          <CardHeader className="pb-3 border-b border-white/10 px-6">
-            <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-200 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" /> Gestão da Unidade
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="text-3xl font-black text-white group-hover:translate-x-1 transition-transform">
-              {detailedBranch.manager?.name || 'Vago'}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+               <div className="bg-white/5 border border-white/10 backdrop-blur-md text-white p-8 rounded-[2rem] hover:bg-white/10 transition-all group">
+                  <div className="flex items-center justify-between mb-4">
+                     <Badge className="bg-blue-500/20 text-blue-300 border-none px-3">TITULAR</Badge>
+                     <UserCircle2 className="w-5 h-5 text-blue-400 opacity-50 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <div className="text-2xl font-black truncate">{b.manager?.name || 'Vago'}</div>
+                  <div className="text-xs text-blue-200 font-bold uppercase tracking-wider mt-1 opacity-50">Gerente Responsável</div>
+               </div>
+               <div className="bg-white p-8 rounded-[2rem] shadow-2xl transform hover:-translate-y-1 transition-all">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Engajamento</div>
+                  <div className="text-4xl font-black text-slate-900 tabular-nums">{b.salespeople.length} <span className="text-sm font-medium text-slate-400">ativos</span></div>
+               </div>
+               <div className="bg-white p-8 rounded-[2rem] shadow-2xl transform hover:-translate-y-1 transition-all">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Saúde da Unidade</div>
+                  <div className="text-4xl font-black text-emerald-500 italic tracking-tighter">100%</div>
+               </div>
+               <div className="bg-blue-600 border border-blue-400/30 shadow-2xl p-8 rounded-[2rem] text-white transform hover:scale-105 transition-all">
+                  <div className="text-[10px] font-black opacity-70 uppercase tracking-widest mb-2">Aproveitamento</div>
+                  <div className="text-4xl font-black tabular-nums">92%</div>
+               </div>
             </div>
-            <p className="text-emerald-200 text-sm mt-1 font-medium italic opacity-70">Responsável Administrativo</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-white/10 backdrop-blur-md border-white/10 shadow-2xl text-white rounded-3xl overflow-hidden hover:bg-white/15 transition-colors group">
-          <CardHeader className="pb-3 border-b border-white/10 px-6">
-            <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-200 flex items-center gap-2">
-              <CalendarCheck className="w-4 h-4 text-emerald-400" /> Retorno de Hoje
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="text-5xl font-black text-emerald-400 group-hover:scale-110 origin-left transition-transform">
-              {detailedBranch.quotesTodayCount}
-            </div>
-            <p className="text-emerald-200 text-sm mt-1 font-medium italic">Clientes p/ fechar hoje ({formatCurrency(detailedBranch.quotesTodayValue)})</p>
-          </CardContent>
-        </Card>
 
-        <Card className="bg-white/10 backdrop-blur-md border-white/10 shadow-2xl text-white rounded-3xl overflow-hidden hover:bg-white/15 transition-colors group">
-          <CardHeader className="pb-3 border-b border-white/10 px-6">
-            <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-200 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-emerald-400" /> Fluxo de Atendimento
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="text-5xl font-black text-white group-hover:scale-110 origin-left transition-transform">
-              {detailedBranch.quotesCount}
-            </div>
-            <p className="text-emerald-200 text-sm mt-1 font-medium">Orçamentos em Aberto</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-none text-slate-900 rounded-3xl overflow-hidden transform hover:-translate-y-2 transition-all duration-500">
-          <CardHeader className="pb-3 border-b border-emerald-50 bg-emerald-50/80 px-6">
-            <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-500" /> Montante de Venda
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="text-4xl font-black text-emerald-700 tracking-tighter">
-              {formatCurrency(detailedBranch.totalValue)}
-            </div>
-            <p className="text-slate-500 text-sm mt-1 font-bold">Potencial Bruto Acumulado</p>
-          </CardContent>
-        </Card>
-      </div>
-
-          {/* Detailed Content Tabs */}
-          <Tabs defaultValue="vendedores" className="w-full">
-            <TabsList className="bg-white/10 backdrop-blur-md p-1 rounded-2xl border border-white/20 mb-8 w-full md:w-fit">
-              <TabsTrigger value="vendedores" className="data-[state=active]:bg-white data-[state=active]:text-emerald-900 text-white font-black rounded-xl px-10 py-3 transition-all">
-                Equipe de Vendas
-              </TabsTrigger>
-              <TabsTrigger value="orcamentos" className="data-[state=active]:bg-white data-[state=active]:text-emerald-900 text-white font-black rounded-xl px-10 py-3 transition-all">
-                Histórico Comercial
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="vendedores" className="animate-in slide-in-from-left-4 duration-500">
-              <Card className="bg-white border-none shadow-2xl rounded-3xl overflow-hidden border-t-8 border-emerald-500">
-                <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-8">
-                  <CardTitle className="text-emerald-900 text-2xl font-black tracking-tight">Análise Individual por Vendedor</CardTitle>
-                  <CardDescription className="text-slate-500 font-medium">Performance de captação e volume financeiro por consultor.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
+            <Card className="bg-white border-none shadow-[0_50px_100px_-50px_rgba(0,0,0,0.5)] rounded-[2.5rem] overflow-hidden">
+               <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-3">
+                     <BarChart3 className="w-5 h-5 text-blue-600" />
+                     <h3 className="text-xl font-black text-slate-900">Rank de Performance</h3>
+                  </div>
+                  <Button variant="outline" className="rounded-xl border-slate-200 font-black text-xs h-10 w-full sm:w-auto uppercase">Extrair Performance</Button>
+               </div>
+               <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="bg-slate-100/50">
-                      <TableRow>
-                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Consultor</TableHead>
-                        <TableHead className="text-right px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Volume</TableHead>
-                        <TableHead className="text-right px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Potencial Individual</TableHead>
+                    <TableHeader className="bg-slate-50/80">
+                      <TableRow className="border-none">
+                        <TableHead className="px-10 h-14 font-black uppercase text-[10px] tracking-widest text-slate-400">Consultor</TableHead>
+                        <TableHead className="px-10 h-14 font-black uppercase text-[10px] tracking-widest text-slate-400">Volume Leads</TableHead>
+                        <TableHead className="px-10 h-14 font-black uppercase text-[10px] tracking-widest text-slate-400 text-right">Resultado Acumulado</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {detailedBranch.salespeople.map(s => {
-                        const sQuotes = detailedBranchQuotes.filter(q => q.createdBy === s.id);
+                      {b.salespeople.map(s => {
+                        const sQuotes = quotes.filter(q => q.createdBy === s.id && !q.isTransferred);
                         const sTotal = sQuotes.reduce((acc, q) => acc + q.value, 0);
                         return (
-                          <TableRow key={s.id} className="hover:bg-emerald-50/30 transition-all group">
-                            <TableCell className="px-8 py-6 font-bold text-slate-900 flex items-center gap-4">
-                              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center font-black text-lg shadow-lg group-hover:rotate-6 transition-transform">
-                                {s.name.charAt(0)}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-lg tracking-tight">{s.name}</span>
-                                <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">Ativo nesta Unidade</span>
-                              </div>
+                          <TableRow key={s.id} className="hover:bg-blue-50/50 transition-colors border-slate-100">
+                            <TableCell className="px-10 py-6">
+                               <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center font-black group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                     {s.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                     <div className="font-black text-slate-800 text-base">{s.name}</div>
+                                     <div className="text-[10px] font-bold text-slate-400 uppercase">Consultor Sênior</div>
+                                  </div>
+                               </div>
                             </TableCell>
-                            <TableCell className="text-right px-8 py-6">
-                              <Badge className="bg-emerald-600 text-white border-none px-4 py-1 rounded-lg font-black text-sm shadow-md">
-                                {sQuotes.length} <span className="ml-1 opacity-60 font-medium">unid</span>
-                              </Badge>
+                            <TableCell className="px-10 py-6">
+                               <div className="flex items-center gap-2">
+                                  <div className="h-2 w-16 bg-slate-100 rounded-full overflow-hidden">
+                                     <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, sQuotes.length * 10)}%` }}></div>
+                                  </div>
+                                  <span className="font-bold text-slate-600 text-sm">{sQuotes.length}</span>
+                               </div>
                             </TableCell>
-                            <TableCell className="text-right px-8 py-6">
-                              <div className="font-black text-emerald-700 text-2xl tracking-tighter">
-                                {formatCurrency(sTotal)}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {detailedBranch.salespeople.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={3} className="text-center text-slate-400 py-24 italic bg-slate-50/30">
-                            <div className="flex flex-col items-center gap-4 opacity-30">
-                              <Users className="w-16 h-16" />
-                              <span className="text-xl font-black">Nenhum consultor ativo nesta unidade</span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="orcamentos" className="animate-in slide-in-from-right-4 duration-500">
-              <Card className="bg-white border-none shadow-2xl rounded-3xl overflow-hidden border-t-8 border-green-500">
-                <CardHeader className="border-b border-slate-100 bg-slate-50/50 p-8">
-                  <CardTitle className="text-emerald-900 text-2xl font-black tracking-tight">Fluxo de Negociações</CardTitle>
-                  <CardDescription className="text-slate-500 font-medium">Listagem completa de todos os orçamentos ativos na unidade.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-slate-100/50">
-                      <TableRow>
-                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Cliente & Interesse</TableHead>
-                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Consultor</TableHead>
-                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Agenda Retorno</TableHead>
-                        <TableHead className="px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Situação</TableHead>
-                        <TableHead className="text-right px-8 py-5 font-black text-slate-800 uppercase text-xs tracking-wider">Proposta</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {detailedBranchQuotes.map(q => {
-                        const qSeller = users.find(u => u.id === q.createdBy);
-                        return (
-                          <TableRow key={q.id} className="hover:bg-slate-50 transition-colors">
-                            <TableCell className="px-8 py-6">
-                              <div className="font-black text-slate-900 text-lg tracking-tight">{q.clientName}</div>
-                              <div className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mt-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                {q.productInterest || 'Serviços Diversos'}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-8 py-6 font-bold text-slate-600">{qSeller?.name}</TableCell>
-                            <TableCell className="px-8 py-6">
-                              <div className="flex items-center gap-2 text-sm font-black text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl w-fit">
-                                <CalendarCheck className="w-4 h-4 text-emerald-500" />
-                                {new Date(q.returnDate).toLocaleDateString('pt-BR')}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-8 py-6">
-                              {q.status === 'pending' && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 font-black px-3 py-1 text-xs">Aguardando</Badge>}
-                              {q.status === 'won' && <Badge className="bg-emerald-500 hover:bg-emerald-600 font-black px-3 py-1 text-xs shadow-lg shadow-emerald-200">Ganhamos</Badge>}
-                              {q.status === 'lost' && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 font-black px-3 py-1 text-xs">Perdemos</Badge>}
-                            </TableCell>
-                            <TableCell className="text-right px-8 py-6">
-                              <div className="font-black text-emerald-700 text-2xl tracking-tighter">
-                                {formatCurrency(q.value)}
-                              </div>
+                            <TableCell className="px-10 py-6 text-right font-black text-blue-700 text-xl tracking-tight">
+                               {formatCurrency(sTotal)}
                             </TableCell>
                           </TableRow>
                         )
                       })}
-                      {detailedBranchQuotes.length === 0 && (
+                      {b.salespeople.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-slate-400 py-24 italic bg-slate-50/30">
-                            Nenhuma movimentação registrada no histórico comercial.
+                          <TableCell colSpan={3} className="py-20 text-center text-slate-400 font-bold italic">
+                             Aguardando contratações para esta unidade...
                           </TableCell>
                         </TableRow>
                       )}
                     </TableBody>
                   </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-100/50 relative overflow-hidden backdrop-blur-xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-        <div className="relative z-10">
-          <Badge variant="outline" className="mb-2 bg-emerald-50 text-emerald-600 border-emerald-200">Painel Executivo</Badge>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900">
-            Visão <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-500">Global</span>
-          </h1>
-          <p className="text-slate-500 mt-2 max-w-xl">
-            Acompanhe o desempenho, edite informações gerenciais e avalie o impacto financeiro de todas as {branches.length} filiais em tempo real.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3 relative z-10">
-          <Dialog open={isBranchOpen} onOpenChange={setIsBranchOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="bg-white"><Building2 className="w-4 h-4 mr-2" /> Nova Filial</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Cadastrar Nova Filial</DialogTitle>
-                <DialogDescription>Adicione uma nova loja à rede da empresa.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleAddBranch} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome da Filial</Label>
-                  <Input placeholder="Ex: Filial Sul (04)" value={newBranchName} onChange={e => setNewBranchName(e.target.value)} required />
-                </div>
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">Cadastrar Filial</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isManagerOpen} onOpenChange={setIsManagerOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white"><PlusCircle className="w-4 h-4 mr-2" /> Novo Gerente</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Cadastrar Gerente</DialogTitle>
-                <DialogDescription>Atribua um gerente responsável a uma filial.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleAddManager} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Nome do Gerente</Label>
-                  <Input placeholder="Ex: Roberto Silva" value={newManagerName} onChange={e => setNewManagerName(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label>Filial de Atuação</Label>
-                  <Select value={selectedBranch} onValueChange={setSelectedBranch} required>
-                    <SelectTrigger><SelectValue placeholder="Selecione a filial" /></SelectTrigger>
-                    <SelectContent>
-                      {branches.map(b => (
-                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700">Cadastrar Gerente</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        <Card className="border-none shadow-md bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Unidades</CardTitle>
-            <Store className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-800">{branches.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-none shadow-md bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Vendedores</CardTitle>
-            <Users className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-800">{salespeople.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-md bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Retornos Hoje</CardTitle>
-            <CalendarCheck className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-600">{quotesTodayGlobal.length}</div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase">Meta de Fechamento</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-md bg-white">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Valor p/ Hoje</CardTitle>
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-xl font-black text-emerald-700">{formatCurrency(totalValueTodayGlobal)}</div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase">Potencial do Dia</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-lg bg-gradient-to-br from-emerald-600 to-emerald-800 text-white transform hover:scale-105 transition-transform duration-300 md:col-span-4 lg:col-span-1">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-100">Potencial Global</CardTitle>
-            <TrendingUp className="w-5 h-5 text-emerald-200" />
-          </CardHeader>
-          <CardContent>
-             <div className="text-2xl font-black">{formatCurrency(totalQuotesValue)}</div>
-             <p className="text-xs text-emerald-200 mt-1">Acumulado Total</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <h2 className="text-xl font-bold text-gray-800">Relatório Detalhado das Filiais</h2>
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
-            <Input 
-              placeholder="Pesquisar filial ou gerente..." 
-              className="pl-9 bg-white"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+               </div>
+            </Card>
           </div>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredBranches.map(bm => (
-            <Card 
-              key={bm.id} 
-              className="overflow-hidden border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer active:scale-[0.99]"
-              onClick={() => setBranchDetailsId(bm.id)}
-            >
-              <div className="h-2 bg-gradient-to-r from-emerald-500 to-green-500"></div>
-              <CardHeader className="pb-3 border-b bg-slate-50/50">
-                <div className="flex justify-between items-start">
-                  <div className="group flex-1">
-                    <CardTitle className="text-lg flex items-center gap-2 font-bold text-slate-800">
-                      <Store className="w-5 h-5 text-emerald-500" />
-                      {bm.name}
-                      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); setEditBranchModal({ isOpen: true, branch: bm as any, name: bm.name })}}>
-                        <Edit className="w-3.5 h-3.5 text-slate-400" />
-                      </Button>
-                    </CardTitle>
-                    <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                      <ShieldCheck className="w-4 h-4 shrink-0 text-slate-400" />
-                      Gerente: <span className="font-semibold text-slate-900 group/mgr relative">
-                        {bm.manager ? bm.manager.name : <span className="text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded">Sem Gerente</span>}
-                        {bm.manager && (
-                          <div className="inline-flex opacity-0 group-hover/mgr:opacity-100 transition-opacity ml-2">
-                             <Button variant="ghost" size="icon" className="h-5 w-5 bg-white border shadow-sm" onClick={(e) => { e.stopPropagation(); setEditUserModal({ isOpen: true, user: bm.manager!, name: bm.manager!.name })}}>
-                                <Edit className="w-3 h-3 text-emerald-600" />
-                             </Button>
-                             <Button variant="ghost" size="icon" className="h-5 w-5 bg-white border shadow-sm ml-1 hover:bg-red-50 hover:text-red-600" onClick={(e) => { e.stopPropagation(); setDeleteUserModal({ isOpen: true, user: bm.manager! })}}>
-                                <Trash2 className="w-3 h-3 text-red-500" />
-                             </Button>
-                          </div>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Montante</div>
-                    <div className="text-xl font-bold text-emerald-700">{formatCurrency(bm.totalValue)}</div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="p-4 bg-white">
-                  <div className="flex justify-between text-sm text-slate-500 mb-3 font-medium">
-                    <span>Equipe de Vendas ({bm.salespeople.length})</span>
-                    <span>Orçamentos</span>
-                  </div>
-                  
-                  {bm.salespeople.length === 0 ? (
-                    <div className="text-center py-4 text-sm text-slate-400 border border-dashed rounded-lg">
-                      Nenhum vendedor cadastrado nesta loja.
-                    </div>
-                  ) : (
-                    <ul className="space-y-2">
-                      {bm.salespeople.map(salesperson => {
-                        const salespersonQuotes = quotes.filter(q => q.createdBy === salesperson.id && !q.isTransferred);
-                        const salespersonTotal = salespersonQuotes.reduce((acc, q) => acc + q.value, 0);
+      )
+    }
+  }
 
-                        return (
-                          <li key={salesperson.id} className="flex justify-between items-center p-2 rounded-md hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-colors">
-                            <div className="flex items-center gap-2 group/seller">
-                              <UserCircle2 className="w-4 h-4 text-slate-400" />
-                              <span className="font-medium text-slate-700">{salesperson.name}</span>
-                              <div className="flex gap-1 opacity-0 group-hover/seller:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-slate-200" onClick={(e) => { e.stopPropagation(); setEditUserModal({ isOpen: true, user: salesperson, name: salesperson.name })}}>
-                                  <Edit className="w-3 h-3 text-slate-500" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm">
-                              <Badge variant="secondary" className="font-mono">{salespersonQuotes.length}</Badge>
-                              <span className="font-semibold text-slate-600 w-24 text-right">{formatCurrency(salespersonTotal)}</span>
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {filteredBranches.length === 0 && (
-             <div className="col-span-full py-12 text-center border-2 border-dashed rounded-xl bg-slate-50 text-slate-500">
-               {searchTerm ? 'Nenhuma filial encontrada para a pesquisa.' : 'Nenhuma filial cadastrada. Adicione filiais para começar.'}
-             </div>
-          )}
+  const totalWonValue = quotes.filter(q => q.status === 'won').reduce((acc, q) => acc + q.value, 0);
+  const activeLeadsCount = quotes.filter(q => q.status === 'pending').length;
+  const branchesCount = branches.length;
+  const conversionRate = quotes.length > 0 ? Math.round((quotes.filter(q => q.status === 'won').length / quotes.length) * 100) : 0;
+
+  return (
+    <div className="h-full flex flex-col animate-in fade-in duration-500">
+      
+      {/* Global Context Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+         <Card className="p-5 border-none shadow-xl bg-white rounded-[1.5rem] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+               <TrendingUp className="w-12 h-12" />
+            </div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Global Consolidado</div>
+            <div className="text-2xl font-black text-slate-900 tabular-nums">{formatCurrency(totalWonValue)}</div>
+            <div className="mt-4 flex items-center gap-1.5 text-emerald-500 font-bold text-xs">
+               <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+               <span>Performance Alta</span>
+            </div>
+         </Card>
+         <Card className="p-5 border-none shadow-xl bg-white rounded-[1.5rem] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+               <ClipboardList className="w-12 h-12" />
+            </div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Leads em Negociação</div>
+            <div className="text-2xl font-black text-slate-900 tabular-nums">{activeLeadsCount}</div>
+            <div className="mt-4 text-slate-400 font-bold text-xs uppercase tracking-tight">Todas as unidades</div>
+         </Card>
+         <Card className="p-5 border-none shadow-xl bg-white rounded-[1.5rem] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+               <Store className="w-12 h-12" />
+            </div>
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Operações Ativas</div>
+            <div className="text-2xl font-black text-slate-900 tabular-nums">{branchesCount} <span className="text-xs font-bold text-slate-400">lojas</span></div>
+            <div className="mt-4 text-emerald-500 font-bold text-xs uppercase tracking-tight flex items-center gap-1">
+               <ShieldCheck className="w-3 h-3" /> Monitoramento 100%
+            </div>
+         </Card>
+         <Card className="p-5 border-none shadow-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-[1.5rem] relative overflow-hidden">
+            <div className="text-[10px] font-black opacity-40 uppercase tracking-widest leading-none mb-1">Taxa Conversão</div>
+            <div className="text-4xl font-black tabular-nums">{conversionRate}%</div>
+            <div className="mt-2 text-blue-400 font-bold text-xs uppercase tracking-tight">Média do grupo</div>
+         </Card>
+      </div>
+
+      {/* Search & Filter bar - Flowlu Inspired */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex items-center gap-4">
+           <div className="relative group">
+              <ListFilter className="w-4 h-4 absolute left-3 top-3 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+              <Select value={filterBranchId} onValueChange={setFilterBranchId}>
+                <SelectTrigger className="pl-9 w-[180px] h-10 border-slate-200 bg-white rounded-lg shadow-sm font-bold text-slate-700">
+                  <SelectValue placeholder="Todas Filiais" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as Lojas</SelectItem>
+                  {branches.map(b => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+           </div>
+           
+           <div className="flex items-center bg-white border border-slate-200 rounded-lg px-3 py-1.5 h-10 shadow-sm w-full md:w-64 focus-within:border-emerald-500 transition-all">
+             <Search className="w-4 h-4 text-slate-300 mr-2" />
+             <input 
+               type="text" 
+               placeholder="Filtrar por cliente..." 
+               className="bg-transparent border-none text-sm font-medium w-full outline-none text-slate-700 placeholder:text-slate-300"
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+             />
+           </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+           <div className="flex items-center bg-slate-100 p-1 rounded-xl shadow-inner mr-2">
+              <button 
+                onClick={() => setViewMode('pipeline')}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === 'pipeline' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                <LayoutDashboard className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => setViewMode('branches')}
+                className={cn(
+                  "p-2 rounded-lg transition-all",
+                  viewMode === 'branches' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                )}
+              >
+                <Store className="w-5 h-5" />
+              </button>
+           </div>
+           <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg px-4 h-10 font-bold" onClick={() => setIsBranchOpen(true)}>
+             <PlusCircle className="w-4 h-4 mr-2" /> Nova Filial
+           </Button>
         </div>
       </div>
 
-      {/* Edit User Modal */}
-      <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '' })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Usuário</DialogTitle>
-            <DialogDescription>Corrija o nome do colaborador selecionado.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditUser} className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Nome Completo</Label>
-              <Input value={editUserModal.name} onChange={(e) => setEditUserModal(m => ({ ...m, name: e.target.value }))} required />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '' })}>Cancelar</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">Salvar Alterações</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <div className="flex-1 min-h-0 overflow-hidden relative">
+        {viewMode === 'pipeline' ? (
+          <div className="h-full overflow-hidden">
+            <KanbanBoard 
+              quotes={filteredQuotes} 
+              onWhatsAppClick={handleWhatsAppAction}
+              onCardClick={(q) => toast.info(`Detalhes de ${q.clientName}`)}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-right-4 duration-500">
+             {filteredBranches.map(b => (
+               <Card 
+                 key={b.id} 
+                 className="overflow-hidden border-none shadow-xl rounded-[1.5rem] group hover:-translate-y-1 transition-all cursor-pointer bg-white"
+                 onClick={() => setBranchDetailsId(b.id)}
+               >
+                 <div className="h-3 bg-gradient-to-r from-emerald-500 to-green-400"></div>
+                 <div className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                       <div className="bg-slate-100 p-3 rounded-2xl group-hover:bg-emerald-50 transition-colors">
+                          <Store className="w-6 h-6 text-emerald-600" />
+                       </div>
+                       <div className="text-right">
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Faturamento</div>
+                          <div className="text-xl font-black text-slate-800">{formatCurrency(b.totalValue)}</div>
+                       </div>
+                    </div>
+                    <h3 className="text-xl font-black text-slate-900 mb-1">{b.name}</h3>
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-500">
+                       <UserCircle2 className="w-4 h-4 text-emerald-500" />
+                       Gerente: {b.manager?.name || 'Não atribuído'}
+                    </div>
+                    <div className="flex justify-between items-center mt-6 pt-4 border-t border-slate-50">
+                           <div className="flex -space-x-2">
+                              {b.salespeople.slice(0, 3).map((s, i) => (
+                                 <div key={s.id} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border-2 border-white text-[10px] font-black text-slate-400 uppercase">
+                                    {s.name.charAt(0)}
+                                 </div>
+                              ))}
+                              {b.salespeople.length > 3 && (
+                                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border-2 border-white text-[10px] font-black text-emerald-600">
+                                   +{b.salespeople.length - 3}
+                                </div>
+                              )}
+                           </div>
+                       <div className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                          {b.salespeople.length} VENDEDORES
+                       </div>
+                    </div>
+                 </div>
+               </Card>
+             ))}
+          </div>
+        )}
+      </div>
 
-      {/* Delete User Modal */}
-      <Dialog open={deleteUserModal.isOpen} onOpenChange={(v) => !v && setDeleteUserModal({ isOpen: false, user: null })}>
+      {/* Existing Management Modals */}
+      <Dialog open={isBranchOpen} onOpenChange={setIsBranchOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
-              <Trash2 className="w-5 h-5" /> Confirmar Exclusão
-            </DialogTitle>
-            <DialogDescription>
-              Você está prestes a excluir o usuário <strong className="text-slate-900">{deleteUserModal.user?.name}</strong>. 
-              Ao fazer isso, o acesso deste usuário será removido.
-            </DialogDescription>
+            <DialogTitle>Nova Filial</DialogTitle>
           </DialogHeader>
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={() => setDeleteUserModal({ isOpen: false, user: null })}>Cancelar</Button>
-            <Button type="button" variant="destructive" onClick={handleDeleteUser}>Sim, Excluir Usuário</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Branch Modal */}
-      <Dialog open={editBranchModal.isOpen} onOpenChange={(v) => !v && setEditBranchModal({ isOpen: false, branch: null, name: '' })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renomear Filial</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleEditBranch} className="space-y-4 pt-4">
+          <form onSubmit={handleAddBranch} className="space-y-4">
             <div className="space-y-2">
               <Label>Nome da Filial</Label>
-              <Input value={editBranchModal.name} onChange={(e) => setEditBranchModal(m => ({ ...m, name: e.target.value }))} required />
+              <Input placeholder="Ex: Unidade Centro" value={newBranchName} onChange={e => setNewBranchName(e.target.value)} required />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditBranchModal({ isOpen: false, branch: null, name: '' })}>Cancelar</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">Salvar</Button>
-            </DialogFooter>
+            <Button type="submit" className="w-full bg-emerald-600">Criar Unidade</Button>
           </form>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 };
+
