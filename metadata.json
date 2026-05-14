@@ -1,6 +1,6 @@
 {
-  "name": "NEXUS CRM - Demostrativo",
-  "description": "NEXUS CRM - Sistema de Gestão Inteligente para demonstração.",
+  "name": "CRM Pro - Gestão de Vendas",
+  "description": "Sistema avançado para gestão de orçamentos, vendedores e filiais com integração WhatsApp.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

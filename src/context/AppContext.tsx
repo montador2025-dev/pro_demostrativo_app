@@ -23,9 +23,7 @@ interface AppContextType extends AppState {
   reassignQuotes: (oldUserId: string, newUserId: string) => void;
   // Quotes
   addQuote: (quote: Omit<Quote, 'id' | 'createdAt' | 'status'>) => void;
-  updateQuote: (id: string, updates: Partial<Quote>) => void;
   updateQuoteStatus: (id: string, status: Quote['status']) => void;
-  deleteQuote: (id: string) => void;
 }
 
 const mockBranches: Branch[] = [
@@ -62,24 +60,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Try to load from localStorage, else use mocks
     const saved = localStorage.getItem('appState');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (!parsed) return {
-          branches: mockBranches,
-          users: mockUsers,
-          quotes: mockQuotes,
-          currentUser: mockUsers[0],
-        };
-        const hasValidUser = parsed.currentUser && typeof parsed.currentUser.id === 'string' && typeof parsed.currentUser.role === 'string';
-        return {
-          branches: parsed.branches || mockBranches,
-          users: parsed.users || mockUsers,
-          quotes: parsed.quotes || mockQuotes,
-          currentUser: hasValidUser ? parsed.currentUser : mockUsers[0],
-        };
-      } catch (e) {
-        console.error('Failed to parse saved state', e);
-      }
+      return JSON.parse(saved);
     }
     return {
       branches: mockBranches,
@@ -162,25 +143,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState(s => ({ ...s, quotes: [...s.quotes, newQuote] }));
   };
 
-  const updateQuote = (id: string, updates: Partial<Quote>) => {
-    setState(s => ({
-      ...s,
-      quotes: s.quotes.map(q => q.id === id ? { ...q, ...updates } : q)
-    }));
-  };
-
   const updateQuoteStatus = (id: string, status: Quote['status']) => {
     setState(s => {
       const quotes = s.quotes.map(q => q.id === id ? { ...q, status } : q);
       return { ...s, quotes };
     });
-  };
-
-  const deleteQuote = (id: string) => {
-    setState(s => ({
-      ...s,
-      quotes: s.quotes.filter(q => q.id !== id)
-    }));
   };
 
   return (
@@ -196,9 +163,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       transferUser,
       reassignQuotes,
       addQuote,
-      updateQuote,
-      updateQuoteStatus,
-      deleteQuote
+      updateQuoteStatus
     }}>
       {children}
     </AppContext.Provider>

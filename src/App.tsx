@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { SupervisorDashboard } from './components/dashboard/SupervisorDashboard';
@@ -26,10 +26,6 @@ const DashboardRouter = () => {
 };
 
 export default function App() {
-  useEffect(() => {
-    document.title = "NEXUS CRM - Demostrativo";
-  }, []);
-
   return (
     <AppProvider>
       <AppLayout>
