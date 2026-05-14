@@ -100,33 +100,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           ))}
         </nav>
 
-        {/* Sidebar Info Card */}
-        {(isSidebarOpen || isMobileMenuOpen) && (
-          <div className="mx-4 mb-6 p-4 rounded-2xl bg-white/5 border border-white/10">
-             <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Sua Performance</div>
-             <div className="space-y-3">
-                <div>
-                   <div className="flex justify-between items-center text-[10px] mb-1">
-                      <span className="font-bold text-slate-400">Conversão</span>
-                      <span className="font-black text-emerald-400">85%</span>
-                   </div>
-                   <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 w-[85%]"></div>
-                   </div>
-                </div>
-                <div>
-                   <div className="flex justify-between items-center text-[10px] mb-1">
-                      <span className="font-bold text-slate-400">Meta</span>
-                      <span className="font-black text-blue-400">R$ 12k</span>
-                   </div>
-                   <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 w-[60%]"></div>
-                   </div>
-                </div>
-             </div>
-          </div>
-        )}
-
         {/* Bottom Actions */}
         <div className="p-4 border-t border-slate-800 space-y-2">
            <button className="flex items-center gap-3 text-slate-500 hover:text-white transition-colors w-full px-1 py-2">
