@@ -14,8 +14,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const getRoleIcon = (role?: string) => {
     switch(role) {
-      case 'supervisor': return <ShieldCheck className="w-4 h-4 text-primary" />;
-      case 'manager': return <Building2 className="w-4 h-4 text-blue-500" />;
+      case 'supervisor': return <ShieldCheck className="w-4 h-4 text-emerald-600" />;
+      case 'manager': return <Building2 className="w-4 h-4 text-emerald-500" />;
       case 'salesperson': return <UserCircle2 className="w-4 h-4 text-green-500" />;
       default: return null;
     }
@@ -26,23 +26,23 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       {/* Decorative Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-indigo-400 opacity-20 blur-[100px]"></div>
+        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-emerald-400 opacity-15 blur-[100px]"></div>
       </div>
 
-      <header className="border-b border-indigo-100 bg-white/70 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+      <header className="border-b border-emerald-100 bg-white/70 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-500 shadow-lg shadow-indigo-200 flex items-center justify-center text-white font-bold text-lg">
-            A<span className="text-indigo-100">P</span>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-green-500 shadow-lg shadow-emerald-200 flex items-center justify-center text-white font-bold text-lg">
+            N<span className="text-emerald-100">X</span>
           </div>
-          <span className="font-bold text-xl tracking-tight hidden sm:block">Atende<span className="text-indigo-600">Pro</span></span>
+          <span className="font-bold text-xl tracking-tighter hidden sm:block italic">NEXUS <span className="text-emerald-600 font-black not-italic ml-0.5">CRM</span></span>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="hidden md:block text-xs font-semibold uppercase tracking-wider text-indigo-500/80 mr-2 bg-indigo-50 px-2 py-1 rounded-md">
-            Modo Demonstração
+          <div className="hidden md:block text-xs font-semibold uppercase tracking-wider text-emerald-600/80 mr-2 bg-emerald-50 px-2 py-1 rounded-md">
+            Módulo Gestão
           </div>
           <Select value={currentUser?.id} onValueChange={handleUserChange}>
-            <SelectTrigger className="w-[240px] md:w-[280px] bg-white/80 border-slate-200 shadow-sm hover:border-indigo-300 transition-colors">
+            <SelectTrigger className="w-[240px] md:w-[280px] bg-white/80 border-slate-200 shadow-sm hover:border-emerald-300 transition-colors">
               <SelectValue placeholder="Selecione um usuário" />
             </SelectTrigger>
             <SelectContent>
@@ -57,8 +57,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             </SelectContent>
           </Select>
           
-          <Avatar className="w-10 h-10 border-2 border-indigo-100 shadow-sm">
-            <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-blue-50 text-indigo-700 font-bold text-sm">
+          <Avatar className="w-10 h-10 border-2 border-emerald-100 shadow-sm">
+            <AvatarFallback className="bg-gradient-to-br from-emerald-100 to-green-50 text-emerald-700 font-bold text-sm">
               {currentUser?.name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>

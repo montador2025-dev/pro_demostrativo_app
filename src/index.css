@@ -46,6 +46,19 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    @keyframes blue-flash {
+      0% { background-color: #3b82f6; }
+      100% { }
+    }
+}
+
+@layer base {
+  button:active, [role="button"]:active, [data-state="active"]:active {
+    background-color: #3b82f6 !important;
+    color: white !important;
+    transition: background-color 0.1s ease;
+  }
 }
 
 :root {

@@ -1,6 +1,6 @@
 {
-  "name": "CRM Pro - Gestão de Vendas",
-  "description": "Sistema avançado para gestão de orçamentos, vendedores e filiais com integração WhatsApp.",
+  "name": "NEXUS CRM & ERP",
+  "description": "Sistema de gestão inteligente com integração WhatsApp, relatórios avançados e controle total de filiais.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

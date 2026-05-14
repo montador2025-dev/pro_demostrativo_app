@@ -132,10 +132,10 @@ export const SalespersonDashboard = () => {
 
       <Tabs defaultValue="new" className="w-full">
         <TabsList className="grid w-full h-auto grid-cols-2 lg:w-[400px] p-1 bg-slate-100 rounded-xl shadow-inner mb-8">
-          <TabsTrigger value="new" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all font-medium">
+          <TabsTrigger value="new" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm transition-all font-medium">
             Novo Orçamento
           </TabsTrigger>
-          <TabsTrigger value="following" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-700 data-[state=active]:shadow-sm transition-all font-medium">
+          <TabsTrigger value="following" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm transition-all font-medium">
             Acompanhamento 
             {quotesNeedingAttention.length > 0 && (
               <Badge className="ml-2 bg-rose-500 text-white hover:bg-rose-600">{quotesNeedingAttention.length}</Badge>
@@ -145,10 +145,10 @@ export const SalespersonDashboard = () => {
         
         {/* TAB 1: NEW QUOTE */}
         <TabsContent value="new" className="mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="max-w-3xl border-indigo-100 shadow-lg rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 pb-5">
-              <CardTitle className="flex items-center text-xl text-indigo-900 font-bold">
-                <FileText className="w-6 h-6 mr-3 text-indigo-600" /> Captura Rápida
+          <Card className="max-w-3xl border-emerald-100 shadow-lg rounded-2xl overflow-hidden bg-white">
+            <CardHeader className="bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-100 pb-5">
+              <CardTitle className="flex items-center text-xl text-emerald-900 font-bold">
+                <FileText className="w-6 h-6 mr-3 text-emerald-600" /> Captura Rápida
               </CardTitle>
               <CardDescription className="text-slate-600 mt-1">
                 Gere um orçamento para o cliente e envie um comprovante super profissional pelo WhatsApp no mesmo instante.
@@ -159,33 +159,33 @@ export const SalespersonDashboard = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <Label className="flex items-center text-slate-700 font-medium"><User className="w-4 h-4 mr-1.5 text-indigo-500"/>Nome do Cliente *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" placeholder="Nome completo" value={clientName} onChange={e => setClientName(e.target.value)} required />
+                    <Label className="flex items-center text-slate-700 font-medium"><User className="w-4 h-4 mr-1.5 text-emerald-500"/>Nome do Cliente *</Label>
+                    <Input className="border-slate-200 focus-visible:ring-emerald-500 bg-slate-50/50" placeholder="Nome completo" value={clientName} onChange={e => setClientName(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center text-slate-700 font-medium"><Phone className="w-4 h-4 mr-1.5 text-green-500"/>WhatsApp *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" placeholder="Ex: 11999998888" value={formatPhone(clientPhone)} onChange={handlePhoneChange} required />
+                    <Input className="border-slate-200 focus-visible:ring-emerald-500 bg-slate-50/50" placeholder="Ex: 11999998888" value={formatPhone(clientPhone)} onChange={handlePhoneChange} required />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-slate-700 font-medium">Produto(s) de Interesse</Label>
-                  <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" placeholder="Ex: Guarda-roupa, Cama Casal..." value={productInterest} onChange={e => setProductInterest(e.target.value)} />
+                  <Input className="border-slate-200 focus-visible:ring-emerald-500 bg-slate-50/50" placeholder="Ex: Guarda-roupa, Cama Casal..." value={productInterest} onChange={e => setProductInterest(e.target.value)} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div className="space-y-2">
                     <Label className="text-slate-700 font-medium">Valor do Orçamento *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50 font-semibold text-slate-900" placeholder="R$ 0,00" value={quoteValueStr} onChange={handleValueChange} required />
+                    <Input className="border-slate-200 focus-visible:ring-emerald-500 bg-slate-50/50 font-semibold text-slate-900" placeholder="R$ 0,00" value={quoteValueStr} onChange={handleValueChange} required />
                   </div>
                   <div className="space-y-2">
                     <Label className="flex items-center text-slate-700 font-medium"><CalendarCheck className="w-4 h-4 mr-1.5 text-orange-500"/>Data de Retorno *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-indigo-500 bg-slate-50/50" type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} required />
+                    <Input className="border-slate-200 focus-visible:ring-emerald-500 bg-slate-50/50" type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-slate-700 font-medium">Motivo (Por que não fechou?) *</Label>
                     <Select value={category} onValueChange={(v) => setCategory(v as QuoteCategory)}>
-                      <SelectTrigger className="bg-slate-50/50 border-slate-200 focus:ring-indigo-500"><SelectValue/></SelectTrigger>
+                      <SelectTrigger className="bg-slate-50/50 border-slate-200 focus:ring-emerald-500"><SelectValue/></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="card_turning">Cartão a Virar</SelectItem>
                         <SelectItem value="researching">Só Pesquisando</SelectItem>
@@ -227,9 +227,9 @@ export const SalespersonDashboard = () => {
               {pendingQuotes.map(quote => {
                 const isOverdue = new Date(quote.returnDate).getTime() <= today.getTime();
                 return (
-                  <Card key={quote.id} className={`overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative border ${isOverdue ? 'border-rose-200 shadow-rose-100 bg-white' : 'border-indigo-100 bg-white shadow-indigo-100/50 hover:border-indigo-300'}`}>
+                  <Card key={quote.id} className={`overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative border ${isOverdue ? 'border-rose-200 shadow-rose-100 bg-white' : 'border-emerald-100 bg-white shadow-emerald-100/50 hover:border-emerald-300'}`}>
                     {isOverdue && <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-400 to-red-600 shadow-[0_0_10px_rgba(225,29,72,0.4)]"></div>}
-                    {!isOverdue && <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-400 to-indigo-500"></div>}
+                    {!isOverdue && <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-emerald-400 to-green-500"></div>}
                     
                     <CardHeader className="py-5 pb-3">
                       <div className="flex justify-between items-start mb-2">
@@ -239,13 +239,13 @@ export const SalespersonDashboard = () => {
                             {formatPhone(quote.clientPhone)}
                           </CardDescription>
                         </div>
-                        <Badge variant="outline" className={`ml-2 whitespace-nowrap text-xs font-semibold ${isOverdue ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                        <Badge variant="outline" className={`ml-2 whitespace-nowrap text-xs font-semibold ${isOverdue ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                            {isOverdue ? 'Retornar Hoje' : 'Aberto'}
                         </Badge>
                       </div>
                       
                       <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center">
-                        <div className="font-black text-xl text-indigo-700">{formatCurrency(quote.value)}</div>
+                        <div className="font-black text-xl text-emerald-700">{formatCurrency(quote.value)}</div>
                         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{getCategoryLabel(quote.category)}</div>
                       </div>
                     </CardHeader>
@@ -257,9 +257,9 @@ export const SalespersonDashboard = () => {
                          </div>
                       )}
                       <div className="flex items-center text-sm font-medium bg-slate-100/60 p-2 rounded-md">
-                        <CalendarCheck className={`w-4 h-4 mr-2 ${isOverdue ? 'text-rose-500' : 'text-indigo-500'}`} /> 
+                        <CalendarCheck className={`w-4 h-4 mr-2 ${isOverdue ? 'text-rose-500' : 'text-emerald-500'}`} /> 
                         <span className="text-slate-500 mr-1">Agendado:</span> 
-                        <span className={`${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-800'}`}>{new Date(quote.returnDate).toLocaleDateString('pt-BR')}</span>
+                        <span className={`${isOverdue ? 'text-rose-600 font-bold' : 'text-emerald-800'}`}>{new Date(quote.returnDate).toLocaleDateString('pt-BR')}</span>
                       </div>
                     </CardContent>
                     <CardFooter className={`border-t py-4 gap-2 flex-col items-stretch ${isOverdue ? 'bg-rose-50/50' : 'bg-slate-50/50'}`}>
@@ -287,7 +287,7 @@ export const SalespersonDashboard = () => {
               {pendingQuotes.length === 0 && (
                 <div className="md:col-span-2 lg:col-span-3 text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 text-slate-500">
                   <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
-                    <FileText className="w-10 h-10 text-indigo-300" />
+                    <FileText className="w-10 h-10 text-emerald-300" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-800 mb-1">Nenhum orçamento pendente.</h3>
                   <p>Sua carteira de clientes está limpa!</p>
