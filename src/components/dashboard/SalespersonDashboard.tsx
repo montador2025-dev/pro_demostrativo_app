@@ -91,9 +91,12 @@ export const SalespersonDashboard = () => {
     toast.success('Orçamento Registrado com Sucesso!');
 
     if (sendToWhatsApp) {
-      const dateStr = new Date(ISOdate).toLocaleDateString('pt-BR');
-      const productTxt = productInterest ? `🛍️ Interesse: *${productInterest}*\n` : '';
-      const msg = `*==============================*\n*📍 ORÇAMENTO SALVO*\n*==============================*\n\n🧑‍💼 Cliente: *${clientName}*\n🏬 Loja: *${myBranch?.name}*\n👨‍💻 Vendedor: *${currentUser.name}*\n\n${productTxt}💰 Valor Total: *${formatCurrency(valueNum)}*\n⏳ Validade do Orçamento: *2 dias*\n📅 Retorno Agendado: *${dateStr}*\n\nEstamos à disposição para tirar qualquer dúvida!\n*==============================*`;
+      const today = new Date().toLocaleDateString('pt-BR');
+      const productLines = productInterest 
+        ? `• *${productInterest}*\n   📦 _Geral_` 
+        : `• *Atendimento Personalizado*\n   📦 _Móveis e Decoração_`;
+
+      const msg = `Sono Show Móveis\n\nOlá *${clientName}*! \nAqui está o seu orçamento:\n\n━━━━━━━━━━━━━━━\n*📝 ORÇAMENTO*\n━━━━━━━━━━━━━━━\n${productLines}\n\n💰 *Valor:* ${formatCurrency(valueNum)}\n📅 *Data:* ${today}\n⏳ *Validade:* 2 dias\n━━━━━━━━━━━━━━━\n\nFico à disposição para fecharmos hoje!`;
       window.open(generateWhatsAppLink(clientPhone, msg), '_blank');
     }
 
@@ -108,8 +111,12 @@ export const SalespersonDashboard = () => {
   };
 
   const handleFollowUpWhatsApp = (quote: any) => {
-    const productTxt = quote.productInterest ? ` para o(a) *${quote.productInterest}*` : '';
-    const msg = `Olá *${quote.clientName}*, tudo bem? 👋\n\nAqui é o(a) *${currentUser.name}* da loja *${myBranch?.name}*.\n\nLembra do nosso orçamento${productTxt} no valor de *${formatCurrency(quote.value)}*?\nComo ele é válido por 2 dias, chegou o momento ideal para finalizarmos sua compra e garantirmos essas condições.\n\nPodemos dar andamento no seu pedido hoje?`;
+    const today = new Date().toLocaleDateString('pt-BR');
+    const productLines = quote.productInterest 
+      ? `• *${quote.productInterest}*\n   📦 _Geral_` 
+      : `• *Atendimento Personalizado*\n   📦 _Móveis e Decoração_`;
+
+    const msg = `Sono Show Móveis\n\nOlá *${quote.clientName}*! \nPassando para dar sequência ao nosso atendimento.\n\n━━━━━━━━━━━━━━━\n*📝 ORÇAMENTO*\n━━━━━━━━━━━━━━━\n${productLines}\n\n💰 *Valor:* ${formatCurrency(quote.value)}\n📅 *Data:* ${today}\n⏳ *Validade:* 2 dias\n━━━━━━━━━━━━━━━\n\nComo havíamos conversado, gostaria de saber se ficou com alguma dúvida! Estou à disposição.`;
     window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
   };
 

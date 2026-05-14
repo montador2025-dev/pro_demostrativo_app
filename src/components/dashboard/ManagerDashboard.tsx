@@ -95,7 +95,12 @@ export const ManagerDashboard = () => {
   };
 
   const handleManagerMessage = (quote: any) => {
-    const msg = `Olá *${quote.clientName}*, aqui é o(a) *${currentUser.name}*, gerente da loja *${myBranch?.name}*. Gostaria de saber se o orçamento de *${formatCurrency(quote.value)}* ainda é de seu interesse e se posso ajudar em algo para fecharmos o negócio.`;
+    const today = new Date().toLocaleDateString('pt-BR');
+    const productLines = quote.productInterest 
+      ? `• *${quote.productInterest}*\n   📦 _Geral_` 
+      : `• *Atendimento Personalizado*\n   📦 _Móveis e Decoração_`;
+
+    const msg = `Sono Show Móveis\n\nOlá *${quote.clientName}*! \nAqui é o(a) *${currentUser.name}*, gerente da loja *${myBranch?.name}*.\n\n━━━━━━━━━━━━━━━\n*📝 ORÇAMENTO*\n━━━━━━━━━━━━━━━\n${productLines}\n\n💰 *Valor:* ${formatCurrency(quote.value)}\n📅 *Data:* ${today}\n⏳ *Validade:* 2 dias\n━━━━━━━━━━━━━━━\n\nGostaria de saber se o orçamento ainda é de seu interesse e se posso ajudar em algo para fecharmos o negócio hoje!`;
     window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
   };
 
