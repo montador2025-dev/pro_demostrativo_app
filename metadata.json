@@ -1,6 +1,6 @@
 {
-  "name": "CRM Pro - Gestão de Vendas",
-  "description": "Sistema avançado para gestão de orçamentos, vendedores e filiais com integração WhatsApp.",
+  "name": "AtendePro - Sono Show Móveis",
+  "description": "Sistema de gestão de orçamentos e acompanhamento de clientes AtendePro para Sono Show Móveis.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
