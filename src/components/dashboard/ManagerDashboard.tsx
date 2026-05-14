@@ -113,7 +113,7 @@ export const ManagerDashboard = () => {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="bg-gradient-to-br from-indigo-600 via-blue-700 to-indigo-800 p-8 rounded-3xl shadow-xl shadow-indigo-900/20 relative overflow-hidden text-white">
+      <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 rounded-3xl shadow-xl shadow-primary/20 relative overflow-hidden text-white">
         <div className="absolute right-0 top-0 opacity-15">
           <svg width="400" height="400" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <path fill="#fff" d="M47.7,-60.2C59.6,-50.3,65.6,-33.5,70.5,-15.8C75.4,1.8,79.2,20.4,72.2,34.4C65.2,48.4,47.4,57.8,29.9,62.8C12.4,67.8,-4.8,68.4,-20.9,64.1C-37.1,59.9,-52.2,50.7,-61.4,36.8C-70.6,22.8,-73.9,4.2,-69,-11.9C-64.2,-28,-51.1,-41.6,-36.8,-51C-22.6,-60.5,-7.2,-65.7,5.5,-72C18.1,-78.4,35.9,-70.1,47.7,-60.2Z" transform="translate(100 100)" />
@@ -124,16 +124,16 @@ export const ManagerDashboard = () => {
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <Badge variant="outline" className="bg-white/10 text-white border-white/20 px-3 py-1 font-medium shadow-none">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2 shadow-glow"></span>
+                  <span className="w-2 h-2 rounded-full bg-secondary mr-2 shadow-glow"></span>
                   {myBranch?.name}
                 </Badge>
               </div>
-              <h1 className="text-4xl font-black tracking-tighter mb-2">Painel de <span className="text-indigo-200">Gestão</span></h1>
-              <p className="text-indigo-100 text-lg font-medium">Bem-vindo, <strong>{currentUser.name}</strong>. Controle sua equipe e métricas.</p>
+              <h1 className="text-4xl font-black tracking-tighter mb-2">Painel de <span className="text-secondary">Gestão</span></h1>
+              <p className="text-white/90 text-lg font-medium">Bem-vindo, <strong>{currentUser.name}</strong>. Controle sua equipe e métricas.</p>
             </div>
             <Dialog open={isSalespersonOpen} onOpenChange={setIsSalespersonOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-white text-indigo-700 hover:bg-indigo-50 shadow-lg shadow-black/10 font-bold px-6 py-2.5 rounded-xl transition-all"><Users className="w-4 h-4 mr-2" /> Novo Vendedor</Button>
+                <Button className="bg-white text-primary hover:bg-slate-50 shadow-lg shadow-black/10 font-bold px-6 py-2.5 rounded-xl transition-all"><Users className="w-4 h-4 mr-2" /> Novo Vendedor</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -145,7 +145,7 @@ export const ManagerDashboard = () => {
                     <Label>Nome do Vendedor</Label>
                     <Input placeholder="Ex: João Souza" value={newSalespersonName} onChange={e => setNewSalespersonName(e.target.value)} required />
                   </div>
-                  <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700">Cadastrar Vendedor</Button>
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold">Cadastrar Vendedor</Button>
                 </form>
               </DialogContent>
             </Dialog>
@@ -157,52 +157,52 @@ export const ManagerDashboard = () => {
         <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50">
             <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Vendedores Ativos</CardTitle>
-            <Users className="w-5 h-5 text-indigo-500" />
+            <Users className="w-5 h-5 text-primary" />
           </CardHeader>
           <CardContent className="pt-6"><div className="text-4xl font-black text-slate-900">{mySalespeople.length}</div></CardContent>
         </Card>
         <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50">
             <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Orçamentos Ativos</CardTitle>
-            <FileText className="w-5 h-5 text-indigo-500" />
+            <FileText className="w-5 h-5 text-primary" />
           </CardHeader>
           <CardContent className="pt-6"><div className="text-4xl font-black text-slate-900">{myBranchQuotes.length}</div></CardContent>
         </Card>
-        <Card className="border-none shadow-lg bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl overflow-hidden">
+        <Card className="border-none shadow-lg bg-gradient-to-br from-primary to-primary/80 text-white rounded-2xl overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-bold text-blue-100 uppercase tracking-wider">Potencial (Filial)</CardTitle>
-            <TrendingUp className="w-5 h-5 text-blue-200" />
+            <CardTitle className="text-sm font-bold text-white/80 uppercase tracking-wider">Potencial (Filial)</CardTitle>
+            <TrendingUp className="w-5 h-5 text-secondary" />
           </CardHeader>
           <CardContent className="pt-6">
             <div className="text-3xl font-black tracking-tight">{formatCurrency(totalValue)}</div>
-            <p className="text-xs text-blue-100 mt-2 font-medium">Soma de todo o potencial de venda</p>
+            <p className="text-xs text-white/70 mt-2 font-medium">Soma de todo o potencial de venda</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="team" className="w-full">
         <TabsList className="grid w-full h-auto grid-cols-2 lg:w-[500px] p-1 bg-slate-100 rounded-xl shadow-inner mb-8">
-          <TabsTrigger value="team" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-800 data-[state=active]:shadow-sm transition-all font-bold">
+          <TabsTrigger value="team" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all font-bold">
             Equipe de Vendas
           </TabsTrigger>
-          <TabsTrigger value="history" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-indigo-800 data-[state=active]:shadow-sm transition-all font-bold">
+          <TabsTrigger value="history" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all font-bold">
             Histórico de Orçamentos
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="space-y-6">
           <Card className="shadow-lg border-slate-100 rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 border-b border-indigo-50 bg-indigo-50/30">
+            <CardHeader className="pb-4 border-b border-primary/5 bg-primary/5">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-indigo-900 font-bold">Equipe Comercial</CardTitle>
+                  <CardTitle className="text-primary font-bold">Equipe Comercial</CardTitle>
                   <CardDescription>Resumo de orçamentos e performance da sua equipe.</CardDescription>
                 </div>
                 <div className="relative w-full md:w-64">
                   <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                   <Input 
                     placeholder="Buscar vendedor..." 
-                    className="pl-9 bg-white border-slate-200 focus-visible:ring-indigo-500 rounded-xl"
+                    className="pl-9 bg-white border-slate-200 focus-visible:ring-primary rounded-xl"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -227,16 +227,16 @@ export const ManagerDashboard = () => {
                       <TableRow key={s.id} className="hover:bg-slate-50 transition-colors">
                         <TableCell className="font-semibold text-slate-800">{s.name}</TableCell>
                         <TableCell className="text-right">
-                          <Badge variant="secondary" className="font-mono bg-indigo-50 text-indigo-700 font-bold">{sQuotes.length}</Badge>
+                          <Badge variant="secondary" className="font-mono bg-primary/5 text-primary font-bold">{sQuotes.length}</Badge>
                         </TableCell>
-                        <TableCell className="text-right font-bold text-indigo-700">
+                        <TableCell className="text-right font-bold text-primary font-mono">
                           {formatCurrency(sTotal)}
                         </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" className="hover:bg-slate-100" title="Editar Nome" onClick={() => setEditUserModal({ isOpen: true, user: s, name: s.name })}>
                             <Edit className="w-4 h-4 text-slate-500" />
                           </Button>
-                          <Button variant="outline" size="icon" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50" title="Ver Detalhes do Vendedor" onClick={() => setSellerDetailsId(s.id)}>
+                          <Button variant="outline" size="icon" className="text-primary border-primary/20 hover:bg-primary/5 shadow-sm" title="Ver Detalhes do Vendedor" onClick={() => setSellerDetailsId(s.id)}>
                             <Eye className="w-4 h-4" />
                           </Button>
                           <Button variant="ghost" size="icon" title="Transferir Vendedor" onClick={() => { setUserToTransfer(s.id); setTransferDialogOpen(true); }}>
@@ -267,8 +267,8 @@ export const ManagerDashboard = () => {
 
         <TabsContent value="history" className="space-y-6">
           <Card className="shadow-lg border-slate-100 rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 border-b border-indigo-50 bg-indigo-50/30">
-              <CardTitle className="text-indigo-900 font-bold">Histórico de Orçamentos</CardTitle>
+            <CardHeader className="pb-4 border-b border-primary/5 bg-primary/5">
+              <CardTitle className="text-primary font-bold">Histórico de Orçamentos</CardTitle>
               <CardDescription>Acompanhe todos os orçamentos realizados nesta filial.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -293,7 +293,7 @@ export const ManagerDashboard = () => {
                         <TableCell className="text-slate-600">{salesperson?.name || 'Desconhecido'}</TableCell>
                         <TableCell className="text-slate-600">{q.productInterest || '-'}</TableCell>
                         <TableCell className="text-slate-600">{new Date(q.returnDate).toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell className="font-bold text-indigo-700">{formatCurrency(q.value)}</TableCell>
+                        <TableCell className="font-bold text-primary">{formatCurrency(q.value)}</TableCell>
                         <TableCell>
                           {q.status === 'pending' && <Badge variant="outline" className="bg-amber-50 text-amber-700">Pêndente</Badge>}
                           {q.status === 'won' && <Badge variant="outline" className="bg-emerald-50 text-emerald-700 font-bold">Ganho</Badge>}
@@ -302,7 +302,7 @@ export const ManagerDashboard = () => {
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end gap-1">
                             <span className="text-xs font-mono text-slate-500">{formatPhone(q.clientPhone)}</span>
-                            <Button variant="ghost" size="sm" className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 font-bold h-7" onClick={() => handleManagerMessage(q)}>
+                            <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold h-7" onClick={() => handleManagerMessage(q)}>
                               <Send className="w-3 h-3 mr-2" /> WhatsApp
                             </Button>
                           </div>
@@ -322,7 +322,7 @@ export const ManagerDashboard = () => {
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-2">
-              <Users className="w-6 h-6 text-blue-600" />
+              <Users className="w-6 h-6 text-primary" />
               Relatório Individual: {detailedSeller?.name}
             </DialogTitle>
             <DialogDescription>
@@ -341,12 +341,12 @@ export const ManagerDashboard = () => {
                     <div className="font-semibold text-2xl">{detailedSellerQuotes.length} <span className="text-sm font-normal text-slate-500">orçamentos</span></div>
                   </CardContent>
                 </Card>
-                <Card className="bg-blue-50 border-blue-100 shadow-sm">
+                <Card className="bg-primary/5 border-primary/10 shadow-sm">
                   <CardHeader className="pb-2">
-                     <CardTitle className="text-sm text-blue-700">Potencial na Mão do Vendedor</CardTitle>
+                     <CardTitle className="text-sm text-primary font-bold">Potencial na Mão do Vendedor</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="font-bold text-2xl text-blue-700">{formatCurrency(detailedSellerTotal)}</div>
+                    <div className="font-black text-2xl text-primary">{formatCurrency(detailedSellerTotal)}</div>
                   </CardContent>
                 </Card>
               </div>
@@ -475,7 +475,7 @@ export const ManagerDashboard = () => {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '' })}>Cancelar</Button>
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">Salvar Alterações</Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold">Salvar Alterações</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -31,6 +31,7 @@ export interface Quote {
   productInterest: string;
   value: number;
   category: QuoteCategory;
+  customCategoryReason?: string;
   returnDate: string; // ISO string
   status: QuoteStatus;
   
