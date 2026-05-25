@@ -11,6 +11,9 @@ interface AppState {
 
 interface AppContextType extends AppState {
   setCurrentUser: (user: User | null) => void;
+  // Navigation
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
   // Branches
   addBranch: (name: string) => void;
   updateBranch: (id: string, name: string) => void;
@@ -74,7 +77,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('appState', JSON.stringify(state));
   }, [state]);
 
-  const setCurrentUser = (user: User | null) => setState(s => ({ ...s, currentUser: user }));
+  useEffect(() => {
+    // Automated Access Tracking
+    if (state.currentUser) {
+      const now = new Date().toISOString();
+      setState(s => ({
+        ...s,
+        users: s.users.map(u => u.id === s.currentUser?.id ? { ...u, lastAccess: now } : u),
+        currentUser: s.currentUser ? { ...s.currentUser, lastAccess: now } : null
+      }));
+    }
+  }, []); // Run once on initialization
+
+  const [activeTab, setActiveTab] = useState('home');
+
+  const setCurrentUser = (user: User | null) => {
+    setState(s => ({ ...s, currentUser: user }));
+    // Reset back to home when changing users
+    setActiveTab('home');
+  };
 
   const addBranch = (name: string) => {
     const newBranch: Branch = { id: uuidv4(), name, createdAt: new Date().toISOString() };
@@ -154,6 +175,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{
       ...state,
       setCurrentUser,
+      activeTab,
+      setActiveTab,
       addBranch,
       updateBranch,
       deleteBranch,

@@ -1,21 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Badge } from '../ui/badge';
 import { formatCurrency, formatCurrencyInput, parseCurrencyInput, formatPhone, generateWhatsAppLink } from '../../lib/formatters';
-import { Phone, CalendarCheck, FileText, Send, User, ChevronRight, AlertCircle } from 'lucide-react';
-import { QuoteCategory, QuoteStatus } from '../../types';
+import { 
+  Phone, 
+  Send, 
+  User, 
+  ChevronRight, 
+  AlertCircle, 
+  Sparkles, 
+  Zap, 
+  Search, 
+  ShoppingBag, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  FileDown, 
+  HelpCircle, 
+  CheckCircle, 
+  Calendar, 
+  Clock, 
+  BookOpen, 
+  Info, 
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Calculator,
+  Target,
+  Award,
+  DollarSign,
+  TrendingUp,
+  MessageSquare,
+  Copy,
+  PlusCircle,
+  X,
+  Bell,
+  Volume2,
+  VolumeX
+} from 'lucide-react';
+import { QuoteCategory, QuoteStatus, Product, QuoteItem } from '../../types';
+import { productCatalog, searchProducts } from '../../data/catalog';
+import { generateProfessionalQuotePDF } from '../../lib/pdfGenerator';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const SalespersonDashboard = () => {
-  const { currentUser, branches, quotes, addQuote, updateQuoteStatus } = useAppContext();
+  const { currentUser, branches, quotes, addQuote, updateQuoteStatus, activeTab, setActiveTab } = useAppContext();
   
-  // Form State
+  // Base Form State
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [productInterest, setProductInterest] = useState('');
@@ -23,18 +60,163 @@ export const SalespersonDashboard = () => {
   const [category, setCategory] = useState<QuoteCategory>('researching');
   const [customCategoryReason, setCustomCategoryReason] = useState('');
   const [returnDate, setReturnDate] = useState('');
+  
+  // Upgraded Architecture State
+  const [selectedItems, setSelectedItems] = useState<QuoteItem[]>([]);
+  const [observations, setObservations] = useState('');
+  const [validityDays, setValidityDays] = useState<number>(5);
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [activeCatalogCategory, setActiveCatalogCategory] = useState('Todos');
+  const [expandedProductSpecs, setExpandedProductSpecs] = useState<Record<string, boolean>>({});
+  const [isQuoteInitializing, setIsQuoteInitializing] = useState(false);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'pending' | 'won' | 'lost'>('all');
+  const [showStatusLegend, setShowStatusLegend] = useState(true);
+  const [playedReminderIds, setPlayedReminderIds] = useState<string[]>([]);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    if (activeTab === 'new_quote') {
+      setIsQuoteInitializing(true);
+      const timer = setTimeout(() => {
+        setIsQuoteInitializing(false);
+      }, 550); // Fluid, tactile simulation loading delay
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
+
+  // Payment Simulator State
+  const [customSimulatedAmount, setCustomSimulatedAmount] = useState('');
+  const [installmentsCount, setInstallmentsCount] = useState<number>(10);
+  const [interestType, setInterestType] = useState<'no_interest' | 'with_interest'>('no_interest');
+  const [monthlyInterestRate, setMonthlyInterestRate] = useState<number>(1.99);
+
+  // Mechanical Tactility Animation Settings
+  const clickHighlight = {
+    whileTap: { scale: 0.97, transition: { type: "spring", stiffness: 400, damping: 15 } },
+    whileHover: { scale: 1.01, transition: { duration: 0.1 } }
+  };
 
   if (!currentUser) return null;
   const myBranch = branches.find(b => b.id === currentUser.branchId);
   const myLegacyBranch = branches.find(b => b.id === currentUser.lastBranchId);
-
   const myQuotes = quotes.filter(q => q.createdBy === currentUser.id);
+
+  const displayedQuotes = useMemo(() => {
+    if (selectedStatusFilter === 'all') return myQuotes;
+    return myQuotes.filter(q => q.status === selectedStatusFilter);
+  }, [myQuotes, selectedStatusFilter]);
   
-  // Pending and needing attention today or overdue
   const today = new Date();
   today.setHours(0,0,0,0);
+
+  const handleExportCSV = () => {
+    if (displayedQuotes.length === 0) {
+      toast.error("Nenhum orçamento exibido encontrado para exportar.");
+      return;
+    }
+
+    try {
+      // Tradutores amigáveis para português nos campos do CSV
+      const translateCategory = (cat: string) => {
+        switch (cat) {
+          case 'researching': return 'Só Pesquisando Preço';
+          case 'card_turning': return 'Aguardando Virada de Cartão';
+          case 'price_high': return 'Achou o Valor Alto';
+          case 'needs_spouse': return 'Pendente Validação Cônjuge';
+          case 'other': return 'Outros Motivos Especial';
+          default: return cat || '';
+        }
+      };
+
+      const translateStatus = (stat: string) => {
+        switch (stat) {
+          case 'won': return 'Ganho (Venda Realizada)';
+          case 'lost': return 'Perdido (Desistência)';
+          case 'pending': return 'Negociação Ativa (Aberto)';
+          default: return stat || '';
+        }
+      };
+
+      const headers = [
+        "ID do Atendimento",
+        "Cliente",
+        "Telefone",
+        "Interesse Principal",
+        "Valor Total (R$)",
+        "Diagnóstico",
+        "Data Retorno / Follow-up",
+        "Status",
+        "Dias de Validade",
+        "Itens (Qtd)",
+        "Lista de Itens",
+        "Observações",
+        "Data de Criação"
+      ];
+
+      const rows = displayedQuotes.map(quote => {
+        const valueFormatted = quote.value ? quote.value.toFixed(2).replace('.', ',') : '0,00';
+        const itemsCount = quote.items ? quote.items.reduce((acc, item) => acc + item.quantity, 0) : 0;
+        const itemsList = quote.items
+          ? quote.items.map(item => `${item.name} (${item.code}) x${item.quantity}`).join(' | ')
+          : '';
+        const createdDateFormatted = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('pt-BR') : '';
+        const returnDateFormatted = quote.returnDate ? new Date(quote.returnDate).toLocaleDateString('pt-BR') : '';
+
+        return [
+          quote.id,
+          quote.clientName || '',
+          quote.clientPhone || '',
+          quote.productInterest || '',
+          valueFormatted,
+          translateCategory(quote.category),
+          returnDateFormatted,
+          translateStatus(quote.status),
+          quote.validityDays?.toString() || '',
+          itemsCount.toString(),
+          itemsList,
+          quote.notes || '',
+          createdDateFormatted
+        ];
+      });
+
+      // Join row fields using semicolon (ideal for Excel defaulting to Latin locale) and properly escape
+      const csvContent = [
+        headers.join(';'),
+        ...rows.map(fields => fields.map(field => {
+          const cleanField = String(field).replace(/"/g, '""').replace(/\r?\n|\r/g, ' ');
+          return `"${cleanField}"`;
+        }).join(';'))
+      ].join('\r\n');
+
+      // Add UTF-8 BOM to survive Excel encoding issues with accents like 'ç' and 'ã' (\uFEFF)
+      const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      const fileName = `SonoShow_Orcamentos_${currentUser.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Orçamentos exportados com sucesso! (${displayedQuotes.length} registros)`);
+    } catch {
+      toast.error("Ocorreu um erro ao gerar o arquivo CSV.");
+    }
+  };
   
   const pendingQuotes = myQuotes.filter(q => q.status === 'pending');
+  const wonQuotes = myQuotes.filter(q => q.status === 'won');
+  const lostQuotes = myQuotes.filter(q => q.status === 'lost');
+
+  const targetValidityDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + validityDays);
+    return d.toLocaleDateString('pt-BR');
+  }, [validityDays]);
   
   const quotesNeedingAttention = pendingQuotes.filter(q => {
     const qDate = new Date(q.returnDate);
@@ -42,15 +224,152 @@ export const SalespersonDashboard = () => {
     return qDate.getTime() <= today.getTime();
   });
 
-  const getCategoryLabel = (cat: QuoteCategory) => {
-    const labels: Record<QuoteCategory, string> = {
-      card_turning: 'Aguardando Virada do Cartão',
-      researching: 'Apenas Pesquisando',
-      price_high: 'Achou o Preço Alto',
-      needs_spouse: 'Precisa falar com cônjuge',
-      other: 'Outros Motivos'
-    };
-    return labels[cat];
+  // Automatic Audio Reminder Alert System for pending quotes close to returnDate (today or tomorrow)
+  const quotesNearReturn = useMemo(() => {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1); // today or tomorrow (return warning)
+    
+    return pendingQuotes.filter(q => {
+      if (!q.returnDate) return false;
+      const qDate = new Date(q.returnDate);
+      qDate.setHours(0,0,0,0);
+      return qDate.getTime() <= tomorrow.getTime();
+    });
+  }, [pendingQuotes, today]);
+
+  // Web Audio API Synthesizer (double C5-E5 chime) for 100% offline-compatible sound notice
+  const playNotificationChime = () => {
+    if (!soundEnabled) return;
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const now = ctx.currentTime;
+
+      // Note 1: C5
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(523.25, now);
+      gain1.gain.setValueAtTime(0, now);
+      gain1.gain.linearRampToValueAtTime(0.12, now + 0.05);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc1.start(now);
+      osc1.stop(now + 0.4);
+
+      // Note 2: E5
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(659.25, now + 0.12);
+      gain2.gain.setValueAtTime(0, now + 0.12);
+      gain2.gain.linearRampToValueAtTime(0.12, now + 0.17);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.6);
+    } catch (err) {
+      console.warn("Autoplay restriction by user browser configuration prevented sound from playing:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (quotesNearReturn.length === 0) return;
+    
+    // Filter ones that haven't been alerted with chime sound in active session
+    const unplayed = quotesNearReturn.filter(q => !playedReminderIds.includes(q.id));
+    if (unplayed.length > 0) {
+      // Trigger chime
+      playNotificationChime();
+      
+      // Keep track to prevent repeat loops
+      setPlayedReminderIds(prev => [
+        ...prev,
+        ...unplayed.map(q => q.id)
+      ]);
+      
+      // Toast notification
+      if (unplayed.length === 1) {
+        toast.info(`🔔 Lembrete de Retorno: Fazer contato com ${unplayed[0].clientName}!`, {
+          description: `Interesse: "${unplayed[0].productInterest}"`,
+          action: {
+            label: 'Ver Cliente',
+            onClick: () => setActiveTab('followup')
+          },
+          duration: 7000
+        });
+      } else {
+        toast.info(`🔔 Você tem ${unplayed.length} propostas pendentes precisando de retorno hoje ou amanhã!`, {
+          action: {
+            label: 'Fazer Follow-ups',
+            onClick: () => setActiveTab('followup')
+          },
+          duration: 7000
+        });
+      }
+    }
+  }, [quotesNearReturn, playedReminderIds]);
+
+  // Calculate won volume & gamified targets
+  const wonSalesTotal = wonQuotes.reduce((acc, q) => acc + q.value, 0);
+  const salesGoal = 35000; // Monthly benchmark salesperson goal in R$
+  const goalPercentage = Math.round(Math.min((wonSalesTotal / salesGoal) * 100, 100));
+
+  // Determine achievement badge
+  const getBadgeTier = (sales: number) => {
+    if (sales >= 35000) return { title: 'Diamante Showroom', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' };
+    if (sales >= 20000) return { title: 'Selo Ouro Sono', color: 'bg-amber-100 text-amber-800 border-amber-200' };
+    if (sales >= 10000) return { title: 'Consultor Prata', color: 'bg-slate-100 text-slate-700 border-slate-200' };
+    return { title: 'Iniciante Ativo', color: 'bg-stone-100 text-stone-600 border-stone-200' };
+  };
+  const currentBadge = getBadgeTier(wonSalesTotal);
+
+  // --- Real-time Catalog Search Query Filter ---
+  const filteredCatalogQuery = useMemo(() => {
+    let results = productCatalog;
+    const isSearching = catalogSearch.trim().length > 0;
+
+    if (isSearching) {
+      const globalResults = searchProducts(catalogSearch);
+      if (activeCatalogCategory !== 'Todos') {
+        const localResults = globalResults.filter(p => p.category === activeCatalogCategory);
+        if (localResults.length > 0) {
+          return localResults;
+        }
+        // If query search brings nothing in the selected category, search globally to avoid frustrating the salesman
+        return globalResults;
+      }
+      return globalResults;
+    } else {
+      if (activeCatalogCategory !== 'Todos') {
+        results = results.filter(p => p.category === activeCatalogCategory);
+      }
+      return results;
+    }
+  }, [catalogSearch, activeCatalogCategory]);
+
+  const isFallbackSearch = useMemo(() => {
+    if (!catalogSearch.trim() || activeCatalogCategory === 'Todos') return false;
+    const globalResults = searchProducts(catalogSearch);
+    if (globalResults.length === 0) return false;
+    const localResults = globalResults.filter(p => p.category === activeCatalogCategory);
+    return localResults.length === 0;
+  }, [catalogSearch, activeCatalogCategory]);
+
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set(productCatalog.map(p => p.category));
+    return ['Todos', ...Array.from(cats)];
+  }, []);
+
+  // --- Form & Cart Interactive Handlers ---
+  const toggleProductSpecs = (productId: string) => {
+    setExpandedProductSpecs(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,44 +382,253 @@ export const SalespersonDashboard = () => {
     setQuoteValueStr(formatCurrencyInput(e.target.value));
   };
 
-  const handleSaveQuote = (e: React.FormEvent, sendToWhatsApp: boolean = false) => {
+  // Safe Add Product to Cart
+  const handleAddProductToCart = (product: Product) => {
+    setSelectedItems(prev => {
+      const existing = prev.find(item => item.productId === product.id);
+      let updated: QuoteItem[];
+      
+      if (existing) {
+        updated = prev.map(item => 
+          item.productId === product.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+        toast.info(`Quantidade de "${product.nickname}" aumentada no carrinho!`);
+      } else {
+        const newItem: QuoteItem = {
+          productId: product.id,
+          code: product.code,
+          name: product.name,
+          nickname: product.nickname,
+          price: product.price,
+          quantity: 1,
+          imageUrl: product.imageUrl,
+          description: product.description
+        };
+        updated = [...prev, newItem];
+        toast.success(`"${product.nickname}" adicionado ao carrinho!`);
+      }
+
+      // Auto calculate form totals to maintain backward support
+      const newTotal = updated.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      setQuoteValueStr(formatCurrency(newTotal).replace('R$', '').trim());
+      
+      // Auto fill interest summary
+      const summary = updated.map(item => `${item.quantity}x ${item.nickname}`).join(' + ');
+      setProductInterest(summary);
+
+      // Also set calculator default simulation value
+      setCustomSimulatedAmount(newTotal.toString());
+
+      return updated;
+    });
+  };
+
+  // Auto-Fill Form directly with single product details (Fallback support)
+  const handleQuickAutofillProduct = (product: Product) => {
+    setProductInterest(product.name);
+    setQuoteValueStr(formatCurrency(product.price).replace('R$', '').trim());
+    setCustomSimulatedAmount(product.price.toString());
+    toast.success(`Formulário preenchido com "${product.nickname}"!`);
+  };
+
+  const handleIncreaseCartQty = (productId: string) => {
+    setSelectedItems(prev => {
+      const updated = prev.map(item => 
+        item.productId === productId 
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      );
+      
+      const newTotal = updated.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      setQuoteValueStr(formatCurrency(newTotal).replace('R$', '').trim());
+      setProductInterest(updated.map(item => `${item.quantity}x ${item.nickname}`).join(' + '));
+      setCustomSimulatedAmount(newTotal.toString());
+      return updated;
+    });
+  };
+
+  const handleDecreaseCartQty = (productId: string) => {
+    setSelectedItems(prev => {
+      const existing = prev.find(item => item.productId === productId);
+      if (!existing) return prev;
+
+      let updated: QuoteItem[];
+      if (existing.quantity <= 1) {
+        updated = prev.filter(item => item.productId !== productId);
+        toast.info('Item removido do carrinho');
+      } else {
+        updated = prev.map(item => 
+          item.productId === productId 
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        );
+      }
+
+      const newTotal = updated.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      setQuoteValueStr(updated.length > 0 ? formatCurrency(newTotal).replace('R$', '').trim() : '');
+      setProductInterest(updated.map(item => `${item.quantity}x ${item.nickname}`).join(' + '));
+      setCustomSimulatedAmount(updated.length > 0 ? newTotal.toString() : '');
+      return updated;
+    });
+  };
+
+  const handleRemoveCartItem = (productId: string) => {
+    setSelectedItems(prev => {
+      const updated = prev.filter(item => item.productId !== productId);
+      toast.info('Item removido com sucesso!');
+      
+      const newTotal = updated.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      setQuoteValueStr(updated.length > 0 ? formatCurrency(newTotal).replace('R$', '').trim() : '');
+      setProductInterest(updated.map(item => `${item.quantity}x ${item.nickname}`).join(' + '));
+      setCustomSimulatedAmount(updated.length > 0 ? newTotal.toString() : '');
+      return updated;
+    });
+  };
+
+  const clearCart = () => {
+    setSelectedItems([]);
+    setQuoteValueStr('');
+    setProductInterest('');
+    setCustomSimulatedAmount('');
+    toast.info('Carrinho esvaziado');
+  };
+
+  // --- ARQUITETO CRITICAL GUARDRAILS AND SAVE ---
+  const handleSaveQuote = async (e: React.FormEvent, sendToWhatsApp: boolean = false, generatePDF: boolean = false) => {
     e.preventDefault();
-    if (!currentUser.branchId) return toast.error('Vendedor sem filial atribuída');
-    if (!clientName || !clientPhone || !quoteValueStr || !returnDate) {
-      return toast.error('Preencha os campos obrigatórios');
+    
+    // Safety check 1: Responsible branch validation
+    if (!currentUser.branchId) {
+      return toast.error('Operação negada: Seu cadastro de Vendedor não possui nenhuma Filial ativa atribuída.');
     }
 
+    // Safety check 2: Text Inputs Sanitization
+    const trimmedName = clientName.trim();
+    if (!trimmedName) {
+      return toast.error('Bloqueio de Segurança: O nome do cliente é obrigatório e não pode conter apenas espaços.');
+    }
+
+    // Safety check 3: Phone Length Check (block Brazilian incomplete entries)
+    if (clientPhone.length < 10) {
+      return toast.error('Bloqueio de Segurança: O número de WhatsApp precisa ter DDD + 8 ou 9 dígitos (mínimo 10 caracteres numéricos).');
+    }
+
+    // Safety check 4: Date sanity check (Cannot set follow-up in the past)
+    if (!returnDate) {
+      return toast.error('A data futura de retorno ou contato é obrigatória.');
+    }
+    
+    const pickedDate = new Date(`${returnDate}T12:00:00Z`);
+    const limitToday = new Date();
+    limitToday.setHours(0,0,0,0);
+    if (pickedDate.getTime() < limitToday.getTime()) {
+      return toast.error('Bloqueio de Agenda: Não é permitido agendar uma data de retorno retroativa ao dia de hoje.');
+    }
+
+    // Safety check 5: Total Value Validation
     const valueNum = parseCurrencyInput(quoteValueStr);
-    if (valueNum <= 0) return toast.error('Valor inválido');
+    if (isNaN(valueNum) || valueNum <= 0) {
+      return toast.error('Valor Financeiro Inválido: O total do orçamento precisa ser maior que zero.');
+    }
 
-    // Remove time zone shift bugs by appending time
-    const ISOdate = new Date(`${returnDate}T12:00:00Z`).toISOString();
+    // Prepare items list safely
+    const finalItems = selectedItems.length > 0 ? selectedItems : [{
+      productId: 'custom-item',
+      code: 'GEN-01',
+      name: productInterest || 'Atendimento / Itens Gerais',
+      nickname: 'Móveis Gerais',
+      price: valueNum,
+      quantity: 1,
+      imageUrl: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=100&q=80',
+      description: 'Mobiliário corporativo ou residencial personalizado de acordo com o plano de ambiente.'
+    }];
 
-    addQuote({
-      clientName,
+    const ISOdate = pickedDate.toISOString();
+
+    const newQuoteObj = {
+      clientName: trimmedName,
       clientPhone,
-      productInterest,
+      productInterest: productInterest || 'Itens diversos de mobiliário',
       value: valueNum,
       category,
       customCategoryReason: category === 'other' ? customCategoryReason : undefined,
       returnDate: ISOdate,
       createdBy: currentUser.id,
-      branchId: currentUser.branchId
-    });
+      branchId: currentUser.branchId,
+      items: finalItems,
+      notes: observations.trim() || 'Nenhuma observação informada.',
+      validityDays: validityDays
+    };
 
-    toast.success('Orçamento Registrado com Sucesso!');
+    // 1. Save locally
+    addQuote(newQuoteObj);
 
-    if (sendToWhatsApp) {
-      const today = new Date().toLocaleDateString('pt-BR');
-      const productLines = productInterest 
-        ? `• *${productInterest}*\n   📦 _Geral_` 
-        : `• *Atendimento Personalizado*\n   📦 _Móveis e Decoração_`;
+    // Dynamic quote reference (needed to create PDF with proper generated dates and temporary object simulation)
+    const quoteForDoc = {
+      ...newQuoteObj,
+      id: Math.random().toString(36).substring(2, 10).toUpperCase(),
+      createdAt: new Date().toISOString()
+    };
 
-      const msg = `Sono Show Móveis\n\nOlá *${clientName}*! \nAqui está o seu orçamento:\n\n━━━━━━━━━━━━━━━\n*📝 ORÇAMENTO*\n━━━━━━━━━━━━━━━\n${productLines}\n\n💰 *Valor:* ${formatCurrency(valueNum)}\n📅 *Data:* ${today}\n⏳ *Validade:* 2 dias\n━━━━━━━━━━━━━━━\n\nFico à disposição para fecharmos hoje!`;
-      window.open(generateWhatsAppLink(clientPhone, msg), '_blank');
+    let pfdSuccess = false;
+
+    // 2. Generate PDF locally
+    if (generatePDF) {
+      const loadId = toast.loading('Processando layout profissional do PDF...');
+      pfdSuccess = await generateProfessionalQuotePDF({
+        quote: quoteForDoc as any,
+        sellerName: currentUser.name,
+        branchName: myBranch ? myBranch.name : 'Sono Show Móveis'
+      });
+      toast.dismiss(loadId);
+      if (pfdSuccess) {
+        toast.success('Documento PDF gerado e baixado no dispositivo!');
+      } else {
+        toast.error('Erro na criação automática do PDF corporativo. Dados salvos.');
+      }
     }
 
-    // Reset
+    // 3. WhatsApp dispatch
+    if (sendToWhatsApp) {
+      const todayStr = new Date().toLocaleDateString('pt-BR');
+      let itemsLines = '';
+      
+      finalItems.forEach(item => {
+        itemsLines += `• *${item.quantity}x ${item.nickname}* (Preço Un: ${formatCurrency(item.price)})\n`;
+      });
+
+      const messageContent = 
+`🛋️ *SONO SHOW MÓVEIS* 🛋️
+_Sua casa, seu sonho._
+
+Olá, *${trimmedName}*!
+Espero que esteja excelente! Aqui estão as condições exclusivas do orçamento que preparamos para você na nossa unidade *${myBranch ? myBranch.name : 'Sono Show'}*:
+
+━━━━━━━━━━━━━━━━━━━━
+📝 *DADOS DA PROPOSTA*
+━━━━━━━━━━━━━━━━━━━━
+Vendedor: ${currentUser.name}
+Data: ${todayStr}
+Validade: ${validityDays} dias
+
+📦 *PRODUTOS SELECIONADOS:*
+${itemsLines}
+💵 *VALOR TOTAL:* ${formatCurrency(valueNum)}
+🚚 *FRETE & MONTAGEM:* GRÁTIS!
+
+━━━━━━━━━━━━━━━━━━━━
+📌 ${generatePDF ? '📄 _O PDF formal detalhado foi enviado para seu e-mail ou disponibilizado para download. Caso precise, posso reenviar!_' : ''}
+
+Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua entrega rápida! Qual forma de pagamento fica melhor para você hoje?`;
+
+      window.open(generateWhatsAppLink(clientPhone, messageContent), '_blank');
+    }
+
+    toast.success('Ótimo trabalho! Orçamento comercial registrado na base AtendePro.');
+
+    // Reset workflow states safely
     setClientName('');
     setClientPhone('');
     setProductInterest('');
@@ -108,222 +636,1419 @@ export const SalespersonDashboard = () => {
     setReturnDate('');
     setCategory('researching');
     setCustomCategoryReason('');
+    setSelectedItems([]);
+    setObservations('');
+    setValidityDays(5);
+    setActiveTab('home'); // Go to list/dashboard
   };
 
-  const handleFollowUpWhatsApp = (quote: any) => {
-    const today = new Date().toLocaleDateString('pt-BR');
-    const productLines = quote.productInterest 
-      ? `• *${quote.productInterest}*\n   📦 _Geral_` 
-      : `• *Atendimento Personalizado*\n   📦 _Móveis e Decoração_`;
-
-    const msg = `Sono Show Móveis\n\nOlá *${quote.clientName}*! \nPassando para dar sequência ao nosso atendimento.\n\n━━━━━━━━━━━━━━━\n*📝 ORÇAMENTO*\n━━━━━━━━━━━━━━━\n${productLines}\n\n💰 *Valor:* ${formatCurrency(quote.value)}\n📅 *Data:* ${today}\n⏳ *Validade:* 2 dias\n━━━━━━━━━━━━━━━\n\nComo havíamos conversado, gostaria de saber se ficou com alguma dúvida! Estou à disposição.`;
-    window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
+  // Trigger PDF for legacy/existing follow-up items
+  const handleDownloadExistingPDF = async (quote: any) => {
+    const loadId = toast.loading('Iniciando conversão para PDF...');
+    const success = await generateProfessionalQuotePDF({
+      quote: quote,
+      sellerName: currentUser.name,
+      branchName: myBranch ? myBranch.name : 'Atendimento Sono Show'
+    });
+    toast.dismiss(loadId);
+    if (success) {
+      toast.success('PDF do orçamento gerado e enviado para download!');
+    } else {
+      toast.error('Falha ao processar arquivo PDF.');
+    }
   };
 
-  return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
-      <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-6 md:p-8 rounded-2xl shadow-xl shadow-primary/20 relative overflow-hidden text-white">
-        <div className="absolute right-0 top-0 opacity-15">
-          <svg width="300" height="300" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            <path fill="#fff" d="M47.7,-60.2C59.6,-50.3,65.6,-33.5,70.5,-15.8C75.4,1.8,79.2,20.4,72.2,34.4C65.2,48.4,47.4,57.8,29.9,62.8C12.4,67.8,-4.8,68.4,-20.9,64.1C-37.1,59.9,-52.2,50.7,-61.4,36.8C-70.6,22.8,-73.9,4.2,-69,-11.9C-64.2,-28,-51.1,-41.6,-36.8,-51C-22.6,-60.5,-7.2,-65.7,5.5,-72C18.1,-78.4,35.9,-70.1,47.7,-60.2Z" transform="translate(100 100)" />
-          </svg>
-        </div>
-        <div className="relative z-10">
-          <h1 className="text-4xl font-black tracking-tighter mb-2 text-white">Área de Vendas</h1>
-          <p className="text-white/90 text-lg font-medium">Bem-vindo, <strong className="text-secondary">{currentUser.name}</strong>. Pronto para fechar negócios?</p>
-          {myLegacyBranch && (
-            <p className="text-sm bg-black/20 text-white backdrop-blur-md self-start px-3 py-1.5 rounded-full inline-flex items-center gap-1.5 mt-3 border border-white/20 shadow-sm font-semibold">
-               <AlertCircle className="w-4 h-4"/> Conta possui modo legado ativo da loja {myLegacyBranch.name}
-            </p>
-          )}
-        </div>
-      </div>
+  // --- SIMULATOR INSTALLMENT MATHS ---
+  const currentSimulatedValue = useMemo(() => {
+    if (customSimulatedAmount) {
+      return parseFloat(customSimulatedAmount) || 0;
+    }
+    // Fallback to cart total
+    return selectedItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  }, [customSimulatedAmount, selectedItems]);
 
-      <Tabs defaultValue="new" className="w-full">
-        <TabsList className="grid w-full h-auto grid-cols-2 lg:w-[400px] p-1 bg-slate-100 rounded-xl shadow-inner mb-8">
-          <TabsTrigger value="new" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all font-bold">
-            Novo Orçamento
-          </TabsTrigger>
-          <TabsTrigger value="following" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all font-bold">
-            Acompanhamento 
-            {quotesNeedingAttention.length > 0 && (
-              <Badge className="ml-2 bg-rose-500 text-white hover:bg-rose-600 font-bold">{quotesNeedingAttention.length}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+  const simulatedInstallments = useMemo(() => {
+    const value = currentSimulatedValue;
+    if (value <= 0) return [];
+
+    const list = [];
+    if (interestType === 'no_interest') {
+      // 1x up to maximum specified (e.g. 10x sem juros)
+      const maxInstallments = Math.max(1, installmentsCount);
+      for (let i = 1; i <= maxInstallments; i++) {
+        list.push({
+          number: i,
+          installmentValue: value / i,
+          totalValue: value,
+          interestRate: 0,
+          description: 'Sem Juros (Cartão)'
+        });
+      }
+    } else {
+      // Boleto / Financeira with Compound Interest Formula: M = P * (1 + i)^n
+      const rate = monthlyInterestRate / 100;
+      const maxInstallments = Math.max(1, installmentsCount);
+      for (let n = 1; n <= maxInstallments; n++) {
+        let installValue = 0;
+        let totalVal = value;
         
-        {/* TAB 1: NEW QUOTE */}
-        <TabsContent value="new" className="mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="max-w-3xl border-primary/10 shadow-lg rounded-2xl overflow-hidden bg-white">
-            <CardHeader className="bg-gradient-to-r from-primary/5 to-secondary/5 border-b border-primary/10 pb-5">
-              <CardTitle className="flex items-center text-xl text-primary font-bold">
-                <FileText className="w-6 h-6 mr-3 text-secondary" /> Captura Rápida
+        if (rate === 0) {
+          installValue = value / n;
+        } else {
+          // Standard French amortisation schedule formula: PMT = PV * ( i * (1+i)^n ) / ( (1+i)^n - 1 )
+          installValue = value * (rate * Math.pow(1 + rate, n)) / (Math.pow(1 + rate, n) - 1);
+          totalVal = installValue * n;
+        }
+
+        list.push({
+          number: n,
+          installmentValue: installValue,
+          totalValue: totalVal,
+          interestRate: monthlyInterestRate,
+          description: 'Carne / Boleto Bancário'
+        });
+      }
+    }
+    return list;
+  }, [currentSimulatedValue, interestType, installmentsCount, monthlyInterestRate]);
+
+  // Copy simulated text helper
+  const handleCopySimulationToClipboard = () => {
+    if (currentSimulatedValue <= 0) return toast.error('Nenhum valor simulado encontrado');
+    
+    let text = `🛋️ *SONO SHOW MÓVEIS* 🛋️\n_Simulação de Pagamento para seu ambiente_\n\n*Valor Total à Vista:* ${formatCurrency(currentSimulatedValue)}\n━━━━━━━━━━━━━━━━━━━━\n`;
+    
+    // Choose 3 convenient installment tiers (ex 1x, 3x, 5x, 10x)
+    const tiers = [1, Math.min(3, simulatedInstallments.length), Math.min(6, simulatedInstallments.length), Math.min(10, simulatedInstallments.length)];
+    const uniqueTiers = Array.from(new Set(tiers)).filter(t => t <= simulatedInstallments.length && t > 0);
+    
+    uniqueTiers.forEach(t => {
+      const match = simulatedInstallments.find(i => i.number === t);
+      if (match) {
+        text += `👉 *${match.number}x de ${formatCurrency(match.installmentValue)}* (${match.description})\n`;
+      }
+    });
+    
+    text += `━━━━━━━━━━━━━━━━━━━━\n_Valores sujeitos a alteração cadastral. Frete & Montagem inclusos!_`;
+    
+    navigator.clipboard.writeText(text);
+    toast.success('Simulação de parcelamento copiada para a área de transferência!');
+  };
+
+
+  // ==========================================
+  // VIEW RENDER 1: HOME PANEL (DASHBOARD & TARGETS)
+  // ==========================================
+  const renderSalespersonHome = () => {
+    return (
+      <div className="space-y-6">
+        
+        {/* Dynamic Warning Alert for follow-ups */}
+        {quotesNeedingAttention.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-5 bg-amber-50 border-l-4 border-amber-600 rounded-r-2xl flex items-center justify-between gap-4 shadow-sm"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-700/10 rounded-full flex items-center justify-center text-amber-700">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-stone-900">Retornos Comerciais Importantes Pendentes!</h4>
+                <p className="text-xs text-stone-500">Você possui {quotesNeedingAttention.length} clientes cujo retorno programado é para hoje ou já está atrasado!</p>
+              </div>
+            </div>
+            <Button 
+              variant="outline"
+              onClick={() => setActiveTab('followup')}
+              className="text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-4 py-2 rounded-xl transition-all border-none"
+            >
+              Contactar Clientes
+            </Button>
+          </motion.div>
+        )}
+
+        {/* METRICS OVERVIEW PANELS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="glass-card shadow-xs border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-emerald-600" /> Vendas Convertidas (Este Mês)
               </CardTitle>
-              <CardDescription className="text-slate-600 mt-1">
-                Gere um orçamento para o cliente e envie um comprovante super profissional pelo WhatsApp no mesmo instante.
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black tracking-tight text-emerald-600">{formatCurrency(wonSalesTotal)}</div>
+              <p className="text-[10px] text-stone-500 mt-1 font-bold">Baseado em {wonQuotes.length} propostas ganhas.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card shadow-xs border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <Target className="w-4 h-4 text-amber-700" /> Pipeline Ativo de Negociações
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-black tracking-tight text-stone-900">
+                {formatCurrency(pendingQuotes.reduce((a,q) => a + q.value, 0))}
+              </div>
+              <p className="text-[10px] text-stone-500 mt-1 font-bold">Total em aberto para fechar com {pendingQuotes.length} clientes.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card shadow-xs border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-amber-700" /> Nível Operacional Comercial
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-xs font-black border uppercase ${currentBadge.color}`}>
+                  {currentBadge.title}
+                </span>
+              </div>
+              <p className="text-[10px] text-stone-500 mt-1.5 font-bold">Selo oficial baseado em conversões ativas.</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* MOTIVATIONAL SALES THERMOMETER */}
+        <Card className="glass-card border-none overflow-hidden pb-4">
+          <CardHeader className="border-b border-[#1c1917]/5">
+            <CardTitle className="flex items-center text-sm font-black text-stone-900 uppercase tracking-wider gap-2">
+              <Sparkles className="w-5 h-5 text-amber-600 animate-pulse" /> Termômetro de Produtividade Sono Show
+            </CardTitle>
+            <CardDescription className="font-semibold text-stone-500">
+              Sua meta comercial mensal de faturamento para atingir premiação máxima de comissão.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex justify-between items-center text-xs font-bold text-stone-600">
+              <span>Status: <strong className="text-amber-700">{goalPercentage}% Concluído</strong></span>
+              <span>Meta: <strong className="text-stone-900">{formatCurrency(salesGoal)}</strong></span>
+            </div>
+            
+            {/* Real beautiful visual slider bar */}
+            <div className="w-full h-4 bg-stone-100 rounded-full overflow-hidden border border-stone-200">
+              <motion.div 
+                initial={{ width: 0 }} 
+                animate={{ width: `${goalPercentage}%` }} 
+                transition={{ duration: 1, ease: 'easeOut' }}
+                className="h-full bg-gradient-to-r from-amber-600 to-amber-700 shadow-inner"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 text-[9px] font-bold text-stone-400 uppercase tracking-wider pt-1.5 select-none text-center">
+              <div>Iniciante<br/>(R$ 0)</div>
+              <div>Prata<br/>(R$ 10k)</div>
+              <div>Ouro<br/>(R$ 20k)</div>
+              <div>Diamante<br/>(R$ 35k)</div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* HOME FAST ATENDE TRADING ACTION CARD */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          
+          {/* List of outstanding actions */}
+          <Card className="glass-card border-none h-fit">
+            <CardHeader className="pb-4 border-b border-stone-100">
+              <CardTitle className="text-sm font-black uppercase text-stone-900 tracking-wider">
+                Próximos Retornos Agendados
+              </CardTitle>
+              <CardDescription className="text-xs text-stone-400 font-semibold">
+                Sua lista de acompanhamento para fechar vendas hoje.
               </CardDescription>
             </CardHeader>
-            <form onSubmit={e => handleSaveQuote(e, false)}>
-              <CardContent className="space-y-6 pt-6 px-6">
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <Label className="flex items-center text-slate-700 font-medium"><User className="w-4 h-4 mr-1.5 text-primary"/>Nome do Cliente *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-secondary bg-slate-50/50" placeholder="Nome completo" value={clientName} onChange={e => setClientName(e.target.value)} required />
+            <CardContent className="pt-4 divide-y divide-stone-100">
+              {pendingQuotes.slice(0, 4).map(quote => (
+                <div key={quote.id} className="py-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <h5 className="text-xs font-bold text-stone-950 truncate uppercase">{quote.clientName}</h5>
+                    <p className="text-[10px] text-stone-400 font-medium truncate">{quote.productInterest}</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center text-slate-700 font-medium"><Phone className="w-4 h-4 mr-1.5 text-emerald-500"/>WhatsApp *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-secondary bg-slate-50/50" placeholder="Ex: 11999998888" value={formatPhone(clientPhone)} onChange={handlePhoneChange} required />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10.5px] font-bold text-stone-600 bg-stone-100 px-2.5 py-0.5 rounded-lg border border-stone-200">
+                      {new Date(quote.returnDate).toLocaleDateString('pt-BR')}
+                    </span>
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setActiveTab('followup')}
+                      className="p-1 text-slate-400 hover:text-slate-600 transition-all hover:scale-105 bg-transparent border-none"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              
+              {pendingQuotes.length === 0 && (
+                <div className="py-12 text-center text-stone-400 font-medium text-xs">
+                  <CheckCircle className="w-8 h-8 text-emerald-500/30 mx-auto mb-2" />
+                  Nenhum cliente em aberto pendente no pipeline de vendas!
+                </div>
+              )}
+            </CardContent>
+            {pendingQuotes.length > 0 && (
+              <CardFooter className="pt-2 border-t border-stone-100 flex justify-center">
+                <Button 
+                  variant="link"
+                  onClick={() => setActiveTab('followup')}
+                  className="text-xs font-black text-amber-800 hover:text-amber-900 flex items-center gap-1.5 uppercase tracking-wider p-0 h-auto border-none underline-none hover:no-underline"
+                >
+                  Ver Todos os Orçamentos <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </CardFooter>
+            )}
+          </Card>
+
+          {/* Quick instructions and advice banner */}
+          <Card className="glass-card border-none bg-gradient-to-br from-amber-600/5 to-amber-700/[0.01]">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase text-stone-900 tracking-wider">
+                💡 Dicas Sono Show Atendimento
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs text-stone-600 leading-relaxed font-semibold">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1 rounded bg-amber-600/10 text-amber-700 shrink-0 font-bold">1</div>
+                <p><strong>Insista nos retornos:</strong> 72% das vendas de sofás e colchões são decididas na conversa de retorno (concorrência ou validação técnica).</p>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="p-1 rounded bg-amber-600/10 text-amber-700 shrink-0 font-bold">2</div>
+                <p><strong>Aproveite o simulador financeiro:</strong> Sempre apresente as parcelas corrigidas no boleto ou carnê usando taxas menores. O cliente prefere pequenas parcelas mensais.</p>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <div className="p-1 rounded bg-amber-600/10 text-amber-700 shrink-0 font-bold">3</div>
+                <p><strong>Gere o PDF oficial:</strong> O cliente Sono Show sente muito mais segurança ao comprar vendo uma proposta formal assinada em PDF.</p>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button 
+                onClick={() => setActiveTab('new_quote')}
+                className="w-full h-11 flex items-center justify-center gap-2 bg-amber-700 hover:bg-amber-800 text-white"
+              >
+                <PlusCircle className="w-4 h-4" /> Novo Atendimento
+              </Button>
+            </CardFooter>
+          </Card>
+
+        </div>
+
+      </div>
+    );
+  };
+
+
+  // ==========================================
+  // VIEW RENDER 2: BRAND CATALOGUE & CART BUILDER
+  // ==========================================
+  const renderSalespersonNewQuote = () => {
+    if (isQuoteInitializing) {
+      return (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Side: Cart & Customer fields (Cols 7) */}
+          <div className="xl:col-span-7 space-y-6 animate-pulse">
+            <Card className="glass-card border-none overflow-hidden pb-4 bg-white shadow-xs">
+              <CardHeader className="border-b border-stone-100 pb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-5 h-5 rounded-md bg-stone-250 shrink-0" />
+                  <div className="h-6 w-56 bg-stone-250 rounded-lg" />
+                </div>
+                <div className="h-3.5 w-4/5 bg-stone-150 rounded-md mt-3" />
+              </CardHeader>
+
+              <div className="space-y-6 p-5">
+                {/* Client Cadastro Widget Skeleton */}
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/50 space-y-4">
+                  <div className="h-4 w-36 bg-stone-250/80 rounded-md" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <div className="h-3.5 w-24 bg-stone-250/50 rounded-md ml-1" />
+                      <div className="h-11 w-full bg-white border border-stone-200 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3.5 w-32 bg-stone-250/50 rounded-md ml-1" />
+                      <div className="h-11 w-full bg-white border border-stone-200 rounded-xl" />
+                    </div>
                   </div>
                 </div>
 
+                {/* Cart block skeleton */}
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/50 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="h-4 w-44 bg-stone-250/80 rounded-md" />
+                  </div>
+                  <div className="border border-dashed border-stone-200 rounded-xl p-8 text-center space-y-3 bg-white">
+                    <div className="w-8 h-8 rounded-full bg-stone-100 mx-auto animate-pulse" />
+                    <div className="h-4 w-32 bg-stone-150 rounded-md mx-auto" />
+                    <div className="h-3 w-52 bg-stone-100 rounded-md mx-auto" />
+                  </div>
+                </div>
+
+                {/* Date / Validity dropdowns skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-28 bg-stone-250/50 rounded-md ml-1" />
+                    <div className="h-11 w-full bg-white border border-stone-200 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-24 bg-stone-250/50 rounded-md ml-1" />
+                    <div className="h-11 w-full bg-white border border-stone-200 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3.5 w-32 bg-stone-250/50 rounded-md ml-1" />
+                    <div className="h-11 w-full bg-white border border-stone-200 rounded-xl" />
+                  </div>
+                </div>
+
+                {/* Notes skeleton */}
                 <div className="space-y-2">
-                  <Label className="text-slate-700 font-medium">Produto(s) de Interesse</Label>
-                  <Input className="border-slate-200 focus-visible:ring-secondary bg-slate-50/50" placeholder="Ex: Guarda-roupa, Cama Casal..." value={productInterest} onChange={e => setProductInterest(e.target.value)} />
+                  <div className="h-3.5 w-36 bg-stone-250/50 rounded-md ml-1" />
+                  <div className="h-16 w-full bg-stone-50 border border-stone-200 rounded-xl" />
+                </div>
+              </div>
+
+              {/* Card Footer Skeletons */}
+              <div className="flex flex-col sm:flex-row justify-end gap-3 p-5 border-t border-stone-100 bg-stone-50">
+                <div className="h-12 w-full sm:w-44 bg-stone-200 rounded-xl" />
+                <div className="h-12 w-full sm:w-48 bg-stone-300 rounded-xl" />
+              </div>
+            </Card>
+          </div>
+
+          {/* Right Side: Interactive Search Catalog (Cols 5) */}
+          <div className="xl:col-span-5 space-y-6 animate-pulse">
+            <Card className="glass-card border-none overflow-hidden bg-white pb-3 shadow-xs">
+              <CardHeader className="border-b border-stone-100 pb-5">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4.5 h-4.5 bg-stone-250 rounded-md" />
+                    <div className="h-5 w-36 bg-stone-250 rounded-lg" />
+                  </div>
+                  <div className="h-5 w-20 bg-stone-150 rounded-md" />
+                </div>
+                <div className="h-3.5 w-5/6 bg-stone-150 rounded-md mt-3" />
+              </CardHeader>
+              
+              <div className="p-4 space-y-4">
+                {/* Search bar skeleton */}
+                <div className="h-11 w-full bg-stone-100 rounded-xl" />
+
+                {/* Categories Scroll Pills Skeleton */}
+                <div className="flex flex-wrap gap-1.5 p-1 bg-stone-50 rounded-xl border border-stone-200/50">
+                  <div className="h-7 w-12 bg-stone-250/60 rounded-lg" />
+                  <div className="h-7 w-20 bg-stone-250/40 rounded-lg" />
+                  <div className="h-7 w-16 bg-stone-250/40 rounded-lg" />
+                  <div className="h-7 w-24 bg-stone-250/40 rounded-lg" />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Products List Skeleton */}
+                <div className="space-y-3.5 pt-1">
+                  {[1, 2, 3].map((idx) => (
+                    <div key={idx} className="flex gap-3 p-3.5 rounded-xl border border-stone-200 bg-white">
+                      <div className="w-16 h-16 rounded-xl bg-stone-250 shrink-0" />
+                      <div className="flex-1 space-y-2 mt-0.5">
+                        <div className="h-4.5 w-4/5 bg-stone-250 rounded-md" />
+                        <div className="h-3.5 w-2/5 bg-stone-150 rounded-md" />
+                        <div className="h-3 w-1/2 bg-stone-150 rounded-md" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          </div>
+
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        
+        {/* Left Side: Cart & Customer fields (Cols 7) */}
+        <div className="xl:col-span-7 space-y-6">
+          <Card className="glass-card border-none overflow-hidden pb-4 bg-white">
+            <CardHeader className="border-b border-stone-100 pb-5">
+              <CardTitle className="flex items-center text-lg font-black text-stone-900 uppercase italic tracking-tight">
+                <Sparkles className="w-5 h-5 mr-2.5 text-amber-700" /> Novo Orçamento Comercial
+              </CardTitle>
+              <CardDescription className="text-xs text-stone-500 font-semibold leading-relaxed">
+                Preencha os dados do cliente e preencha o carrinho com os produtos que ele escolheu no showroom.
+              </CardDescription>
+            </CardHeader>
+
+            <form onSubmit={e => handleSaveQuote(e, false, true)}>
+              <CardContent className="space-y-6 pt-5">
+                
+                {/* Client detail widget */}
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/50 space-y-4">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">🧑‍💼 Cadastro Rápido de Cliente</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nome Completo</Label>
+                      <Input className="bg-white h-11 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300 focus:border-amber-700/50 focus:ring-0" placeholder="Ex: Maria Alice de Souza" value={clientName} onChange={e => setClientName(e.target.value)} required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">WhatsApp de Contato</Label>
+                      <Input className="bg-white h-11 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300 focus:border-amber-700/50 focus:ring-0" placeholder="DDD + Número" value={formatPhone(clientPhone)} onChange={handlePhoneChange} required />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulated Shopping Cart with selections */}
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/50 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                      <ShoppingBag className="w-4 h-4" /> Carrinho do Atendimento ({selectedItems.length})
+                    </span>
+                    {selectedItems.length > 0 && (
+                      <Button type="button" variant="ghost" onClick={clearCart} className="text-[9px] font-bold text-rose-600 hover:text-rose-500 uppercase tracking-widest transition-colors flex items-center gap-1 bg-transparent p-0 border-none h-auto">
+                        <Trash2 className="w-3 h-3" /> Esvaziar
+                      </Button>
+                    )}
+                  </div>
+
+                  {selectedItems.length === 0 ? (
+                    <div className="border border-dashed border-stone-200 rounded-xl p-6 text-center text-stone-400 space-y-2 bg-white">
+                      <ShoppingBag className="w-8 h-8 mx-auto opacity-30 text-amber-700" />
+                      <p className="text-xs font-bold uppercase tracking-wider">Carrinho Vazio</p>
+                      <p className="text-[10px] opacity-80 leading-relaxed max-w-sm mx-auto">Use o catálogo ao lado para buscar os móveis que o cliente gostou e clique em "Adicionar" para calcular o valor automático!</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-1">
+                      {selectedItems.map((item) => (
+                        <div key={item.productId} className="flex items-center justify-between p-3 rounded-xl bg-white border border-stone-200 hover:border-amber-700/20 transition-all">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <img src={item.imageUrl} alt={item.nickname} className="w-10 h-10 rounded-lg object-cover bg-stone-50 shrink-0" referrerPolicy="no-referrer" />
+                            <div className="truncate min-w-0">
+                              <h5 className="text-xs font-bold text-stone-900 truncate uppercase">{item.nickname}</h5>
+                              <p className="text-[9px] text-stone-400 font-mono">CÓD: {item.code} | {formatCurrency(item.price)}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 ml-4">
+                            {/* Qty edit Controls */}
+                            <div className="flex items-center gap-1.5 bg-stone-100 rounded-lg p-1 border border-stone-200">
+                              <Button 
+                                type="button" 
+                                variant="outline"
+                                onClick={() => handleDecreaseCartQty(item.productId)}
+                                className="w-5 h-5 rounded-md bg-white hover:bg-stone-50 text-stone-700 flex items-center justify-center transition-all border border-stone-200 shadow-xs active:scale-95 p-0"
+                              >
+                                <Minus className="w-2.5" />
+                              </Button>
+                              <span className="text-xs font-extrabold px-1 text-stone-800">{item.quantity}</span>
+                              <Button 
+                                type="button" 
+                                variant="outline"
+                                onClick={() => handleIncreaseCartQty(item.productId)}
+                                className="w-5 h-5 rounded-md bg-white hover:bg-stone-50 text-stone-700 flex items-center justify-center transition-all border border-stone-200 shadow-xs active:scale-95 p-0"
+                              >
+                                <Plus className="w-2.5" />
+                              </Button>
+                            </div>
+
+                            <span className="text-xs font-bold text-amber-800 font-mono w-16 text-right">
+                              {formatCurrency(item.price * item.quantity)}
+                            </span>
+                            
+                            <Button variant="ghost" size="icon" type="button" onClick={() => handleRemoveCartItem(item.productId)} className="text-stone-400 hover:text-rose-600 p-1 transition-all bg-transparent border-none w-auto h-auto">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Products detail summary outputs */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-slate-700 font-medium">Valor do Orçamento *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-secondary bg-slate-50/50 font-semibold text-slate-900" placeholder="R$ 0,00" value={quoteValueStr} onChange={handleValueChange} required />
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Resumo do Mobiliário de Interesse</Label>
+                    <Input className="bg-stone-50 h-11 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300" placeholder="Ex: Sofá Retrátil, Conjunto de Jantar" value={productInterest} onChange={e => setProductInterest(e.target.value)} required />
+                    <span className="text-[8px] text-stone-400 block font-medium">* Preenche sozinho quando adiciona itens do carrinho ou edite.</span>
                   </div>
                   <div className="space-y-2">
-                    <Label className="flex items-center text-slate-700 font-medium"><CalendarCheck className="w-4 h-4 mr-1.5 text-secondary"/>Data de Retorno *</Label>
-                    <Input className="border-slate-200 focus-visible:ring-secondary bg-slate-50/50" type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} required />
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Preço Total do Orçamento (R$)</Label>
+                    <Input className="h-11 rounded-xl border-stone-200 text-lg font-black text-amber-700 focus:border-amber-700 bg-white" placeholder="0,00" value={quoteValueStr} onChange={handleValueChange} required />
+                    <span className="text-[8px] text-stone-400 block font-medium">* Soma automática do carrinho de produtos.</span>
                   </div>
+                </div>
+
+                {/* CRM Metadata diagnostic checks */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-slate-700 font-medium">Motivo (Por que não fechou?) *</Label>
-                    <Select value={category} onValueChange={(v) => setCategory(v as QuoteCategory)}>
-                      <SelectTrigger className="bg-slate-50/50 border-slate-200 focus:ring-secondary"><SelectValue/></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="card_turning">Cartão a Virar</SelectItem>
-                        <SelectItem value="researching">Só Pesquisando</SelectItem>
-                        <SelectItem value="price_high">Achou Caro</SelectItem>
-                        <SelectItem value="needs_spouse">Decisão Compartilhada</SelectItem>
-                        <SelectItem value="other">Outros</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Prazo Validade Proposta</Label>
+                    <select
+                      value={validityDays.toString()}
+                      onChange={(e) => setValidityDays(Number(e.target.value))}
+                      className="w-full h-11 rounded-xl border border-stone-200 bg-white px-3.5 text-xs font-bold text-stone-800 outline-none focus:border-amber-700/50 focus:ring-0 focus:outline-none transition-all cursor-pointer appearance-none"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 14px center',
+                        backgroundSize: '16px'
+                      }}
+                    >
+                      <option value="2">2 Dias (Curto)</option>
+                      <option value="5">5 Dias (Padrão)</option>
+                      <option value="10">10 Dias (Especial)</option>
+                      <option value="15">15 Dias (Máximo)</option>
+                    </select>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 mt-1 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-800 text-[9px] font-bold">
+                      <Calendar className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span>Válida até: <strong className="font-extrabold">{targetValidityDate}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Previsão Retorno Contato</Label>
+                    <Input className="h-11 rounded-xl border-stone-200 text-xs font-bold text-stone-850 bg-white" type="date" value={returnDate} onChange={e => setReturnDate(e.target.value)} required />
+                    <span className="text-[8px] text-stone-400 block font-medium">* Dia de entrar em contato pós-showroom.</span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Diagnóstico do Atendimento</Label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value as QuoteCategory)}
+                      className="w-full h-11 rounded-xl border border-stone-200 bg-white px-3.5 text-xs font-bold text-stone-800 outline-none focus:border-amber-700/50 focus:ring-0 focus:outline-none transition-all cursor-pointer appearance-none"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 14px center',
+                        backgroundSize: '16px'
+                      }}
+                    >
+                      <option value="researching">Só Pesquisando Preço</option>
+                      <option value="card_turning">Aguardando Virada de Cartão</option>
+                      <option value="price_high">Achou o Valor Alto</option>
+                      <option value="needs_spouse">Pendente Validação Cônjuge</option>
+                      <option value="other">Outros Motivos Especial</option>
+                    </select>
                   </div>
                 </div>
 
                 {category === 'other' && (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <Label className="flex items-center text-slate-700 font-medium italic">Especifique o Motivo *</Label>
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2">
+                    <Label className="text-[10.5px] font-bold text-amber-700 ml-1">Descrição do Motivo Comercial</Label>
                     <Input 
-                      className="border-slate-200 focus-visible:ring-secondary bg-white font-bold" 
-                      placeholder="Descreva por que a venda não foi concluída..." 
+                      className="h-11 rounded-xl border-amber-600/30 text-xs font-bold placeholder:text-stone-300 text-stone-900 bg-white" 
+                      placeholder="Qual a barreira de venda ou urgência especial?" 
                       value={customCategoryReason} 
                       onChange={e => setCustomCategoryReason(e.target.value)} 
                       required 
                     />
-                  </div>
+                  </motion.div>
                 )}
+
+                {/* Manual written reviews printed to PDF */}
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1 font-sans">Observações Comentadas (Inclusas no Orçamento & PDF)</Label>
+                  <textarea 
+                    className="w-full bg-stone-50 rounded-xl border border-stone-200 p-3 text-xs placeholder:text-stone-300 text-stone-800 min-h-[70px] max-h-[140px] focus:outline-none focus:border-amber-700/50"
+                    placeholder="Ex: Condição de desconto válida para aprovação em 24h. Negociado frete grátis com a supervisão geral."
+                    value={observations}
+                    onChange={(e) => setObservations(e.target.value)}
+                  />
+                </div>
+
               </CardContent>
-              <CardFooter className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3 bg-slate-50 border-t border-slate-100 py-5 px-6">
-                <Button variant="outline" type="submit" className="border-slate-300 text-slate-700 hover:bg-slate-100 font-medium">Apenas Salvar (Sem Avisar)</Button>
-                <Button type="button" className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 font-medium" onClick={(e) => handleSaveQuote(e, true)}>
-                  <Send className="w-4 h-4 mr-2" /> Salvar & Enviar WhatsApp
+
+              <CardFooter className="flex flex-col sm:flex-row justify-end gap-3 p-5 border-t border-stone-100 bg-stone-50">
+                <Button 
+                  type="submit" 
+                  className="w-full sm:w-auto h-12 rounded-xl border border-stone-200 bg-white hover:bg-stone-100 text-stone-800 text-xs font-bold uppercase tracking-wider px-6 transition-all shadow-xs"
+                >
+                  📁 Gravar & Gerar PDF
+                </Button>
+                
+                <Button 
+                  type="button" 
+                  onClick={(e) => handleSaveQuote(e, true, true)}
+                  className="w-full sm:w-auto h-12 flex items-center justify-center gap-2 bg-amber-700 hover:bg-amber-800 shrink-0 text-white border-transparent"
+                >
+                  <Send className="w-4 h-4" /> Enviar PDF + WhatsApp
                 </Button>
               </CardFooter>
             </form>
           </Card>
-        </TabsContent>
+        </div>
 
-        {/* TAB 2: FOLLOW UPS */}
-        <TabsContent value="following" className="mt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="space-y-6">
-            
-            {quotesNeedingAttention.length > 0 && (
-              <div className="bg-gradient-to-r from-rose-500 to-red-600 rounded-xl p-5 shadow-lg shadow-red-500/20 flex flex-col md:flex-row md:items-center justify-between text-white overflow-hidden relative">
-                <div className="absolute -right-4 -top-4 opacity-10">
-                  <AlertCircle className="w-32 h-32" />
-                </div>
-                <div className="relative z-10">
-                   <h3 className="text-xl font-bold flex items-center mb-1"><AlertCircle className="w-6 h-6 mr-2 animate-pulse text-white"/> Retornos Vencidos ou Para Hoje!</h3>
-                   <p className="text-rose-100">Existem {quotesNeedingAttention.length} cliente(s) esperando seu contato. Um bom retorno garante a venda.</p>
-                </div>
+        {/* Right Side: Interactive Search Catalog (Cols 5) */}
+        <div className="xl:col-span-5 space-y-6">
+          <Card className="glass-card border-none overflow-hidden bg-white pb-3 shadow-xs">
+            <CardHeader className="border-b border-stone-100 pb-5">
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center text-sm font-black text-stone-900 uppercase tracking-widest">
+                  <BookOpen className="w-4.5 h-4.5 mr-2 text-amber-700" /> Catálogo Sono Show
+                </CardTitle>
+                <Badge className="bg-amber-75/15 text-amber-800 border-none rounded-md px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider select-none">
+                  INTEGRADO
+                </Badge>
               </div>
-            )}
+              <CardDescription className="text-xs text-stone-500 font-semibold leading-relaxed">
+                Busca rápida de eletros e estofados para preenchimento.
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="p-4 space-y-4">
+              {/* Filter search bar */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300" />
+                <Input 
+                  placeholder="Buscar sofá, rack, código, categoria..." 
+                  className="bg-white h-11 pl-10 pr-10 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300"
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                />
+                {catalogSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCatalogSearch('')}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors p-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {pendingQuotes.map(quote => {
-                const isOverdue = new Date(quote.returnDate).getTime() <= today.getTime();
-                return (
-                  <Card key={quote.id} className={`overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 relative border ${isOverdue ? 'border-rose-200 shadow-rose-100 bg-white' : 'border-primary/20 bg-white shadow-primary/5 hover:border-primary/40'}`}>
-                    {isOverdue && <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-400 to-red-600 shadow-[0_0_10px_rgba(225,29,72,0.4)]"></div>}
-                    {!isOverdue && <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary/40 to-primary"></div>}
-                    
-                    <CardHeader className="py-5 pb-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <CardTitle className="text-lg font-bold text-slate-800 line-clamp-1" title={quote.clientName}>{quote.clientName}</CardTitle>
-                          <CardDescription className="text-slate-500 flex items-center font-medium mt-1">
-                            {formatPhone(quote.clientPhone)}
-                          </CardDescription>
+              {/* Real-time search status & matches indicators */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-stone-400 px-1">
+                  <span>Móveis Disponíveis ({filteredCatalogQuery.length})</span>
+                  {catalogSearch.trim() && (
+                    <span className="text-amber-700 font-extrabold normal-case bg-amber-50 px-2 py-0.5 rounded-md">
+                      Buscando em tempo real...
+                    </span>
+                  )}
+                </div>
+
+                {isFallbackSearch && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-amber-500/10 border border-amber-500/20 text-amber-800 text-[9px] font-black uppercase tracking-wider py-2 px-3 rounded-xl flex items-center gap-1.5 leading-snug"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-700 animate-pulse" />
+                    <span>Nenhum em "{activeCatalogCategory}". Buscado no catálogo geral!</span>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Dynamic Categories Scroll Pills */}
+              <div className="flex flex-wrap gap-1 bg-stone-50/50 p-1 rounded-xl border border-stone-200/50 select-none">
+                {uniqueCategories.map(cat => (
+                  <Button
+                    key={cat}
+                    variant="ghost"
+                    onClick={() => setActiveCatalogCategory(cat)}
+                    className={`text-[8px] font-extrabold uppercase tracking-widest px-2.5 py-1.5 h-auto rounded-lg transition-all border-none ${
+                      activeCatalogCategory === cat 
+                        ? 'bg-amber-700 text-white hover:bg-amber-800 shadow-xs'
+                        : 'text-stone-500 hover:text-stone-1000'
+                    }`}
+                  >
+                    {cat}
+                  </Button>
+                ))}
+              </div>
+
+              {/* PRODUCTS LIST */}
+              <div className="space-y-3.5 max-h-[460px] overflow-y-auto pr-1">
+                {filteredCatalogQuery.map((p) => {
+                  const isExpanded = expandedProductSpecs[p.id] || false;
+                  const isInCart = selectedItems.some(i => i.productId === p.id);
+
+                  return (
+                    <motion.div 
+                      key={p.id}
+                      layout
+                      className="border border-stone-200 rounded-2xl p-3 bg-white hover:border-amber-700/25 transition-all group shadow-2xs"
+                    >
+                      <div className="flex gap-3">
+                        <img src={p.imageUrl} alt={p.nickname} className="w-14 h-14 rounded-xl object-cover bg-stone-50 shrink-0 border border-stone-100" referrerPolicy="no-referrer" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[7.5px] font-black text-amber-800 bg-amber-50 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                              {p.category}
+                            </span>
+                            <span className="text-xs font-black font-mono text-stone-900 shrink-0">
+                              {formatCurrency(p.price)}
+                            </span>
+                          </div>
+                          
+                          <h4 className="text-xs font-bold text-stone-950 uppercase truncate tracking-tight mt-1 leading-snug group-hover:text-amber-800 transition-colors">
+                            {p.name}
+                          </h4>
+                          <p className="text-[10px] text-stone-500 leading-none mt-1 font-medium select-none">
+                            CÓD: <strong className="text-[#1c1917] font-mono">{p.code}</strong>
+                          </p>
                         </div>
-                        <Badge variant="outline" className={`ml-2 whitespace-nowrap text-xs font-semibold ${isOverdue ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-primary/5 text-primary border-primary/20'}`}>
-                           {isOverdue ? 'Retornar Hoje' : 'Aberto'}
-                        </Badge>
+                      </div>
+
+                      {/* Item footer expand tools */}
+                      <div className="mt-3 pt-2 border-t border-stone-100 flex items-center justify-between">
+                        <Button 
+                          type="button" 
+                          variant="ghost"
+                          onClick={() => toggleProductSpecs(p.id)}
+                          className="text-[9px] font-bold text-stone-400 hover:text-stone-1000 flex items-center gap-1 uppercase tracking-widest transition-colors select-none bg-transparent hover:bg-transparent p-0 border-none h-auto"
+                        >
+                          <Info className="w-3.5 h-3.5 text-amber-700/80" /> Especificações
+                          {isExpanded ? <ChevronUp className="w-3" /> : <ChevronDown className="w-3" />}
+                        </Button>
+
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleQuickAutofillProduct(p)}
+                            className="h-7 text-xs rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[8px] font-black uppercase tracking-wider px-2 border border-stone-200 transition-all"
+                            title="Preencher direto os inputs de texto"
+                          >
+                            Preencher
+                          </Button>
+
+                          <Button
+                            type="button"
+                            onClick={() => handleAddProductToCart(p)}
+                            className={`h-7 text-xs rounded-lg text-[8px] font-black uppercase tracking-wider px-2.5 flex items-center gap-1 transition-all border-none ${
+                              isInCart 
+                                ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 hover:bg-emerald-500/20'
+                                : 'bg-stone-900 text-white hover:bg-stone-850'
+                            }`}
+                          >
+                            {isInCart ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3 text-amber-300" />}
+                            {isInCart ? 'Adicionado' : 'Add Carrinho'}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Technical specifications panel details collapsible */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mt-2.5 text-[9.5px] text-stone-500 bg-stone-50 p-2.5 rounded-xl space-y-1.5 leading-relaxed font-sans font-medium border border-stone-100"
+                          >
+                            <p><strong className="text-stone-900">Sobre:</strong> {p.description}</p>
+                            <p><strong className="text-stone-900">Dimensões/Atributos:</strong> {p.specifications}</p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+
+                {filteredCatalogQuery.length === 0 && (
+                  <div className="py-12 text-center text-stone-400 font-semibold select-none">
+                    <HelpCircle className="w-10 h-10 mx-auto mb-2 text-stone-200" />
+                    <p className="text-xs uppercase">Móvel não catalogado</p>
+                    <p className="text-[10px] text-stone-400 mt-1">Refine o termo digitado ou use cadastro manual.</p>
+                  </div>
+                )}
+              </div>
+
+            </CardContent>
+          </Card>
+        </div>
+
+      </div>
+    );
+  };
+
+
+  // ==========================================
+  // VIEW RENDER 3: FOLLOW-UP MANAGEMENT (CARDS)
+  // ==========================================
+  const renderSalespersonFollowup = () => {
+    return (
+      <div className="space-y-6">
+        
+        {/* Dynamic Warning Alert for follow-ups list */}
+        {quotesNeedingAttention.length > 0 && (
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="p-5 bg-[#b45309]/5 border border-amber-600/20 rounded-3xl flex items-center gap-5 shadow-xs"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-amber-700 text-white flex items-center justify-center shrink-0">
+              <AlertCircle className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+               <h3 className="text-sm font-black text-amber-800 uppercase tracking-wide">Atenção Especial Necessária</h3>
+               <p className="text-xs text-stone-500 font-semibold mt-0.5">Você possui {quotesNeedingAttention.length} propostas cujos retornos ao cliente estão previstos para hoje ou já ultrapassaram o vencimento.</p>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between pb-2 select-none">
+          <div>
+            <h2 className="text-xl font-black italic uppercase text-stone-900 tracking-tight">Meus Atendimentos Comerciais</h2>
+            <p className="text-xs text-stone-400 font-semibold mt-0.5">Gestão de contatos em andamento e faturamentos concluídos.</p>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <Badge className="bg-stone-200 text-stone-800 border-none font-bold py-1 px-3 h-8 flex items-center shrink-0">
+              Total cadastrado: {myQuotes.length}
+            </Badge>
+            <Button
+              onClick={handleExportCSV}
+              variant="outline"
+              size="sm"
+              className="h-8 border-stone-200 hover:border-amber-700/50 hover:bg-stone-50 font-black text-[10px] uppercase tracking-wider gap-1.5 rounded-lg text-stone-700 transition-all shadow-2xs"
+            >
+              <FileDown className="w-3.5 h-3.5 text-stone-500" />
+              <span>Exportar lista</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Segmented Status Filters */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none snap-x select-none border-b border-stone-105/40 pt-1">
+          <button
+            onClick={() => setSelectedStatusFilter('all')}
+            className={`text-[9.5px] font-black uppercase tracking-wider py-2 px-4 rounded-xl border shrink-0 transition-all cursor-pointer flex items-center gap-2.5 ${
+              selectedStatusFilter === 'all'
+                ? 'bg-stone-900 border-stone-900 text-white shadow-xs'
+                : 'bg-white border-stone-200/80 text-stone-500 hover:bg-stone-50 hover:text-stone-700'
+            }`}
+          >
+            <span>Todos</span>
+            <span className={`text-[8.5px] px-1.5 py-0.5 rounded-md font-bold ${selectedStatusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-600'}`}>
+              {myQuotes.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedStatusFilter('pending')}
+            className={`text-[9.5px] font-black uppercase tracking-wider py-2 px-4 rounded-xl border shrink-0 transition-all cursor-pointer flex items-center gap-2.5 ${
+              selectedStatusFilter === 'pending'
+                ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
+                : 'bg-white border-stone-200/80 text-amber-800 hover:bg-amber-50/50'
+            }`}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${selectedStatusFilter === 'pending' ? 'bg-white animate-pulse' : 'bg-amber-500'}`} />
+            <span>Negociação Ativa</span>
+            <span className={`text-[8.5px] px-1.5 py-0.5 rounded-md font-bold ${selectedStatusFilter === 'pending' ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-700'}`}>
+              {pendingQuotes.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedStatusFilter('won')}
+            className={`text-[9.5px] font-black uppercase tracking-wider py-2 px-4 rounded-xl border shrink-0 transition-all cursor-pointer flex items-center gap-2.5 ${
+              selectedStatusFilter === 'won'
+                ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
+                : 'bg-white border-stone-200/80 text-emerald-850 hover:bg-emerald-50/50'
+            }`}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${selectedStatusFilter === 'won' ? 'bg-white' : 'bg-emerald-550'}`} />
+            <span>Ganhos (Vendas)</span>
+            <span className={`text-[8.5px] px-1.5 py-0.5 rounded-md font-bold ${selectedStatusFilter === 'won' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700'}`}>
+              {wonQuotes.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setSelectedStatusFilter('lost')}
+            className={`text-[9.5px] font-black uppercase tracking-wider py-2 px-4 rounded-xl border shrink-0 transition-all cursor-pointer flex items-center gap-2.5 ${
+              selectedStatusFilter === 'lost'
+                ? 'bg-stone-500 border-stone-500 text-white shadow-xs'
+                : 'bg-white border-stone-200/80 text-stone-550 hover:bg-stone-50'
+            }`}
+          >
+            <div className={`w-1.5 h-1.5 rounded-full ${selectedStatusFilter === 'lost' ? 'bg-white' : 'bg-stone-400'}`} />
+            <span>Perdidos</span>
+            <span className={`text-[8.5px] px-1.5 py-0.5 rounded-md font-bold ${selectedStatusFilter === 'lost' ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-600'}`}>
+              {lostQuotes.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Dashboard Grid list of sales pipelines card */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayedQuotes.map(quote => {
+            const isOverdue = quote.status === 'pending' && new Date(quote.returnDate).getTime() <= today.getTime();
+            const countItemsTotal = quote.items ? quote.items.reduce((acc, i) => acc + i.quantity, 0) : 1;
+            
+            return (
+              <motion.div 
+                key={quote.id} 
+                whileHover={{ y: -4 }} 
+                className="h-full"
+              >
+                <Card className={`glass-card border-none relative overflow-hidden flex flex-col h-full bg-white shadow-xs ${
+                  isOverdue ? 'ring-2 ring-rose-500/20' : ''
+                }`}>
+                  
+                  {isOverdue && (
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-rose-500 to-amber-600"></div>
+                  )}
+
+                  <CardHeader className="pb-3 border-b border-stone-100">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[8.5px] font-bold text-stone-400 uppercase tracking-wider block mb-0.5">Dono do Orçamento</span>
+                        <CardTitle className="text-md font-black text-stone-900 tracking-tight uppercase truncate">{quote.clientName}</CardTitle>
                       </div>
                       
-                      <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center">
-                        <div className="font-black text-xl text-primary">{formatCurrency(quote.value)}</div>
-                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                          {quote.category === 'other' && quote.customCategoryReason ? quote.customCategoryReason : getCategoryLabel(quote.category)}
-                        </div>
+                      <Badge className={`uppercase text-[8px] font-black tracking-widest border-none py-1 px-2.5 shadow-2xs ${
+                        quote.status === 'won' 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : quote.status === 'lost' 
+                            ? 'bg-stone-200 text-stone-500' 
+                            : isOverdue 
+                              ? 'bg-rose-100 text-rose-800 animate-pulse' 
+                              : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {quote.status === 'won' ? 'GANHO (VENDA)' : quote.status === 'lost' ? 'PERDIDO' : isOverdue ? 'URGENTE CONTATO' : 'NEGOCIAÇÃO'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="pt-4 flex-1 space-y-4">
+                    {/* Summary lists of items purchased */}
+                    <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-100 space-y-1">
+                      <div className="text-[9px] font-bold text-stone-400 uppercase tracking-wider flex justify-between">
+                        <span>Produtos Selecionados ({countItemsTotal})</span>
+                        <span className="text-amber-800 font-mono">ID: #{quote.id.substring(0,6)}</span>
                       </div>
-                    </CardHeader>
-                    <CardContent className="py-2 pb-5">
-                      {quote.productInterest && (
-                         <div className="flex items-center text-sm text-slate-600 font-medium mb-3">
-                           <span className="w-2 h-2 rounded-full bg-secondary mr-2 shadow-sm shadow-secondary/50"></span>
-                           {quote.productInterest}
-                         </div>
+                      <div className="text-xs font-bold text-stone-900 truncate uppercase mt-1 flex items-center gap-1.5">
+                        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${quote.status === 'won' ? 'bg-emerald-500' : 'bg-amber-600'}`}></div>
+                        <span className="truncate">{quote.productInterest || "Atendimento Geral"}</span>
+                      </div>
+                      {quote.notes && (
+                        <p className="text-[9.5px] text-stone-400 italic truncate mt-1">Obs: {quote.notes}</p>
                       )}
-                      <div className="flex items-center text-sm font-medium bg-slate-100/60 p-2 rounded-md">
-                        <CalendarCheck className={`w-4 h-4 mr-2 ${isOverdue ? 'text-rose-500' : 'text-primary'}`} /> 
-                        <span className="text-slate-500 mr-1">Agendado:</span> 
-                        <span className={`${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-800 font-bold'}`}>{new Date(quote.returnDate).toLocaleDateString('pt-BR')}</span>
-                      </div>
-                    </CardContent>
-                    <CardFooter className={`border-t py-4 gap-2 flex-col items-stretch ${isOverdue ? 'bg-rose-50/50' : 'bg-slate-50/50'}`}>
-                        <Button className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white shadow-md shadow-[#25D366]/20 font-semibold" onClick={() => handleFollowUpWhatsApp(quote)}>
-                           <Send className="w-4 h-4 mr-2" /> Chamar WhatsApp
-                        </Button>
-                        <Select 
-                           value={quote.status} 
-                           onValueChange={(val) => updateQuoteStatus(quote.id, val as QuoteStatus)}
-                        >
-                          <SelectTrigger className="w-full text-slate-600 bg-white border-slate-200">
-                            <SelectValue placeholder="Atualizar Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Aberto / Pendente</SelectItem>
-                            <SelectItem value="won" className="text-emerald-600 font-bold">🎉 Venda Concluída!</SelectItem>
-                            <SelectItem value="lost" className="text-rose-600 font-semibold">❌ Venda Perdida</SelectItem>
-                          </SelectContent>
-                        </Select>
-                    </CardFooter>
-                  </Card>
-                );
-              })}
+                    </div>
+
+                    {/* Timeline dates widget */}
+                    <div className="flex items-center justify-between text-xs font-bold">
+                       <span className="text-stone-400 uppercase tracking-wider text-[9px]">Data do Retorno</span>
+                       <div className={`px-2.5 py-1 rounded-lg flex items-center gap-1.5 ${
+                         isOverdue ? 'bg-rose-100 text-rose-700' : 'bg-stone-100 text-stone-600'
+                       }`}>
+                         <Calendar className="w-3.5 h-3.5" />
+                         {new Date(quote.returnDate).toLocaleDateString('pt-BR')}
+                       </div>
+                    </div>
+
+                    {/* Value pipeline summation */}
+                    <div className="flex justify-between items-end border-t border-stone-100 pt-3">
+                       <span className="text-[9px] font-bold text-stone-400 uppercase tracking-wider mb-1">Montante Financeiro</span>
+                       <div className="text-xl font-black text-stone-900 tracking-tight font-mono">
+                         {formatCurrency(quote.value)}
+                       </div>
+                    </div>
+
+                  </CardContent>
+
+                  <CardFooter className="flex flex-col gap-2 pt-0 pb-4">
+                    
+                    {/* Action buttons triggers */}
+                    <div className="grid grid-cols-2 gap-2 w-full">
+                      {/* WhatsApp manual follow up trigger link */}
+                      <Button 
+                        type="button"
+                        className="h-10 text-[9px] rounded-lg bg-[#25D366] hover:bg-[#20bd5a] border-none text-white font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95"
+                        onClick={() => {
+                          const msg = `🛋️ *SONO SHOW MÓVEIS* 🛋️\n\nOlá *${quote.clientName}*! \nAqui é o consultor *${currentUser.name}* da Sono Show.\nEstou passando para dar sequência ao atendimento do orçamento *#${quote.id.substring(0,6)}*:\n\n• *Produtos:* ${quote.productInterest}\n💵 *Valor:* ${formatCurrency(quote.value)}\n\nGostaria de saber se ficou com alguma dúvida sobre as formas de pagamento ou entrega rápida que conversamos? \nFico à total disposição para reservarmos seus móveis hoje!`;
+                          window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
+                        }}
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" /> WhatsApp
+                      </Button>
+
+                      {/* PDF download reprint */}
+                      <Button 
+                        type="button"
+                        variant="outline"
+                        className="h-10 text-[9px] rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-95"
+                        onClick={() => handleDownloadExistingPDF(quote)}
+                      >
+                        <FileDown className="w-3.5 h-3.5 text-amber-700" /> Imprimir PDF
+                      </Button>
+                    </div>
+
+                    {/* Change Quote Status Select Trigger */}
+                    <select
+                      value={quote.status}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        updateQuoteStatus(quote.id, val as QuoteStatus);
+                        toast.success(`Atendimento alterado para: ${
+                          val === 'won' ? 'GANHO (CONVERTIDO)' : val === 'lost' ? 'PERDIDO (DESISTÊNCIA)' : 'ABERTO EM NEGOCIAÇÃO'
+                        }`);
+                      }}
+                      className="w-full h-9 rounded-lg border border-stone-200 bg-stone-50 px-2 text-[9px] font-bold uppercase tracking-wider hover:bg-stone-100 transition-all text-stone-800 outline-none focus:border-amber-700/30 focus:ring-0 focus:outline-none cursor-pointer appearance-none"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                        backgroundRepeat: 'no-repeat',
+                        backgroundPosition: 'right 10px center',
+                        backgroundSize: '12px'
+                      }}
+                    >
+                      <option value="pending">Negociação Ativa (Aberto)</option>
+                      <option value="won">🔥 Fechou Pedido! (VENDA REALIZADA)</option>
+                      <option value="lost">❌ Perdido (Desistência/Cliente Desistiu)</option>
+                    </select>
+                  </CardFooter>
+
+                </Card>
+              </motion.div>
+            );
+          })}
+
+          {displayedQuotes.length === 0 && (
+            <div className="md:col-span-2 lg:col-span-3 text-center py-16 bg-white border border-stone-200 rounded-3xl flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full bg-stone-50 border border-stone-200 flex items-center justify-center mb-4 text-stone-300 animate-bounce">
+                <CheckCircle className="w-8 h-8" />
+              </div>
+              <h3 className="text-md font-black text-stone-900 uppercase">
+                {selectedStatusFilter === 'all' ? 'Sem atendimentos registrados' : 'Nenhum atendimento encontrado'}
+              </h3>
+              <p className="text-xs text-stone-400 font-medium max-w-sm mt-1 leading-relaxed px-4">
+                {selectedStatusFilter === 'all'
+                  ? 'Você ainda não possui atendimentos criados. Comece criando um novo orçamento na seção "Novo Orçamento"!'
+                  : `Nenhum atendimento na fase de "${
+                      selectedStatusFilter === 'pending'
+                        ? 'Negociação Ativa'
+                        : selectedStatusFilter === 'won'
+                          ? 'Ganho (Venda)'
+                          : 'Perdido (Desistência)'
+                    }" no seu histórico.`}
+              </p>
+            </div>
+          )}
+        </div>
+
+      </div>
+    );
+  };
+
+
+  // ==========================================
+  // VIEW RENDER 4: SIMULATOR INSTALLMENTS
+  // ==========================================
+  const renderSalespersonSimulator = () => {
+    return (
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+        
+        {/* Left pane: mathematical parameters config (Cols 5) */}
+        <div className="xl:col-span-5 space-y-6">
+          <Card className="glass-card bg-white border-none pb-4">
+            <CardHeader className="border-b border-stone-100 pb-5">
+              <CardTitle className="text-lg font-black text-stone-900 uppercase tracking-tight flex items-center gap-2">
+                <Calculator className="w-5 h-5 text-amber-700" /> Simulador de Parcelas
+              </CardTitle>
+              <CardDescription className="text-xs text-stone-500 font-bold leading-relaxed">
+                Configure parcelamentos sem juros em cartão ou carnês corrigidos por boleto com taxas negociadas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5 pt-5">
               
-              {pendingQuotes.length === 0 && (
-                <div className="md:col-span-2 lg:col-span-3 text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 text-slate-500">
-                  <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
-                    <FileText className="w-10 h-10 text-primary/30" />
+              {/* Numeric Simulation valuation input */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Valor a ser Financiado (R$)</Label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 font-bold text-xs font-mono">R$</span>
+                  <Input 
+                    type="number" 
+                    step="0.01"
+                    className="bg-white h-11 pl-10 rounded-xl border-stone-200 text-sm font-black text-stone-900 placeholder:text-stone-300"
+                    placeholder="Ex: 2490,00"
+                    value={customSimulatedAmount}
+                    onChange={(e) => setCustomSimulatedAmount(e.target.value)}
+                  />
+                </div>
+                {selectedItems.length > 0 && (
+                  <Button 
+                    type="button"
+                    variant="link"
+                    onClick={() => {
+                      const cartTotal = selectedItems.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                      setCustomSimulatedAmount(cartTotal.toString());
+                    }}
+                    className="text-[9px] text-[#b45309] hover:underline font-bold uppercase tracking-wider ml-1 block p-0 h-auto border-none underline-none hover:no-underline"
+                  >
+                    Usar valor total do carrinho atual ({formatCurrency(selectedItems.reduce((acc, i) => acc + (i.price * i.quantity), 0))})
+                  </Button>
+                )}
+              </div>
+
+              {/* Installment count choose */}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Limite Máximo de Parcelas</Label>
+                <select
+                  value={installmentsCount.toString()}
+                  onChange={(e) => setInstallmentsCount(Number(e.target.value))}
+                  className="w-full h-11 rounded-xl border border-stone-200 bg-white px-3.5 text-xs font-bold text-stone-800 outline-none focus:border-amber-700/50 focus:ring-0 focus:outline-none transition-all cursor-pointer appearance-none"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 14px center',
+                    backgroundSize: '16px'
+                  }}
+                >
+                  <option value="3">Até 3 Parcelas</option>
+                  <option value="6">Até 6 Parcelas</option>
+                  <option value="10">Até 10 Parcelas Sem Juros</option>
+                  <option value="12">Até 12 Parcelas (Corporativo)</option>
+                  <option value="18">Até 18 Parcelas (Especial Carnê)</option>
+                  <option value="24">Até 24 Parcelas (Financiamento)</option>
+                </select>
+              </div>
+
+              {/* System Payment method chooser */}
+              <div className="grid grid-cols-2 gap-3 bg-stone-50 p-1 rounded-xl border border-stone-200">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setInterestType('no_interest');
+                    setMonthlyInterestRate(0);
+                  }}
+                  className={`py-2 text-[10px] h-auto uppercase font-black tracking-wider rounded-lg transition-all border-none ${
+                    interestType === 'no_interest' 
+                      ? 'bg-amber-700 text-white shadow-xs hover:bg-amber-800' 
+                      : 'text-stone-500 hover:text-stone-850'
+                  }`}
+                >
+                  💳 Cartão (Sem Juros)
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setInterestType('with_interest');
+                    setMonthlyInterestRate(1.99); // standard retail rate
+                  }}
+                  className={`py-2 text-[10px] h-auto uppercase font-black tracking-wider rounded-lg transition-all border-none ${
+                    interestType === 'with_interest' 
+                      ? 'bg-amber-700 text-white shadow-xs hover:bg-amber-800' 
+                      : 'text-stone-500 hover:text-stone-850'
+                  }`}
+                >
+                  📝 Carnê / Boleto
+                </Button>
+              </div>
+
+              {/* Dynamic Interest Rate inputs slider for Carnê simulation */}
+              {interestType === 'with_interest' && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }} 
+                  className="space-y-2 border-t border-stone-100 pt-4"
+                >
+                  <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">
+                    <span>Taxa Mensal Negociada:</span>
+                    <span className="text-amber-800 font-black text-xs font-mono">{monthlyInterestRate}% /mês</span>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800 mb-1">Nenhum orçamento pendente.</h3>
-                  <p>Sua carteira de clientes está limpa!</p>
+                  <Input 
+                    type="range" 
+                    min="0" 
+                    max="5" 
+                    step="0.05"
+                    value={monthlyInterestRate} 
+                    onChange={(e) => setMonthlyInterestRate(parseFloat(e.target.value))}
+                    className="accent-amber-75 h-1.5"
+                  />
+                  <div className="flex justify-between text-[8px] text-stone-400 uppercase font-black">
+                    <span>0% (Sem Juros)</span>
+                    <span>2.5% (Eletros)</span>
+                    <span>5.0% (Alto Risco)</span>
+                  </div>
+                </motion.div>
+              )}
+
+            </CardContent>
+            
+            {currentSimulatedValue > 0 && (
+              <CardFooter className="pt-2 border-t border-stone-100 bg-stone-50 flex flex-col gap-2">
+                <Button 
+                  type="button"
+                  onClick={handleCopySimulationToClipboard}
+                  className="w-full h-11 flex items-center justify-center gap-2 bg-stone-900 border border-stone-950 text-white hover:bg-stone-850"
+                >
+                  <Copy className="w-4 h-4 text-amber-300" /> Copiar para WhatsApp
+                </Button>
+                <p className="text-[8px] text-stone-400 font-semibold text-center mt-1">* Formata o parcelamento perfeitamente para colar direto em conversas.</p>
+              </CardFooter>
+            )}
+          </Card>
+        </div>
+
+        {/* Right pane: dynamic calculations display table index lists (Cols 7) */}
+        <div className="xl:col-span-7">
+          <Card className="glass-card border-none overflow-hidden bg-white shadow-xs">
+            <CardHeader className="border-b border-stone-100 pb-5">
+              <CardTitle className="text-sm font-black text-stone-900 uppercase tracking-widest flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-amber-700" /> Tabela Nominal de Parcelamentos
+              </CardTitle>
+              <CardDescription className="text-xs text-stone-500 font-bold leading-relaxed">
+                Tabela de projeção com parcelas exaustivas para negociação direta em showroom.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              
+              {currentSimulatedValue <= 0 ? (
+                <div className="py-20 text-center text-stone-400 font-semibold select-none">
+                  <Calculator className="w-12 h-12 mx-auto mb-3 opacity-25 text-amber-75" />
+                  <p className="text-xs uppercase">Digite um valor para simular</p>
+                  <p className="text-[10px] text-stone-400 font-medium max-w-xs mx-auto mt-1 leading-relaxed">Defina um montante financeiro no editor ao lado para renderizar a tabela com coeficiente bancário Sono Show.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-stone-100">
+                  <div className="grid grid-cols-12 bg-stone-50 p-3 text-[9px] font-black uppercase text-stone-400 tracking-widest text-center">
+                    <span className="col-span-2 text-left pl-3">Parcela</span>
+                    <span className="col-span-3">Prestação</span>
+                    <span className="col-span-4">Valor Total Final</span>
+                    <span className="col-span-3">Juros Acumulados</span>
+                  </div>
+
+                  <div className="max-h-[420px] overflow-y-auto divide-y divide-stone-100">
+                    {simulatedInstallments.map((inst) => {
+                      const cumulativeInterest = inst.totalValue - currentSimulatedValue;
+                      return (
+                        <div key={inst.number} className="grid grid-cols-12 p-3 text-xs items-center text-center font-bold text-stone-800 hover:bg-stone-50 transition-all">
+                          <span className="col-span-2 text-left pl-3 font-extrabold text-stone-950 font-mono">
+                            {inst.number}x
+                          </span>
+                          <span className="col-span-3 text-amber-800 font-black font-mono">
+                            {formatCurrency(inst.installmentValue)}
+                          </span>
+                          <span className="col-span-4 text-stone-900 font-extrabold font-mono">
+                            {formatCurrency(inst.totalValue)}
+                          </span>
+                          <span className={`col-span-3 font-bold font-mono text-[10.5px] ${
+                            cumulativeInterest > 0 ? 'text-rose-600' : 'text-stone-400'
+                          }`}>
+                            {cumulativeInterest > 0 ? `+ ${formatCurrency(cumulativeInterest)}` : 'Isento'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
+
+            </CardContent>
+          </Card>
+        </div>
+
+      </div>
+    );
+  };
+
+
+  // ==========================================
+  // SYSTEM GENERAL COMPONENT SCREEN COORDINATION
+  // ==========================================
+  return (
+    <div className="space-y-6 pb-16">
+      
+      {/* Brand Elegant Header Badge */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-[#1c1917]/5"
+      >
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 py-0.5 px-2 bg-amber-500/10 rounded-lg border border-amber-550/10">
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></div>
+            <span className="text-[10px] font-black text-amber-900 uppercase tracking-widest select-none">
+              Sono Show AtendePro v3
+            </span>
+          </div>
+
+          {/* Intelligent Audio Reminder System Widgets */}
+          <div className="flex items-center gap-1.5 bg-stone-50 border border-stone-200/60 p-1 rounded-xl">
+            {/* Urgent badge of soon return list */}
+            <div 
+              onClick={() => {
+                if (quotesNearReturn.length > 0) setActiveTab('followup');
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wide transition-all cursor-pointer ${
+                quotesNearReturn.length > 0 
+                  ? 'bg-amber-600 text-white animate-pulse'
+                  : 'bg-stone-200/60 text-stone-500'
+              }`}
+            >
+              <Bell className="w-3 h-3" />
+              <span>{quotesNearReturn.length} Retornos Próximos</span>
             </div>
 
-          </div>
-        </TabsContent>
+            {/* Sound Enable/Mute control */}
+            <Button
+              size="icon"
+              variant="ghost"
+              type="button"
+              onClick={() => {
+                const updated = !soundEnabled;
+                setSoundEnabled(updated);
+                toast.success(updated ? '🔔 Alertas sonorizados ativos!' : '🔇 Alertas de retorno silenciados!');
+                if (updated) {
+                  // Promptly play helper to test sound
+                  setTimeout(() => {
+                    try {
+                      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+                      const ctx = new AudioContext();
+                      const osc = ctx.createOscillator();
+                      const gain = ctx.createGain();
+                      osc.connect(gain);
+                      gain.connect(ctx.destination);
+                      osc.frequency.value = 587.33; // D5
+                      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                      osc.start();
+                      osc.stop(ctx.currentTime + 0.3);
+                    } catch {}
+                  }, 100);
+                }
+              }}
+              className="h-6 w-6 rounded-lg text-stone-550 hover:bg-stone-200/50 hover:text-stone-850"
+              title={soundEnabled ? "Silenciar Alertas Sonoros" : "Ativar Alertas Sonoros"}
+            >
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 text-rose-500" />}
+            </Button>
 
-      </Tabs>
+            {/* Manual sound test trigger (resolves autoplay lock as user gesture!) */}
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              onClick={() => {
+                playNotificationChime();
+                toast.success('📢 Teste de Som disparado! Seus alertas automáticos estão prontos.');
+              }}
+              className="h-6 text-[8.5px] font-black border-stone-200 hover:border-amber-700/30 font-mono uppercase tracking-wider px-2 py-1 rounded-lg text-stone-600 hover:text-amber-900 bg-white shadow-3xs"
+            >
+              Testar Som
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto text-[9.5px] text-stone-400 font-bold select-none font-sans">
+          <Clock className="w-3.5 h-3.5 text-stone-400" /> Atualizado: Hoje, às {today.toLocaleDateString('pt-BR')}
+        </div>
+      </motion.div>
+
+      {/* RENDER ACTIVE TAB SCENARIOS */}
+      {activeTab === 'home' && renderSalespersonHome()}
+      {activeTab === 'new_quote' && renderSalespersonNewQuote()}
+      {activeTab === 'followup' && renderSalespersonFollowup()}
+      {activeTab === 'simulator' && renderSalespersonSimulator()}
+
     </div>
   );
 };

@@ -21,7 +21,31 @@ export interface User {
   role: Role;
   branchId?: string; // Managers and Salespeople belong to a branch
   lastBranchId?: string; // Keep track of the last branch for transferred salespeople
+  lastAccess?: string; // Tracking for supervisor visibility
   createdAt: string;
+}
+
+export interface Product {
+  id: string;
+  code: string;
+  name: string;
+  nickname: string;
+  description: string;
+  specifications: string;
+  imageUrl: string;
+  category: string;
+  price: number;
+}
+
+export interface QuoteItem {
+  productId: string;
+  code: string;
+  name: string;
+  nickname: string;
+  price: number;
+  quantity: number;
+  imageUrl: string;
+  description: string;
 }
 
 export interface Quote {
@@ -38,6 +62,10 @@ export interface Quote {
   createdBy: string; // User ID (salesperson)
   branchId: string; // Branch ID at the time the quote was created
   isTransferred?: boolean; // True if this quote belongs to a legacy branch for the user
+  
+  items?: QuoteItem[];
+  notes?: string;
+  validityDays?: number;
   
   createdAt: string;
 }

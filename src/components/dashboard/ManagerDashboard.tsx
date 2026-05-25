@@ -6,16 +6,34 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { formatCurrency, generateWhatsAppLink, formatPhone } from '../../lib/formatters';
+import { formatCurrency, generateWhatsAppLink } from '../../lib/formatters';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
-import { Users, Shuffle, UserMinus, AlertCircle, TrendingUp, Search, Eye, FileText, CalendarCheck, Edit, Trash2, Send, Phone } from 'lucide-react';
+import { ConfirmationDialog } from '../ui/confirmation-dialog';
+import { 
+  Users, 
+  Shuffle, 
+  UserMinus, 
+  AlertCircle, 
+  TrendingUp, 
+  Search, 
+  Eye, 
+  FileText, 
+  CalendarCheck, 
+  Edit, 
+  Trash2, 
+  Send, 
+  UserPlus, 
+  Zap, 
+  Home, 
+  Building 
+} from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { QuoteCategory, User } from '../../types';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const ManagerDashboard = () => {
-  const { currentUser, branches, users, quotes, addUser, updateUser, deleteUser, transferUser, reassignQuotes } = useAppContext();
+  const { currentUser, branches, users, quotes, addUser, updateUser, deleteUser, transferUser, reassignQuotes, activeTab, setActiveTab } = useAppContext();
   
   const [isSalespersonOpen, setIsSalespersonOpen] = useState(false);
   const [newSalespersonName, setNewSalespersonName] = useState('');
@@ -35,7 +53,7 @@ export const ManagerDashboard = () => {
   const [deleteUserModal, setDeleteUserModal] = useState<{ isOpen: boolean, user: User | null }>({ isOpen: false, user: null });
 
   if (!currentUser?.branchId) {
-    return <div className="p-8 text-center text-muted-foreground">O gerente atual não está vinculado a uma filial.</div>;
+    return <div className="p-8 text-center text-[#1c1917]/60 font-semibold">O gerente atual não está vinculado a uma filial ativa.</div>;
   }
 
   const myBranch = branches.find(b => b.id === currentUser.branchId);
@@ -57,25 +75,41 @@ export const ManagerDashboard = () => {
   const handleAddSalesperson = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSalespersonName.trim()) return;
-    addUser(newSalespersonName, 'salesperson', currentUser.branchId);
+    
+    // Safety check: Prevent duplicate sellers in the same branch
+    const exists = mySalespeople.some(s => s.name.toLowerCase() === newSalespersonName.trim().toLowerCase());
+    if (exists) {
+      return toast.error('Sabor Comercial Duplicado: Já existe um consultor cadastrado com este nome exato nesta unidade.');
+    }
+
+    addUser(newSalespersonName.trim(), 'salesperson', currentUser.branchId);
     setNewSalespersonName('');
     setIsSalespersonOpen(false);
-    toast.success('Vendedor cadastrado!');
+    toast.success('Consultor de Vendas cadastrado e habilitado com sucesso!');
   };
 
   const handleEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUserModal.user || !editUserModal.name.trim()) return;
-    updateUser(editUserModal.user.id, editUserModal.name);
+    updateUser(editUserModal.user.id, editUserModal.name.trim());
     setEditUserModal({ isOpen: false, user: null, name: '' });
-    toast.success('Nome alterado com sucesso!');
+    toast.success('Nome do consultor alterado com sucesso!');
   };
 
   const handleDeleteUser = () => {
     if (!deleteUserModal.user) return;
+    
+    // Safety check: Don't hard-delete if seller has pending quotes, suggest reassigning first
+    const pendingCount = myBranchQuotes.filter(q => q.createdBy === deleteUserModal.user?.id && q.status === 'pending').length;
+    if (pendingCount > 0) {
+      toast.error(`Bloqueio de Carteira: Este consultor possui ${pendingCount} negociações ativas pendentes. Faça o repasse da carteira primeiro.`);
+      setDeleteUserModal({ isOpen: false, user: null });
+      return;
+    }
+
     deleteUser(deleteUserModal.user.id);
     setDeleteUserModal({ isOpen: false, user: null });
-    toast.success('Vendedor excluído permanentemente.');
+    toast.success('Consultor excluído permanentemente da unidade.');
   };
 
   const handleTransfer = () => {
@@ -84,6 +118,7 @@ export const ManagerDashboard = () => {
     setTransferDialogOpen(false);
     setUserToTransfer('');
     setTargetBranch('');
+    toast.success('Consultor transferido administrativamente para a nova unidade!');
   };
 
   const handleReassign = () => {
@@ -92,122 +127,157 @@ export const ManagerDashboard = () => {
     setReassignDialogOpen(false);
     setUserToReassign('');
     setTargetSalesperson('');
+    toast.success('Negociações comerciais ativas repelidas com sucesso para o sucessor.');
   };
 
   const handleManagerMessage = (quote: any) => {
-    const today = new Date().toLocaleDateString('pt-BR');
-    const productLines = quote.productInterest 
-      ? `• *${quote.productInterest}*\n   📦 _Geral_` 
-      : `• *Atendimento Personalizado*\n   📦 _Móveis e Decoração_`;
+    const todayStr = new Date().toLocaleDateString('pt-BR');
+    const msg = 
+`🛋️ *SONO SHOW MÓVEIS* 🛋️
+_Sua casa, seu sonho._
 
-    const msg = `Sono Show Móveis\n\nOlá *${quote.clientName}*! \nAqui é o(a) *${currentUser.name}*, gerente da loja *${myBranch?.name}*.\n\n━━━━━━━━━━━━━━━\n*📝 ORÇAMENTO*\n━━━━━━━━━━━━━━━\n${productLines}\n\n💰 *Valor:* ${formatCurrency(quote.value)}\n📅 *Data:* ${today}\n⏳ *Validade:* 2 dias\n━━━━━━━━━━━━━━━\n\nGostaria de saber se o orçamento ainda é de seu interesse e se posso ajudar em algo para fecharmos o negócio hoje!`;
+Olá, *${quote.clientName}*!
+Aqui é o(a) gestor(a) *${currentUser.name}*, da gerência Sono Show *${myBranch?.name}*.
+
+Acompanho de perto os atendimentos de excelência do nosso showroom e vi sua proposta do dia ${new Date(quote.createdAt).toLocaleDateString('pt-BR')} no valor de *${formatCurrency(quote.value)}*.
+
+Gostaria de me colocar pessoalmente à disposição para te conceder uma condição VIP especial ou facilitar sua forma de parcelamento hoje para garantirmos a entrega dos seus móveis!
+
+Posso te ligar ou liberar um código de desconto agora?`;
     window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
   };
 
   const getCategoryLabel = (cat: QuoteCategory) => {
     const labels: Record<QuoteCategory, string> = {
-      card_turning: 'Aguardando Virada do Cartão',
-      researching: 'Apenas Pesquisando',
+      card_turning: 'Aguardando Virada de Cartão',
+      researching: 'Só Pesquisando Preço',
       price_high: 'Achou o Preço Alto',
-      needs_spouse: 'Precisa falar com cônjuge',
-      other: 'Outros Motivos'
+      needs_spouse: 'Depende de Cônjuge',
+      other: 'Outro Motivo Especial'
     };
     return labels[cat];
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="space-y-6">
       
-      <div className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 rounded-3xl shadow-xl shadow-primary/20 relative overflow-hidden text-white">
-        <div className="absolute right-0 top-0 opacity-15">
-          <svg width="400" height="400" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            <path fill="#fff" d="M47.7,-60.2C59.6,-50.3,65.6,-33.5,70.5,-15.8C75.4,1.8,79.2,20.4,72.2,34.4C65.2,48.4,47.4,57.8,29.9,62.8C12.4,67.8,-4.8,68.4,-20.9,64.1C-37.1,59.9,-52.2,50.7,-61.4,36.8C-70.6,22.8,-73.9,4.2,-69,-11.9C-64.2,-28,-51.1,-41.6,-36.8,-51C-22.6,-60.5,-7.2,-65.7,5.5,-72C18.1,-78.4,35.9,-70.1,47.7,-60.2Z" transform="translate(100 100)" />
-          </svg>
+      {/* Brand Header */}
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between pb-3 border-b border-stone-200"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-700 animate-pulse"></div>
+          <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest select-none">
+            Painel Geral de Gestão G-Atende v3
+          </span>
         </div>
-        <div className="relative z-10 w-full">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <Badge variant="outline" className="bg-white/10 text-white border-white/20 px-3 py-1 font-medium shadow-none">
-                  <span className="w-2 h-2 rounded-full bg-secondary mr-2 shadow-glow"></span>
-                  {myBranch?.name}
-                </Badge>
-              </div>
-              <h1 className="text-4xl font-black tracking-tighter mb-2">Painel de <span className="text-secondary">Gestão</span></h1>
-              <p className="text-white/90 text-lg font-medium">Bem-vindo, <strong>{currentUser.name}</strong>. Controle sua equipe e métricas.</p>
-            </div>
-            <Dialog open={isSalespersonOpen} onOpenChange={setIsSalespersonOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-white text-primary hover:bg-slate-50 shadow-lg shadow-black/10 font-bold px-6 py-2.5 rounded-xl transition-all"><Users className="w-4 h-4 mr-2" /> Novo Vendedor</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Adicionar Vendedor</DialogTitle>
-                  <DialogDescription>Cadastre um novo vendedor para a filial {myBranch?.name}.</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleAddSalesperson} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Nome do Vendedor</Label>
-                    <Input placeholder="Ex: João Souza" value={newSalespersonName} onChange={e => setNewSalespersonName(e.target.value)} required />
-                  </div>
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold">Cadastrar Vendedor</Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      </div>
+        <span className="text-[10px] text-stone-400 font-bold select-none font-sans flex items-center gap-1">
+          Unidade Responsável: <strong className="text-stone-800 uppercase">{myBranch?.name}</strong>
+        </span>
+      </motion.div>
 
+      {/* Hero Welcome banner */}
+      <Card className="glass-card shadow-xs border-none overflow-hidden pb-4 bg-white relative">
+        <div className="absolute right-0 top-0 p-8 opacity-5 -mr-10 select-none pointer-events-none">
+          <Building className="w-56 h-56 text-[#b45309]" />
+        </div>
+        <CardContent className="pt-6 relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <Badge className="bg-amber-100 text-amber-800 border-none font-black text-[9px] uppercase tracking-widest px-3.5 py-1 mb-2.5">
+              Área de Liderança Regional
+            </Badge>
+            <h1 className="text-2xl md:text-3xl font-extrabold text-stone-900 tracking-tight leading-none uppercase italic">
+              Unidade <span className="text-amber-800 font-black">{myBranch?.name}</span>
+            </h1>
+            <p className="text-xs text-stone-500 font-semibold mt-1">Supervisão tática de consultores, repasse de carteiras e análises comerciais.</p>
+          </div>
+
+          <Dialog open={isSalespersonOpen} onOpenChange={setIsSalespersonOpen}>
+            <DialogTrigger render={
+              <Button className="h-11 flex items-center justify-center gap-2 px-6 bg-amber-700 hover:bg-amber-800 shrink-0 text-xs text-white">
+                <UserPlus className="w-4 h-4 text-amber-300" /> Cadastrar Vendedor
+              </Button>
+            } />
+            <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
+              <DialogHeader>
+                <DialogTitle className="text-stone-900 font-extrabold uppercase italic flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-amber-700" /> Ativar Consultor
+                </DialogTitle>
+                <DialogDescription className="text-xs text-stone-500 font-medium">Cadastrar e vincular um novo consultor de vendas na filial {myBranch?.name}.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddSalesperson} className="space-y-4 pt-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nome Completo</Label>
+                  <Input className="h-11 rounded-xl border-stone-200 text-xs font-bold bg-white text-stone-900 focus:ring-0 focus:border-amber-700/50" placeholder="Ex: Rodrigo de Oliveira" value={newSalespersonName} onChange={e => setNewSalespersonName(e.target.value)} required />
+                </div>
+                <Button type="submit" className="w-full h-11 text-xs uppercase font-black tracking-widest bg-amber-700 hover:bg-amber-800 text-white">
+                  Habilitar Vendas
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </CardContent>
+      </Card>
+
+      {/* Metrics blocks row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50">
-            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Vendedores Ativos</CardTitle>
-            <Users className="w-5 h-5 text-primary" />
+        <Card className="glass-card shadow-xs border-none bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+              <Users className="w-4.5 h-4.5 text-amber-700" /> Equipe de Showroom
+            </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6"><div className="text-4xl font-black text-slate-900">{mySalespeople.length}</div></CardContent>
+          <CardContent>
+            <div className="text-3xl font-black tracking-tight text-stone-900">{mySalespeople.length}</div>
+            <p className="text-[10px] text-stone-500 font-bold mt-1">Consultores ativos reportando vendas.</p>
+          </CardContent>
         </Card>
-        <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden hover:shadow-xl transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50">
-            <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">Orçamentos Ativos</CardTitle>
-            <FileText className="w-5 h-5 text-primary" />
+
+        <Card className="glass-card shadow-xs border-none bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+              <FileText className="w-4.5 h-4.5 text-blue-600" /> Fluxo de Atendimentos
+            </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6"><div className="text-4xl font-black text-slate-900">{myBranchQuotes.length}</div></CardContent>
+          <CardContent>
+            <div className="text-3xl font-black tracking-tight text-stone-900">{myBranchQuotes.length}</div>
+            <p className="text-[10px] text-stone-500 font-bold mt-1">Propostas geradas nesta filial.</p>
+          </CardContent>
         </Card>
-        <Card className="border-none shadow-lg bg-gradient-to-br from-primary to-primary/80 text-white rounded-2xl overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-bold text-white/80 uppercase tracking-wider">Potencial (Filial)</CardTitle>
-            <TrendingUp className="w-5 h-5 text-secondary" />
+
+        <Card className="glass-card shadow-xs border-none bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+              <TrendingUp className="w-4.5 h-4.5 text-emerald-600" /> Faturamento Potencial
+            </CardTitle>
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="text-3xl font-black tracking-tight">{formatCurrency(totalValue)}</div>
-            <p className="text-xs text-white/70 mt-2 font-medium">Soma de todo o potencial de venda</p>
+          <CardContent>
+            <div className="text-3xl font-black tracking-tight text-emerald-600">{formatCurrency(totalValue)}</div>
+            <p className="text-[10px] text-stone-500 font-bold mt-1 uppercase">Soma bruta de negociações.</p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="team" className="w-full">
-        <TabsList className="grid w-full h-auto grid-cols-2 lg:w-[500px] p-1 bg-slate-100 rounded-xl shadow-inner mb-8">
-          <TabsTrigger value="team" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all font-bold">
-            Equipe de Vendas
-          </TabsTrigger>
-          <TabsTrigger value="history" className="py-2.5 rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all font-bold">
-            Histórico de Orçamentos
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="team" className="space-y-6">
-          <Card className="shadow-lg border-slate-100 rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 border-b border-primary/5 bg-primary/5">
+      {/* DYNAMIC NAVIGATION SCREEN RENDERING (HOME vs. TEAM) */}
+      <div className="pt-2">
+        {activeTab === 'team' ? (
+          /* MANAGERS SCREEN: TEAM EDIT & MANAGE */
+          <Card className="glass-card border-none bg-white pb-3 shadow-xs">
+            <CardHeader className="pb-4 border-b border-stone-100">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-primary font-bold">Equipe Comercial</CardTitle>
-                  <CardDescription>Resumo de orçamentos e performance da sua equipe.</CardDescription>
+                  <CardTitle className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Users className="w-4.5 h-4.5 text-amber-700" /> Equipe de Showroom Ativa
+                  </CardTitle>
+                  <CardDescription className="text-xs text-stone-500 font-semibold">Editar nomes, realocar consultores e encaminhar remanejamentos comerciais.</CardDescription>
                 </div>
-                <div className="relative w-full md:w-64">
-                  <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <div className="relative w-full md:w-72">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300" />
                   <Input 
-                    placeholder="Buscar vendedor..." 
-                    className="pl-9 bg-white border-slate-200 focus-visible:ring-primary rounded-xl"
+                    placeholder="Filtrar por nome..." 
+                    className="bg-white h-10 pl-10 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300 focus:ring-0"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -216,12 +286,12 @@ export const ManagerDashboard = () => {
             </CardHeader>
             <CardContent className="p-0">
               <Table>
-                <TableHeader className="bg-slate-50">
-                  <TableRow>
-                    <TableHead className="font-bold text-slate-700">Vendedor</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700">Orçamentos</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700">Montante Total</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700">Ações</TableHead>
+                <TableHeader className="bg-stone-50/50">
+                  <TableRow className="border-stone-100">
+                    <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400 pl-6">Consultor</TableHead>
+                    <TableHead className="text-center font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Atendimentos</TableHead>
+                    <TableHead className="text-right font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Potencial na Mão</TableHead>
+                    <TableHead className="text-right font-extrabold uppercase text-[9px] tracking-wider text-stone-400 pr-6">Ações Táticas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -229,38 +299,75 @@ export const ManagerDashboard = () => {
                     const sQuotes = myBranchQuotes.filter(q => q.createdBy === s.id && !q.isTransferred);
                     const sTotal = sQuotes.reduce((acc, q) => acc + q.value, 0);
                     return (
-                      <TableRow key={s.id} className="hover:bg-slate-50 transition-colors">
-                        <TableCell className="font-semibold text-slate-800">{s.name}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="secondary" className="font-mono bg-primary/5 text-primary font-bold">{sQuotes.length}</Badge>
+                      <TableRow key={s.id} className="border-stone-100 hover:bg-stone-50/50 transition-colors">
+                        <TableCell className="font-bold text-stone-950 pl-6 uppercase">{s.name}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="font-mono text-xs font-extrabold text-stone-800 bg-stone-100 border border-stone-200/50 rounded-md px-2 py-0.5">{sQuotes.length}</span>
                         </TableCell>
-                        <TableCell className="text-right font-bold text-primary font-mono">
-                          {formatCurrency(sTotal)}
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button variant="ghost" size="icon" className="hover:bg-slate-100" title="Editar Nome" onClick={() => setEditUserModal({ isOpen: true, user: s, name: s.name })}>
-                            <Edit className="w-4 h-4 text-slate-500" />
-                          </Button>
-                          <Button variant="outline" size="icon" className="text-primary border-primary/20 hover:bg-primary/5 shadow-sm" title="Ver Detalhes do Vendedor" onClick={() => setSellerDetailsId(s.id)}>
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" title="Transferir Vendedor" onClick={() => { setUserToTransfer(s.id); setTransferDialogOpen(true); }}>
-                            <Shuffle className="w-4 h-4 text-slate-500" />
-                          </Button>
-                          <Button variant="ghost" size="icon" title="Desligar e Repassar Clientes" onClick={() => { setUserToReassign(s.id); setReassignDialogOpen(true); }}>
-                            <UserMinus className="w-4 h-4 text-red-500" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="hover:bg-red-50" title="Excluir Definitivamente" onClick={() => setDeleteUserModal({ isOpen: true, user: s })}>
-                            <Trash2 className="w-4 h-4 text-red-500" />
-                          </Button>
+                        <TableCell className="text-right font-black font-mono text-stone-900">{formatCurrency(sTotal)}</TableCell>
+                        <TableCell className="text-right pr-6">
+                          <div className="flex items-center justify-end gap-1.5">
+                            
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditUserModal({ isOpen: true, user: s, name: s.name })}
+                              className="w-8 h-8 text-stone-400 hover:text-stone-900 hover:bg-stone-100 flex items-center justify-center transition-all bg-transparent border-none"
+                              title="Editar nome"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSellerDetailsId(s.id)}
+                              className="w-8 h-8 text-amber-700 hover:text-amber-800 hover:bg-amber-50 flex items-center justify-center transition-all bg-transparent border-none"
+                              title="Visualizar orçamentos"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => { setUserToTransfer(s.id); setTransferDialogOpen(true); }}
+                              className="w-8 h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-550/10 flex items-center justify-center transition-all bg-transparent border-none"
+                              title="Remanejar para outra Loja"
+                            >
+                              <Shuffle className="w-4 h-4" />
+                            </Button>
+
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => { setUserToReassign(s.id); setReassignDialogOpen(true); }}
+                              className="w-8 h-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-all bg-transparent border-none"
+                              title="Repassar carteira de clientes"
+                            >
+                              <UserMinus className="w-4 h-4" />
+                            </Button>
+
+                            <Button 
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeleteUserModal({ isOpen: true, user: s })}
+                              className="w-8 h-8 text-stone-300 hover:text-rose-600 hover:bg-stone-100 flex items-center justify-center transition-all animate-none bg-transparent border-none"
+                              title="Remover consultor da unidade"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
                   })}
+                  
                   {filteredSalespeople.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center text-slate-400 border-dashed">
-                        {searchTerm ? 'Nenhum vendedor encontrado.' : 'Sua equipe ainda não possui vendedores.'}
+                      <TableCell colSpan={4} className="py-12 text-center text-stone-400 font-bold border-none text-xs uppercase tracking-widest">
+                        Nenhum consultor registrado nesta unidade.
                       </TableCell>
                     </TableRow>
                   )}
@@ -268,142 +375,140 @@ export const ManagerDashboard = () => {
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-6">
-          <Card className="shadow-lg border-slate-100 rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 border-b border-primary/5 bg-primary/5">
-              <CardTitle className="text-primary font-bold">Histórico de Orçamentos</CardTitle>
-              <CardDescription>Acompanhe todos os orçamentos realizados nesta filial.</CardDescription>
+        ) : (
+          /* MANAGERS SCREEN: MAIN HOME WORKFLOW HISTORY */
+          <Card className="glass-card border-none bg-white pb-3 shadow-xs">
+            <CardHeader className="pb-4 border-b border-stone-100">
+              <CardTitle className="text-sm font-black text-stone-900 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText className="w-4.5 h-4.5 text-amber-700" /> Fluxo Geral de Propostas na Loja
+              </CardTitle>
+              <CardDescription className="text-xs text-stone-500 font-semibold">Tabela de supervisão imediata com monitoramento e ferramenta de fechamento VIP.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-               <Table>
-                <TableHeader className="bg-slate-50">
-                  <TableRow>
-                    <TableHead className="font-bold text-slate-700">Cliente</TableHead>
-                    <TableHead className="font-bold text-slate-700">Vendedor</TableHead>
-                    <TableHead className="font-bold text-slate-700">Produto</TableHead>
-                    <TableHead className="font-bold text-slate-700">Retorno</TableHead>
-                    <TableHead className="font-bold text-slate-700">Valor</TableHead>
-                    <TableHead className="font-bold text-slate-700">Status</TableHead>
-                    <TableHead className="font-bold text-slate-700 text-right">Ação</TableHead>
+              <Table>
+                <TableHeader className="bg-stone-50/50">
+                  <TableRow className="border-stone-100">
+                    <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400 pl-6">Cliente</TableHead>
+                    <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Consultor</TableHead>
+                    <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Previsão Contato</TableHead>
+                    <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Valor Proposta</TableHead>
+                    <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Status</TableHead>
+                    <TableHead className="text-right font-extrabold uppercase text-[9px] tracking-wider text-stone-400 pr-6">Supervisão Fechamento</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {myBranchQuotes.map(q => {
                     const salesperson = mySalespeople.find(s => s.id === q.createdBy);
                     return (
-                      <TableRow key={q.id}>
-                        <TableCell className="font-medium text-slate-900">{q.clientName}</TableCell>
-                        <TableCell className="text-slate-600">{salesperson?.name || 'Desconhecido'}</TableCell>
-                        <TableCell className="text-slate-600">{q.productInterest || '-'}</TableCell>
-                        <TableCell className="text-slate-600">{new Date(q.returnDate).toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell className="font-bold text-primary">{formatCurrency(q.value)}</TableCell>
+                      <TableRow key={q.id} className="border-stone-100 hover:bg-stone-50/50 transition-colors">
+                        <TableCell className="font-bold text-stone-950 pl-6 uppercase">{q.clientName}</TableCell>
+                        <TableCell className="text-stone-600 font-bold uppercase text-[11px]">{salesperson?.name || 'Vendedor Removido'}</TableCell>
+                        <TableCell className="text-stone-500 font-mono text-xs">{new Date(q.returnDate).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="font-black text-stone-950 font-mono">{formatCurrency(q.value)}</TableCell>
                         <TableCell>
-                          {q.status === 'pending' && <Badge variant="outline" className="bg-amber-50 text-amber-700">Pêndente</Badge>}
-                          {q.status === 'won' && <Badge variant="outline" className="bg-emerald-50 text-emerald-700 font-bold">Ganho</Badge>}
-                          {q.status === 'lost' && <Badge variant="outline" className="bg-rose-50 text-rose-700">Perdido</Badge>}
+                          {q.status === 'pending' && <Badge className="bg-amber-100 text-amber-800 border-none font-bold text-[8px] uppercase tracking-wide">Pendente</Badge>}
+                          {q.status === 'won' && <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[8px] uppercase tracking-wide">Ganho (Venda!)</Badge>}
+                          {q.status === 'lost' && <Badge className="bg-stone-100 text-stone-400 border-none font-bold text-[8px] uppercase tracking-wide">Perdido</Badge>}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-xs font-mono text-slate-500">{formatPhone(q.clientPhone)}</span>
-                            <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-bold h-7" onClick={() => handleManagerMessage(q)}>
-                              <Send className="w-3 h-3 mr-2" /> WhatsApp
-                            </Button>
-                          </div>
+                        <TableCell className="text-right pr-6">
+                          <Button 
+                            variant="outline"
+                            className="bg-emerald-500/10 text-emerald-700 hover:bg-emerald-600 hover:text-white font-black uppercase text-[9px] tracking-widest h-8 px-3 rounded-lg transition-all flex items-center justify-end gap-1.5 ml-auto border border-emerald-500/10" 
+                            onClick={() => handleManagerMessage(q)}
+                          >
+                            <Send className="w-3.5 h-3.5" /> Chamar Gerente VIP
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
                   })}
+                  
+                  {myBranchQuotes.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-12 text-center text-stone-400 font-bold border-none text-xs uppercase tracking-widest">
+                        Nenhum orçamento pendente nesta filial ativa.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
-      {/* Seller Details Dialog */}
+      {/* Seller Details Dialog view items */}
       <Dialog open={!!sellerDetailsId} onOpenChange={(open) => !open && setSellerDetailsId(null)}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <Users className="w-6 h-6 text-primary" />
-              Relatório Individual: {detailedSeller?.name}
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto bg-white rounded-3xl border-stone-200">
+          <DialogHeader className="border-b border-stone-100 pb-4">
+            <DialogTitle className="text-lg flex items-center gap-2 text-stone-900 font-extrabold uppercase italic">
+              <Users className="w-6 h-6 text-amber-700" /> Relatório Individual de Vendas
             </DialogTitle>
-            <DialogDescription>
-              Acompanhamento de todos os orçamentos tratativos por este consultor.
+            <DialogDescription className="text-xs text-stone-500">
+              Acompanhamento detalhado das tratativas comerciais do consultor <strong>{detailedSeller?.name}</strong>.
             </DialogDescription>
           </DialogHeader>
           
           {detailedSeller && (
             <div className="space-y-6 pt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="bg-slate-50 border-none shadow-sm">
-                  <CardHeader className="pb-2">
-                     <CardTitle className="text-sm text-slate-500">Volume de Atendimentos</CardTitle>
+                <Card className="bg-stone-50 border-stone-200 shadow-none">
+                  <CardHeader className="pb-1.5">
+                     <CardTitle className="text-[10px] font-black uppercase tracking-wider text-stone-400">Total Propostas</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="font-semibold text-2xl">{detailedSellerQuotes.length} <span className="text-sm font-normal text-slate-500">orçamentos</span></div>
+                    <div className="font-extrabold text-stone-900 text-xl">{detailedSellerQuotes.length} Unidades</div>
                   </CardContent>
                 </Card>
-                <Card className="bg-primary/5 border-primary/10 shadow-sm">
-                  <CardHeader className="pb-2">
-                     <CardTitle className="text-sm text-primary font-bold">Potencial na Mão do Vendedor</CardTitle>
+                <Card className="bg-stone-50 border-stone-200 shadow-none">
+                  <CardHeader className="pb-1.5">
+                     <CardTitle className="text-[10px] font-black uppercase tracking-wider text-amber-800">Moeda Potencial Acumulada</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="font-black text-2xl text-primary">{formatCurrency(detailedSellerTotal)}</div>
+                    <div className="font-black text-stone-900 text-xl font-mono">{formatCurrency(detailedSellerTotal)}</div>
                   </CardContent>
                 </Card>
               </div>
 
-              <Card className="border-slate-200">
+              <Card className="border-stone-250 bg-white">
                 <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead>Cliente / Produto</TableHead>
-                      <TableHead>Contato</TableHead>
-                      <TableHead>Motivo Retenção</TableHead>
-                      <TableHead>Retorno</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Montante</TableHead>
+                  <TableHeader className="bg-stone-50">
+                    <TableRow className="border-stone-100">
+                      <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400 pl-4">Cliente / Produto</TableHead>
+                      <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Motivo</TableHead>
+                      <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Retorno</TableHead>
+                      <TableHead className="font-extrabold uppercase text-[9px] tracking-wider text-stone-400">Status</TableHead>
+                      <TableHead className="text-right font-extrabold uppercase text-[9px] tracking-wider text-stone-400 pr-4">Montante</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {detailedSellerQuotes.map(q => (
-                      <TableRow key={q.id}>
-                        <TableCell>
-                          <div className="font-medium text-slate-900">{q.clientName}</div>
-                          <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                            <FileText className="w-3 h-3" /> {q.productInterest || 'Não informado'}
+                      <TableRow key={q.id} className="border-stone-100">
+                        <TableCell className="pl-4">
+                          <div className="font-bold text-stone-900 uppercase text-xs">{q.clientName}</div>
+                          <div className="text-[10.5px] text-stone-400 font-semibold mt-0.5 flex items-center gap-1">
+                            <FileText className="w-3 M-3" /> {q.productInterest || 'Uso Geral'}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm font-medium">{q.clientPhone}</div>
-                          <a href={`https://wa.me/${q.clientPhone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 hover:text-green-700 flex items-center gap-1 mt-0.5">
-                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                            WhatsApp
-                          </a>
-                        </TableCell>
-                        <TableCell>
-                           <Badge variant="outline" className="bg-slate-100 text-slate-700 font-normal">
+                           <Badge className="bg-stone-100 text-stone-700 border-none font-bold text-[8px] uppercase tracking-wide">
                              {getCategoryLabel(q.category)}
                            </Badge>
                         </TableCell>
-                        <TableCell className="text-sm flex items-center gap-1">
-                           <CalendarCheck className="w-3 h-3 text-slate-400" />
+                        <TableCell className="text-xs font-bold text-stone-600">
                            {new Date(q.returnDate).toLocaleDateString('pt-BR')}
                         </TableCell>
                         <TableCell>
-                          {q.status === 'pending' && <Badge variant="outline" className="bg-amber-50 text-amber-700">Pendente</Badge>}
-                          {q.status === 'won' && <Badge variant="outline" className="bg-green-50 text-green-700">Ganho</Badge>}
-                          {q.status === 'lost' && <Badge variant="outline" className="bg-red-50 text-red-700">Perdido</Badge>}
+                          {q.status === 'pending' && <Badge className="bg-amber-100 text-amber-800 border-none font-bold text-[8.5px] uppercase">Aberto</Badge>}
+                          {q.status === 'won' && <Badge className="bg-emerald-100 text-emerald-800 border-none font-bold text-[8.5px] uppercase">Ganho!</Badge>}
+                          {q.status === 'lost' && <Badge className="bg-stone-100 text-stone-400 border-none font-bold text-[8.5px] uppercase">Perdido</Badge>}
                         </TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(q.value)}</TableCell>
+                        <TableCell className="text-right font-black font-mono text-stone-900 pr-4">{formatCurrency(q.value)}</TableCell>
                       </TableRow>
                     ))}
                     {detailedSellerQuotes.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-slate-500 py-6">Este vendedor ainda não gerou orçamentos.</TableCell>
+                        <TableCell colSpan={5} className="text-center text-stone-400 py-8 font-bold text-xs uppercase tracking-widest">Este consultor ainda não gerou propostas.</TableCell>
                       </TableRow>
                     )}
                   </TableBody>
@@ -414,95 +519,113 @@ export const ManagerDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Transfer Dialog */}
+      {/* dialog for transfer */}
       <Dialog open={transferDialogOpen} onOpenChange={setTransferDialogOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
           <DialogHeader>
-            <DialogTitle>Transferir Vendedor</DialogTitle>
-            <DialogDescription>
-              Transfere o vendedor para outra filial. Os orçamentos gerados aqui continuarão contando para a <strong>{myBranch?.name}</strong> em modo "Legado".
-            </DialogDescription>
+            <DialogTitle className="text-stone-900 font-extrabold uppercase italic flex items-center gap-2">
+              <Shuffle className="w-5 h-5 text-amber-700" /> Transferência de Consultor
+            </DialogTitle>
+            <DialogDescription className="text-xs text-stone-500">Mover profissional da filial {myBranch?.name} para outra unidade regional.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Para qual filial?</Label>
-              <Select value={targetBranch} onValueChange={setTargetBranch}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {otherBranches.map(b => (
-                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="space-y-4 pt-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Selecione a Filial de Destino</Label>
+              <select
+                value={targetBranch}
+                onChange={(e) => setTargetBranch(e.target.value)}
+                className="w-full h-11 rounded-xl border border-stone-200 bg-white px-3.5 text-xs font-bold text-stone-800 outline-none focus:border-amber-700/50 focus:ring-0 focus:outline-none transition-all cursor-pointer appearance-none"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 14px center',
+                  backgroundSize: '16px'
+                }}
+              >
+                <option value="">Selecione a filial...</option>
+                {otherBranches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
             </div>
-            <Button onClick={handleTransfer} className="w-full">Realizar Transferência</Button>
+            <Button onClick={handleTransfer} className="w-full h-11 text-xs uppercase font-black bg-amber-700 hover:bg-amber-800 text-white">
+              Mudar Consultor de Loja
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Reassign Dialog */}
+      {/* dialog for reassign quotes */}
       <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-red-600">Desligamento / Repasse de Carteira</DialogTitle>
-            <DialogDescription>
-              Se o vendedor for demitido ou sair, selecione quem assumirá os clientes pendentes dele.
-            </DialogDescription>
+            <DialogTitle className="text-stone-900 font-extrabold uppercase italic flex items-center gap-2">
+              <UserMinus className="w-5 h-5 text-amber-700" /> Carteira de Repasse VIP
+            </DialogTitle>
+            <DialogDescription className="text-xs text-stone-500">Remapear todos os orçamentos ativos desse profissional desligado para outro consultor.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Novo Vendedor Responsável</Label>
-              <Select value={targetSalesperson} onValueChange={setTargetSalesperson}>
-                <SelectTrigger><SelectValue placeholder="Selecione o sucessor" /></SelectTrigger>
-                <SelectContent>
-                  {mySalespeople.filter(s => s.id !== userToReassign).map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="space-y-4 pt-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Consultor Sucessor (Herdeiro)</Label>
+              <select
+                value={targetSalesperson}
+                onChange={(e) => setTargetSalesperson(e.target.value)}
+                className="w-full h-11 rounded-xl border border-stone-200 bg-white px-3.5 text-xs font-bold text-stone-800 outline-none focus:border-amber-700/50 focus:ring-0 focus:outline-none transition-all cursor-pointer appearance-none"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 14px center',
+                  backgroundSize: '16px'
+                }}
+              >
+                <option value="">Escolher herdeiro...</option>
+                {mySalespeople.filter(s => s.id !== userToReassign).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
             </div>
-            <Button onClick={handleReassign} variant="destructive" className="w-full shadow-md">Transferir Carteira e Orçamentos</Button>
+            <Button onClick={handleReassign} className="w-full h-11 text-xs uppercase font-black bg-stone-900 text-white hover:bg-stone-800">
+              Transferir Todos os Ativos
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Modal */}
+      {/* edit modal title adjustment */}
       <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '' })}>
-        <DialogContent>
+        <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
           <DialogHeader>
-            <DialogTitle>Editar Vendedor</DialogTitle>
-            <DialogDescription>Corrija o nome do vendedor caso tenha cadastrado errado.</DialogDescription>
+            <DialogTitle className="text-stone-900 font-extrabold uppercase italic">Editar Consultor</DialogTitle>
+            <DialogDescription className="text-xs text-stone-500">Ajuste o nome do consultor ou credencial.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditUser} className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Nome do Vendedor</Label>
-              <Input value={editUserModal.name} onChange={(e) => setEditUserModal(m => ({ ...m, name: e.target.value }))} required />
+          <form onSubmit={handleEditUser} className="space-y-4 pt-3">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nome Registrado</Label>
+              <Input className="h-11 bg-white rounded-xl border-stone-200 text-xs font-bold text-stone-1000" value={editUserModal.name} onChange={(e) => setEditUserModal(m => ({ ...m, name: e.target.value }))} required />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '' })}>Cancelar</Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white font-bold">Salvar Alterações</Button>
+            <DialogFooter className="gap-2 shrink-0 flex-row justify-end mt-4">
+              <Button type="button" variant="ghost" className="h-10 text-xs text-stone-500" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '' })}>Sair</Button>
+              <Button type="submit" className="h-10 text-xs font-black uppercase tracking-widest bg-amber-700 hover:bg-amber-800 text-white border-transparent">Gravar</Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Modal */}
-      <Dialog open={deleteUserModal.isOpen} onOpenChange={(v) => !v && setDeleteUserModal({ isOpen: false, user: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-red-600 flex items-center gap-2">
-              <Trash2 className="w-5 h-5" /> Excluir Vendedor
-            </DialogTitle>
-            <DialogDescription>
-              Você está prestes a excluir <strong>{deleteUserModal.user?.name}</strong>. Os orçamentos atrelados a ele ficarão órfãos na estatística desta loja. Tem certeza?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-4 flex gap-2">
-            <Button type="button" variant="outline" onClick={() => setDeleteUserModal({ isOpen: false, user: null })}>Cancelar</Button>
-            <Button type="button" variant="destructive" onClick={handleDeleteUser}>Sim, Excluir</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete User details confirmation dialog */}
+      <ConfirmationDialog
+        isOpen={deleteUserModal.isOpen}
+        onOpenChange={(open) => !open && setDeleteUserModal({ isOpen: false, user: null })}
+        onConfirm={handleDeleteUser}
+        title="Excluir Perfil"
+        description={
+          <>
+            Você está prestes a desativar permanentemente o acesso comercial de <strong>{deleteUserModal.user?.name}</strong>. Esta ação não poderá ser desfeita.
+          </>
+        }
+        confirmText="Remover Contrato"
+        cancelText="Cancelar"
+        variant="destructive"
+      />
 
     </div>
   );
