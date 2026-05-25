@@ -47,6 +47,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         { id: 'home', label: 'Painel Geral', icon: <Home className="w-5 h-5" /> },
         { id: 'branches', label: 'Unidades (Lojas)', icon: <Store className="w-5 h-5" /> },
         { id: 'users', label: 'Gestão de Staff', icon: <Users className="w-5 h-5" /> },
+        { id: 'security', label: 'Controle & SaaS', icon: <ShieldCheck className="w-5 h-5" /> },
       ];
     }
     if (currentUser.role === 'manager') {

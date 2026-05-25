@@ -70,3 +70,23 @@ export interface Quote {
   
   createdAt: string;
 }
+
+export interface Company {
+  id: string;
+  name: string;
+  plan: string;
+  maxUsers: number;
+  licenseExpires: string;
+}
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  role: string;
+  action: string;
+  ipAddress: string;
+  status: 'SUCCESS' | 'WARNING' | 'ALERT';
+}
+

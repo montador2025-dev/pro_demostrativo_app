@@ -174,15 +174,25 @@ export async function generateProfessionalQuotePDF({
     
     const formattedSellerPhone = sellerPhone || '(21) 97777-3333';
     doc.text(`CONTATO: ${formattedSellerPhone}`, 108, currentY + 18);
-    doc.text(`DATA EMISSÃO: ${emissionDateStr}`, 108, currentY + 24);
-    doc.text(`VALIDADE: ${validityDays} dias (Até ${limitDateStr})`, 108, currentY + 30);
+
+    // Decorative internal line inside info box separating human info from dates
+    doc.setDrawColor(226, 232, 240); // Slate 200
+    doc.setLineWidth(0.3);
+    doc.line(12, currentY + 22.5, 194, currentY + 22.5);
+
+    // Horizontal secondary metadata strip at the card bottom floor
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139); // Slate 500
+    doc.text(`EMISSÃO: ${emissionDateStr}`, 15, currentY + 27.5);
+    doc.text(`VALIDADE: ${validityDays} DIAS`, 191, currentY + 27.5, { align: 'right' });
 
     // Structural border for info box
     doc.setDrawColor(226, 232, 240); // Slate 200
     doc.setFillColor(248, 250, 252); // Slate 50
-    doc.rect(12, currentY - 5, 182, 39, 'S');
+    doc.rect(12, currentY - 5, 182, 36, 'S');
 
-    currentY += 39;
+    currentY += 36;
 
     // --- Product List Details ---
     doc.setTextColor(15, 23, 42);
