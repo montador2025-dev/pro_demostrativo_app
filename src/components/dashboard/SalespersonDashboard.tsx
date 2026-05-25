@@ -74,6 +74,60 @@ export const SalespersonDashboard = () => {
   const [playedReminderIds, setPlayedReminderIds] = useState<string[]>([]);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
+  // MÓDULO 1 & 2: API UNIVERSAL DE CATÁLOGO & BUSCA INTELIGENTE
+  const [catalogSearchMode, setCatalogSearchMode] = useState<'local' | 'online'>('local');
+  const [onlineCatalogUrl, setOnlineCatalogUrl] = useState('catalogo.sonoshowmoveis.com.br');
+  const [isOnlineCatalogSearching, setIsOnlineCatalogSearching] = useState(false);
+  const [onlineProducts, setOnlineProducts] = useState<any[]>([]);
+  const [onlineError, setOnlineError] = useState('');
+
+  // Auto query with debounce
+  useEffect(() => {
+    if (catalogSearchMode !== 'online' || !catalogSearch.trim()) {
+      setOnlineProducts([]);
+      return;
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      setIsOnlineCatalogSearching(true);
+      setOnlineError('');
+      try {
+        const url = `/api/catalog?site=${encodeURIComponent(onlineCatalogUrl)}&query=${encodeURIComponent(catalogSearch)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.success && Array.isArray(data.products)) {
+          setOnlineProducts(data.products);
+        } else {
+          setOnlineError(data.error || 'Nenhum item detectado nesta URL.');
+        }
+      } catch (err) {
+        setOnlineError('Incapaz de conectar com o serviço de Catálogo Radar.');
+      } finally {
+        setIsOnlineCatalogSearching(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(delayDebounce);
+  }, [catalogSearch, catalogSearchMode, onlineCatalogUrl]);
+
+  // Map online product listings on the fly to fulfill type alignments
+  const mappedOnlineProducts = useMemo(() => {
+    return onlineProducts.map((p, index) => {
+      const id = `online-${p.sku || index}-${Math.random().toString(36).substring(3,7)}`;
+      return {
+        id,
+        code: p.sku || `ON-${index}`,
+        name: p.name,
+        nickname: p.name.split(' ').slice(0,3).join(' '),
+        description: p.description || 'Produto importado via Radar Comercial.',
+        specifications: `Plataforma: ${p.category || 'E-commerce'} | SKU: ${p.sku || ''} | Fonte: ${onlineCatalogUrl}`,
+        imageUrl: p.image || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&q=80',
+        category: p.category || 'Geral',
+        price: Number(p.price) || 0
+      };
+    });
+  }, [onlineProducts, onlineCatalogUrl]);
+
   useEffect(() => {
     if (activeTab === 'new_quote') {
       setIsQuoteInitializing(true);
@@ -1300,11 +1354,94 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
             </CardHeader>
             
             <CardContent className="p-4 space-y-4">
+              {/* MÓDULO 2 - Local vs Online Switcher */}
+              <div className="grid grid-cols-2 gap-1 p-1 bg-stone-100 rounded-xl border border-stone-200/50 select-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCatalogSearchMode('local');
+                    setCatalogSearch('');
+                  }}
+                  className={`py-2 text-[9px] uppercase font-black tracking-wider rounded-lg transition-all ${
+                    catalogSearchMode === 'local'
+                      ? 'bg-amber-700 text-white shadow-2xs'
+                      : 'text-stone-500 hover:text-stone-850 hover:bg-white/40'
+                  }`}
+                >
+                  📁 Catálogo Local
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCatalogSearchMode('online');
+                    setCatalogSearch('');
+                  }}
+                  className={`py-2 text-[9px] uppercase font-black tracking-wider rounded-lg transition-all flex items-center justify-center gap-1 ${
+                    catalogSearchMode === 'online'
+                      ? 'bg-amber-700 text-white shadow-2xs'
+                      : 'text-stone-500 hover:text-stone-850 hover:bg-white/40'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3 text-amber-500" /> Busca Comercial Radar
+                </button>
+              </div>
+
+              {/* Online Site Selector / Editor Target */}
+              {catalogSearchMode === 'online' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="space-y-2.5 pb-2.5 border-b border-stone-100"
+                >
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="sm:w-5/12">
+                      <select
+                        value={['catalogo.sonoshowmoveis.com.br'].includes(onlineCatalogUrl) ? onlineCatalogUrl : 'custom'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'custom') {
+                            setOnlineCatalogUrl('exemplo-loja.com.br');
+                          } else {
+                            setOnlineCatalogUrl(val);
+                          }
+                          setOnlineProducts([]);
+                        }}
+                        className="w-full h-10 text-xs font-bold border border-stone-200 rounded-xl bg-white px-3.5 outline-none focus:border-amber-700/50 cursor-pointer appearance-none"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 12px center',
+                          backgroundSize: '14px'
+                        }}
+                      >
+                        <option value="catalogo.sonoshowmoveis.com.br">🇧🇷 Sono Show Catálogo</option>
+                        <option value="custom">🌐 Outro e-Commerce...</option>
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Insira o link ou domínio do site"
+                        value={onlineCatalogUrl}
+                        onChange={(e) => {
+                          setOnlineCatalogUrl(e.target.value);
+                          setOnlineProducts([]);
+                        }}
+                        className="h-10 text-xs font-bold border-stone-200 rounded-xl bg-white pr-4"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Filter search bar */}
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300" />
                 <Input 
-                  placeholder="Buscar sofá, rack, código, categoria..." 
+                  placeholder={
+                    catalogSearchMode === 'local' 
+                      ? "Buscar sofá, rack, código, categoria..." 
+                      : "Digite o termo (ex: sofá, mesa, colchão) e pesquise..."
+                  }
                   className="bg-white h-11 pl-10 pr-10 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300"
                   value={catalogSearch}
                   onChange={(e) => setCatalogSearch(e.target.value)}
@@ -1323,15 +1460,33 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
               {/* Real-time search status & matches indicators */}
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-stone-400 px-1">
-                  <span>Móveis Disponíveis ({filteredCatalogQuery.length})</span>
-                  {catalogSearch.trim() && (
-                    <span className="text-amber-700 font-extrabold normal-case bg-amber-50 px-2 py-0.5 rounded-md">
-                      Buscando em tempo real...
-                    </span>
+                  {catalogSearchMode === 'local' ? (
+                    <>
+                      <span>Móveis Disponíveis ({filteredCatalogQuery.length})</span>
+                      {catalogSearch.trim() && (
+                        <span className="text-amber-700 font-extrabold normal-case bg-amber-50 px-2 py-0.5 rounded-md">
+                          Filtrando catálogo...
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <span>Produtos Detectados ({mappedOnlineProducts.length})</span>
+                      {isOnlineCatalogSearching ? (
+                        <span className="text-amber-800 font-semibold flex items-center gap-1 normal-case bg-amber-55/15 px-2 py-0.5 rounded-md">
+                          <span className="w-2 h-2 rounded-full border-2 border-amber-700 border-t-transparent animate-spin"></span>
+                          Detectando plataforma & buscando...
+                        </span>
+                      ) : catalogSearch.trim() && (
+                        <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md normal-case">
+                          Conectado com o site oficial
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
 
-                {isFallbackSearch && (
+                {catalogSearchMode === 'local' && isFallbackSearch && (
                   <motion.div 
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1341,29 +1496,42 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                     <span>Nenhum em "{activeCatalogCategory}". Buscado no catálogo geral!</span>
                   </motion.div>
                 )}
+
+                {catalogSearchMode === 'online' && onlineError && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-rose-50 border border-rose-100 text-rose-700 text-[9px] font-bold py-2.5 px-3.5 rounded-xl flex items-center gap-2 leading-relaxed"
+                  >
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                    <span>{onlineError} Tentando scrapers e logs automáticos do Radar Comercial.</span>
+                  </motion.div>
+                )}
               </div>
 
-              {/* Dynamic Categories Scroll Pills */}
-              <div className="flex flex-wrap gap-1 bg-stone-50/50 p-1 rounded-xl border border-stone-200/50 select-none">
-                {uniqueCategories.map(cat => (
-                  <Button
-                    key={cat}
-                    variant="ghost"
-                    onClick={() => setActiveCatalogCategory(cat)}
-                    className={`text-[8px] font-extrabold uppercase tracking-widest px-2.5 py-1.5 h-auto rounded-lg transition-all border-none ${
-                      activeCatalogCategory === cat 
-                        ? 'bg-amber-700 text-white hover:bg-amber-800 shadow-xs'
-                        : 'text-stone-500 hover:text-stone-1000'
-                    }`}
-                  >
-                    {cat}
-                  </Button>
-                ))}
-              </div>
+              {/* Dynamic Categories Scroll Pills (Only for Local catalog) */}
+              {catalogSearchMode === 'local' && (
+                <div className="flex flex-wrap gap-1 bg-stone-50/50 p-1 rounded-xl border border-stone-200/50 select-none">
+                  {uniqueCategories.map(cat => (
+                    <Button
+                      key={cat}
+                      variant="ghost"
+                      onClick={() => setActiveCatalogCategory(cat)}
+                      className={`text-[8px] font-extrabold uppercase tracking-widest px-2.5 py-1.5 h-auto rounded-lg transition-all border-none ${
+                        activeCatalogCategory === cat 
+                          ? 'bg-amber-700 text-white hover:bg-amber-800 shadow-xs'
+                          : 'text-stone-500 hover:text-stone-1000'
+                      }`}
+                    >
+                      {cat}
+                    </Button>
+                  ))}
+                </div>
+              )}
 
               {/* PRODUCTS LIST */}
               <div className="space-y-3.5 max-h-[460px] overflow-y-auto pr-1">
-                {filteredCatalogQuery.map((p) => {
+                {(catalogSearchMode === 'local' ? filteredCatalogQuery : mappedOnlineProducts).map((p) => {
                   const isExpanded = expandedProductSpecs[p.id] || false;
                   const isInCart = selectedItems.some(i => i.productId === p.id);
 
@@ -1374,14 +1542,23 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                       className="border border-stone-200 rounded-2xl p-3 bg-white hover:border-amber-700/25 transition-all group shadow-2xs"
                     >
                       <div className="flex gap-3">
-                        <img src={p.imageUrl} alt={p.nickname} className="w-14 h-14 rounded-xl object-cover bg-stone-50 shrink-0 border border-stone-100" referrerPolicy="no-referrer" />
+                        <img 
+                          src={p.imageUrl} 
+                          alt={p.nickname} 
+                          className="w-14 h-14 rounded-xl object-cover bg-stone-50 shrink-0 border border-stone-100" 
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            // Suppress broken images with gorgeous default placeholder fallback
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&q=80';
+                          }}
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex justify-between items-start gap-2">
-                            <span className="text-[7.5px] font-black text-amber-800 bg-amber-50 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                            <span className="text-[7.5px] font-black text-amber-800 bg-amber-55/10 rounded px-1.5 py-0.5 uppercase tracking-wider">
                               {p.category}
                             </span>
                             <span className="text-xs font-black font-mono text-stone-900 shrink-0">
-                              {formatCurrency(p.price)}
+                              {p.price > 0 ? formatCurrency(p.price) : 'Sob Consulta'}
                             </span>
                           </div>
                           
@@ -1450,11 +1627,20 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                   );
                 })}
 
-                {filteredCatalogQuery.length === 0 && (
+                {((catalogSearchMode === 'local' ? filteredCatalogQuery : mappedOnlineProducts).length === 0) && (
                   <div className="py-12 text-center text-stone-400 font-semibold select-none">
                     <HelpCircle className="w-10 h-10 mx-auto mb-2 text-stone-200" />
-                    <p className="text-xs uppercase">Móvel não catalogado</p>
-                    <p className="text-[10px] text-stone-400 mt-1">Refine o termo digitado ou use cadastro manual.</p>
+                    {catalogSearchMode === 'local' ? (
+                      <>
+                        <p className="text-xs uppercase">Móvel não catalogado</p>
+                        <p className="text-[10px] text-stone-400 mt-1">Refine o termo digitado ou use cadastro manual.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs uppercase">Sem resultados online</p>
+                        <p className="text-[10px] text-stone-400 mt-1">Digite um termo no campo de pesquisa para buscar no e-commerce.</p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
