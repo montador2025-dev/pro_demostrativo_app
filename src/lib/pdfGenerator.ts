@@ -45,6 +45,7 @@ interface GeneratePDFParams {
   quote: Quote;
   sellerName: string;
   branchName: string;
+  sellerPhone?: string;
 }
 
 /**
@@ -54,7 +55,8 @@ interface GeneratePDFParams {
 export async function generateProfessionalQuotePDF({
   quote,
   sellerName,
-  branchName
+  branchName,
+  sellerPhone
 }: GeneratePDFParams): Promise<boolean> {
   try {
     const doc = new jsPDF({
@@ -63,49 +65,78 @@ export async function generateProfessionalQuotePDF({
       format: 'a4'
     });
 
-    const pageCount = 1;
     let currentY = 15;
 
-    // --- Elegant Brand Header ---
-    // Background Slate Header
-    doc.setFillColor(2, 6, 23); // #020617 Slate 950
-    doc.rect(10, currentY, 190, 24, 'F');
+    // --- Clean Corporate Brand Header Frame ---
+    doc.setFillColor(248, 250, 252); // soft slate background box
+    doc.rect(12, currentY, 182, 24, 'F');
+    doc.setDrawColor(226, 232, 240); // slate 200 frame border
+    doc.setLineWidth(0.3);
+    doc.rect(12, currentY, 182, 24, 'S');
 
-    // Logo & System Text
-    doc.setTextColor(251, 191, 36); // #fbbf24 Amber 400
+    // Draw the high-fidelity premium SonoShow Oval Logo Badge
+    // Outer silver shadow ellipse
+    doc.setFillColor(220, 222, 225); // silver grey (#dcdee1)
+    doc.ellipse(37.5, currentY + 12, 24.5, 9, 'F');
+
+    // Inner navy blue ellipse matching original logo background
+    doc.setFillColor(18, 30, 49); // Dark navy (#121e31)
+    doc.ellipse(39, currentY + 12, 23.5, 8.2, 'F');
+
+    // Gold "SONO" Text
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.text('SONO SHOW MÓVEIS', 15, currentY + 15);
+    doc.setFontSize(14);
+    doc.setTextColor(241, 179, 48); // Golden yellow (#f1b330)
+    doc.text('SONO', 24.5, currentY + 11.2, { align: 'left' });
 
+    // White "SHOW" Text
     doc.setTextColor(255, 255, 255);
+    doc.text('SHOW', 40.5, currentY + 11.2, { align: 'left' });
+
+    // "MÓVEIS" Text centered below
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('ATENDEPRO • ORÇAMENTO EXCLUSIVO', 150, currentY + 14);
+    doc.setFontSize(5.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text('M Ó V E I S', 39, currentY + 16.2, { align: 'center' });
+
+    // Right-aligned header titles
+    doc.setTextColor(15, 23, 42); // Slate 900
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.text('PROPOSTA COMERCIAL', 190, currentY + 10.5, { align: 'right' });
+
+    doc.setTextColor(180, 83, 9); // Amber 700
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('ATENDEPRO • ORÇAMENTO EXCLUSIVO', 190, currentY + 15.5, { align: 'right' });
 
     currentY += 30;
 
     // --- Document Meta / Title ---
     doc.setTextColor(15, 23, 42); // Slate 900
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text(`PROPOSTA COMERCIAL #${quote.id.substring(0, 8).toUpperCase()}`, 10, currentY);
+    doc.setFontSize(12);
+    doc.text(`PROPOSTA COMERCIAL #${quote.id.substring(0, 8).toUpperCase()}`, 12, currentY);
     
     // Thin line
     doc.setDrawColor(226, 232, 240); // Slate 200
     doc.setLineWidth(0.5);
-    doc.line(10, currentY + 3, 200, currentY + 3);
+    doc.line(12, currentY + 3, 194, currentY + 3);
 
     currentY += 10;
 
     // --- Two Column Metadata Layout ---
     // Column 1: Client Info
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('DADOS DO CLIENTE', 12, currentY);
+    doc.setFontSize(9.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text('DADOS DO CLIENTE', 15, currentY);
     
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105); // Slate 600
-    doc.text(`NOME: ${quote.clientName.toUpperCase()}`, 12, currentY + 6);
+    doc.setFontSize(8.5);
+    const clientNameClamped = quote.clientName.toUpperCase();
+    doc.text(`NOME: ${clientNameClamped}`, 15, currentY + 6);
     
     // Format Client Phone
     const cleanPhone = quote.clientPhone;
@@ -114,12 +145,13 @@ export async function generateProfessionalQuotePDF({
       : cleanPhone.length === 10
       ? `(${cleanPhone.slice(0, 2)}) ${cleanPhone.slice(2, 6)}-${cleanPhone.slice(6)}`
       : cleanPhone;
-    doc.text(`WHATSAPP: ${formattedPhone}`, 12, currentY + 12);
+    doc.text(`WHATSAPP: ${formattedPhone}`, 15, currentY + 12);
 
-    // Column 2: Salesperson info / Dates
+    // Column 2: Salesperson info / Dates (Formulário do Vendedor)
     doc.setTextColor(15, 23, 42); // Slate 900
     doc.setFont('helvetica', 'bold');
-    doc.text('INFORMAÇÕES DE VENDA', 110, currentY);
+    doc.setFontSize(9.5);
+    doc.text('INFORMAÇÕES DE VENDA', 108, currentY);
 
     const emissionDateStr = new Date(quote.createdAt).toLocaleDateString('pt-BR');
     const validityDays = quote.validityDays || 5;
@@ -128,37 +160,49 @@ export async function generateProfessionalQuotePDF({
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105); // Slate 600
-    doc.text(`VENDEDOR: ${sellerName.toUpperCase()}`, 110, currentY + 6);
-    doc.text(`UNIDADE: ${branchName}`, 110, currentY + 12);
-    doc.text(`DATA EMISSÃO: ${emissionDateStr}`, 110, currentY + 18);
-    doc.text(`VALIDADE DO ORÇAMENTO: ${validityDays} dias (Até ${limitDateStr})`, 110, currentY + 24);
+    doc.setFontSize(8.5);
+    
+    // Strip suffixes like (Vendedor Centro)
+    const cleanSellerName = sellerName
+      .replace(/\s*\(vendedor\s+centro\)/i, '')
+      .replace(/\s*\(vendedora\s+centro\)/i, '')
+      .replace(/\s*\(gerente\s+centro\)/i, '')
+      .replace(/\s*\(supervisor\s+geral\)/i, '');
+
+    doc.text(`VENDEDOR: ${cleanSellerName.toUpperCase()}`, 108, currentY + 6);
+    doc.text(`FILIAL: ${branchName.toUpperCase()}`, 108, currentY + 12);
+    
+    const formattedSellerPhone = sellerPhone || '(21) 97777-3333';
+    doc.text(`CONTATO: ${formattedSellerPhone}`, 108, currentY + 18);
+    doc.text(`DATA EMISSÃO: ${emissionDateStr}`, 108, currentY + 24);
+    doc.text(`VALIDADE: ${validityDays} dias (Até ${limitDateStr})`, 108, currentY + 30);
 
     // Structural border for info box
-    doc.setDrawColor(241, 245, 249); // Slate 100
+    doc.setDrawColor(226, 232, 240); // Slate 200
     doc.setFillColor(248, 250, 252); // Slate 50
-    doc.rect(10, currentY - 4, 190, 32, 'S');
+    doc.rect(12, currentY - 5, 182, 39, 'S');
 
-    currentY += 34;
+    currentY += 39;
 
     // --- Product List Details ---
     doc.setTextColor(15, 23, 42);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('DESCRIÇÃO DA PROPOSTA', 10, currentY);
+    doc.setFontSize(10.5);
+    doc.text('DESCRIÇÃO DA PROPOSTA', 12, currentY);
 
     currentY += 4;
 
     // Items Header Table
     doc.setFillColor(241, 245, 249); // Slate 100
-    doc.rect(10, currentY, 190, 8, 'F');
+    doc.rect(12, currentY, 182, 8, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setTextColor(51, 65, 85); // Slate 700
-    doc.text('CÓD / PRODUTO', 12, currentY + 5.5);
-    doc.text('CATEGORIA', 105, currentY + 5.5);
-    doc.text('VALOR UN.', 135, currentY + 5.5);
-    doc.text('QTD', 160, currentY + 5.5);
-    doc.text('TOTAL', 178, currentY + 5.5);
+    doc.text('CÓD / PRODUTO', 14, currentY + 5.5);
+    doc.text('CATEGORIA', 110, currentY + 5.5);
+    doc.text('VALOR UN.', 150, currentY + 5.5, { align: 'right' });
+    doc.text('QTD', 170, currentY + 5.5, { align: 'right' });
+    doc.text('TOTAL', 192, currentY + 5.5, { align: 'right' });
 
     currentY += 8;
 
@@ -182,11 +226,11 @@ export async function generateProfessionalQuotePDF({
       // Draw light horizontal separator
       doc.setDrawColor(241, 245, 249);
       doc.setLineWidth(0.3);
-      doc.line(10, itemY + 16, 200, itemY + 16);
+      doc.line(12, itemY + 16, 194, itemY + 16);
 
       // Draw beautiful thumbnail / image placeholder
       doc.setFillColor(248, 250, 252);
-      doc.rect(12, itemY + 2, 12, 12, 'F');
+      doc.rect(14, itemY + 2, 12, 12, 'F');
       
       // Let's try drawing actual product images if we have them
       let imageRendered = false;
@@ -194,7 +238,7 @@ export async function generateProfessionalQuotePDF({
         try {
           const base64Img = await loadImageToBase64(item.imageUrl);
           if (base64Img) {
-            doc.addImage(base64Img, 'JPEG', 12, itemY + 2, 12, 12);
+            doc.addImage(base64Img, 'JPEG', 14, itemY + 2, 12, 12);
             imageRendered = true;
           }
         } catch (e) {
@@ -205,43 +249,44 @@ export async function generateProfessionalQuotePDF({
       // If no image rendered, draw an elegant minimalist Box shape icon in vector
       if (!imageRendered) {
         doc.setDrawColor(148, 163, 184); // Slate 400
-        doc.line(15, itemY + 4, 21, itemY + 4);
-        doc.line(15, itemY + 4, 15, itemY + 10);
-        doc.line(21, itemY + 4, 21, itemY + 10);
-        doc.line(15, itemY + 10, 21, itemY + 10);
+        doc.line(17, itemY + 4, 23, itemY + 4);
+        doc.line(17, itemY + 4, 17, itemY + 10);
+        doc.line(23, itemY + 4, 23, itemY + 10);
+        doc.line(17, itemY + 10, 23, itemY + 10);
         
-        doc.line(15, itemY + 4, 18, itemY + 6);
-        doc.line(21, itemY + 4, 18, itemY + 6);
-        doc.line(18, itemY + 6, 18, itemY + 10);
+        doc.line(17, itemY + 4, 20, itemY + 6);
+        doc.line(23, itemY + 4, 20, itemY + 6);
+        doc.line(20, itemY + 6, 20, itemY + 10);
       }
 
       // Item code and title
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
+      doc.setFontSize(8);
       doc.setTextColor(15, 23, 42);
       
-      const titleLimit = 48;
-      const cleanTitle = item.name.length > titleLimit ? `${item.name.substring(0, titleLimit)}...` : item.name;
-      doc.text(cleanTitle, 27, itemY + 6);
+      const titleLines = doc.splitTextToSize(item.name, 76);
+      doc.text(titleLines.slice(0, 2), 29, itemY + 5.5);
+
+      const subtitleYOffset = titleLines.length > 1 ? 12.5 : 9.5;
 
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 116, 139); // Slate 500
       doc.setFontSize(7.5);
-      doc.text(`CÓDIGO: ${item.code} | ${item.nickname}`, 27, itemY + 10);
+      doc.text(`CÓD: ${item.code} | ${item.nickname || 'Geral'}`, 29, itemY + subtitleYOffset);
 
       // Category
       doc.setTextColor(71, 85, 105);
-      doc.setFontSize(8.5);
+      doc.setFontSize(8);
       const categoryLabel = (item.productId === 'custom-item') ? 'Geral' : (quote.category === 'other' ? 'Especial' : 'Mobiliário');
-      doc.text(categoryLabel.toUpperCase(), 105, itemY + 8);
+      doc.text(categoryLabel.toUpperCase(), 110, itemY + 8);
 
       // Quantities and prices
-      doc.text(formatReal(item.price), 135, itemY + 8);
-      doc.text(item.quantity.toString(), 162, itemY + 8);
+      doc.text(formatReal(item.price), 150, itemY + 8, { align: 'right' });
+      doc.text(item.quantity.toString(), 170, itemY + 8, { align: 'right' });
 
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 23, 42);
-      doc.text(formatReal(item.price * item.quantity), 178, itemY + 8);
+      doc.text(formatReal(item.price * item.quantity), 192, itemY + 8, { align: 'right' });
 
       currentY += 16;
     }
@@ -251,72 +296,72 @@ export async function generateProfessionalQuotePDF({
     // --- Observations / Terms Section ---
     doc.setFillColor(248, 250, 252); // Slate 50
     doc.setDrawColor(226, 232, 240); // Slate 200
-    doc.rect(10, currentY, 115, 30, 'S');
+    doc.rect(12, currentY, 110, 32, 'S');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(15, 23, 42);
-    doc.text('OBSERVAÇÕES & CONDIÇÕES INTEGRADA', 14, currentY + 5);
+    doc.text('OBSERVAÇÕES & CONDIÇÕES INTEGRADA', 16, currentY + 5.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    doc.setFontSize(7);
+    doc.setFontSize(7.5);
     
     const obsText = quote.notes || 'Nenhuma observação cadastrada.';
-    const lines = doc.splitTextToSize(obsText, 105);
-    doc.text(lines, 14, currentY + 10);
+    const lines = doc.splitTextToSize(obsText, 102);
+    doc.text(lines, 16, currentY + 11);
 
     // Standard conditions
-    doc.text('* Preços e condições sujeitos a alteração sem prévio aviso.', 14, currentY + 22);
-    doc.text('* Garantia contratual contra defeitos de fabricação de até 90 dias.', 14, currentY + 26);
+    doc.text('* Preços e condições sujeitos a alteração sem prévio aviso.', 16, currentY + 22);
+    doc.text('* Garantia contratual contra defeitos de fabricação de até 90 dias.', 16, currentY + 26);
 
     // --- Highlighted Calculations Block ---
-    const rightColX = 130;
+    const rightColX = 124;
     doc.setFillColor(248, 250, 252);
-    doc.rect(rightColX, currentY, 70, 30, 'F');
+    doc.rect(rightColX, currentY, 70, 32, 'F');
     doc.setDrawColor(226, 232, 240);
-    doc.rect(rightColX, currentY, 70, 30, 'S');
+    doc.rect(rightColX, currentY, 70, 32, 'S');
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
     doc.text('SUBTOTAL', rightColX + 5, currentY + 6);
-    doc.text(formatReal(quote.value), rightColX + 45, currentY + 6);
+    doc.text(formatReal(quote.value), rightColX + 65, currentY + 6, { align: 'right' });
 
     doc.text('FRETE / MONTAGEM', rightColX + 5, currentY + 12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(34, 197, 94); // Green 500
-    doc.text('GRÁTIS', rightColX + 45, currentY + 12);
+    doc.text('GRÁTIS', rightColX + 65, currentY + 12, { align: 'right' });
 
     // Separation line
     doc.setDrawColor(226, 232, 240);
-    doc.line(rightColX, currentY + 16, rightColX + 70, currentY + 16);
+    doc.line(rightColX, currentY + 18, rightColX + 70, currentY + 18);
 
     // Active Total Box
     doc.setFillColor(2, 6, 23); // Dark slate bg for intense professional total emphasis
-    doc.rect(rightColX, currentY + 16, 70, 14, 'F');
+    doc.rect(rightColX, currentY + 18, 70, 14, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(251, 191, 36); // Golden Amber 400
     doc.setFontSize(10.5);
-    doc.text('TOTAL', rightColX + 5, currentY + 25);
-    doc.text(formatReal(quote.value), rightColX + 40, currentY + 25);
+    doc.text('TOTAL', rightColX + 5, currentY + 27);
+    doc.text(formatReal(quote.value), rightColX + 65, currentY + 27, { align: 'right' });
 
-    currentY += 38;
+    currentY += 40;
 
     // --- Footer / Signature Sign-off ---
     doc.setDrawColor(226, 232, 240);
-    doc.line(10, currentY, 200, currentY);
+    doc.line(12, currentY, 194, currentY);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184); // Slate 400
-    doc.text('Sono Show Móveis S.A. | Atendimento Exclusivo AtendePro', 10, currentY + 5);
-    doc.text('Documento gerado digitalmente pelo comitê de vendas e relacionamento ao consumidor.', 10, currentY + 9);
-    doc.text('Agradecemos a sua preferência!', 150, currentY + 5);
+    doc.text('Sono Show Móveis S.A. | Atendimento Exclusivo AtendePro', 12, currentY + 5);
+    doc.text('Documento gerado digitalmente pelo comitê de vendas e relacionamento ao consumidor.', 12, currentY + 9);
+    doc.text('Agradecemos a sua preferência!', 194, currentY + 5, { align: 'right' });
 
     // Save and download locally
-    const filename = `Orçamento_${quote.clientName.replace(/\s+/g, '_')}_${quote.id.substring(0,6)}.pdf`;
+    const filename = `Orcamento_${quote.clientName.replace(/\s+/g, '_')}_${quote.id.substring(0,6)}.pdf`;
     doc.save(filename);
 
     return true;

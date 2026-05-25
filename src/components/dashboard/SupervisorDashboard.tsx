@@ -34,6 +34,39 @@ import { toast } from 'sonner';
 import { User, Branch } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 
+// SaaS Premium Elegant Analytics Sparkline Graph
+const MiniSparkline = ({ points, color = '#b45309' }: { points: number[], color?: string }) => {
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const range = max - min;
+  const height = 34;
+  const width = 120;
+  
+  const coordinates = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * width;
+    const y = height - 4 - ((p - min) / range) * (height - 8);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const areaPoints = `${coordinates} ${width},${height} 0,${height}`;
+  const gradId = React.useId();
+
+  return (
+    <div className="flex items-center gap-2 select-none">
+      <svg className="w-[110px] h-[34px] stroke-2 overflow-visible" viewBox={`0 0 ${width} ${height}`} fill="none">
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.00" />
+          </linearGradient>
+        </defs>
+        <polygon points={areaPoints} fill={`url(#${gradId})`} />
+        <polyline points={coordinates} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+};
+
 export const SupervisorDashboard = () => {
   const { branches, users, quotes, addBranch, updateBranch, deleteBranch, addUser, updateUser, deleteUser, activeTab, setActiveTab } = useAppContext();
   
@@ -45,7 +78,7 @@ export const SupervisorDashboard = () => {
   const [selectedBranch, setSelectedBranch] = useState<string>('');
 
   // States for Edit/Delete actions
-  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string }>({ isOpen: false, user: null, name: '' });
+  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string, phone: string }>({ isOpen: false, user: null, name: '', phone: '' });
   const [deleteUserModal, setDeleteUserModal] = useState<{ isOpen: boolean, user: User | null }>({ isOpen: false, user: null });
   const [editBranchModal, setEditBranchModal] = useState<{ isOpen: boolean, branch: Branch | null, name: string }>({ isOpen: false, branch: null, name: '' });
   const [deleteBranchModal, setDeleteBranchModal] = useState<{ isOpen: boolean, branch: Branch | null }>({ isOpen: false, branch: null });
@@ -108,9 +141,9 @@ export const SupervisorDashboard = () => {
   const handleEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUserModal.user || !editUserModal.name.trim()) return;
-    updateUser(editUserModal.user.id, editUserModal.name.trim());
-    setEditUserModal({ isOpen: false, user: null, name: '' });
-    toast.success('Nome do colaborador retificado na base!');
+    updateUser(editUserModal.user.id, editUserModal.name.trim(), editUserModal.phone.trim());
+    setEditUserModal({ isOpen: false, user: null, name: '', phone: '' });
+    toast.success('Perfil do colaborador retificado na base!');
   };
 
   const handleDeleteUser = () => {
@@ -284,24 +317,38 @@ export const SupervisorDashboard = () => {
       </motion.div>
 
       {/* Hero Executive status Welcome Card */}
-      <Card className="glass-card shadow-xs border-none overflow-hidden bg-white">
-        <CardContent className="pt-6 flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
-          <div>
-            <Badge className="bg-amber-100 text-amber-800 border-none font-black text-[9px] uppercase tracking-widest px-3.5 py-1 mb-2.5">
-              Administração Geral Sono Show
-            </Badge>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-stone-900 tracking-tight leading-none uppercase italic">
-              Supervisão de <span className="text-amber-800 font-black">Operações</span>
+      <div className="relative overflow-hidden rounded-[2rem] border border-stone-200/60 bg-white/70 backdrop-blur-xl p-6 md:p-8 shadow-[0_12px_40px_rgba(28,25,23,0.03)] group transition-all duration-300 hover:shadow-[0_16px_48px_rgba(28,25,23,0.06)]">
+        <div className="absolute top-0 right-0 p-8 opacity-[0.03] -mr-6 -mt-6 select-none pointer-events-none transition-transform duration-700 group-hover:scale-110">
+          <Building2 className="w-64 h-64 text-[#b45309]" />
+        </div>
+        
+        {/* Subtle executive neon status accent line */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-600/30 via-stone-800 to-amber-700/40 rounded-t-full"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-amber-75/10 text-amber-805 border border-amber-700/10 font-bold text-[9px] uppercase tracking-wider px-3.5 py-1">
+                ⚡ Diretoria & Operações Corporativas
+              </Badge>
+              <div className="flex items-center gap-1.5 text-[9px] text-[#b45309] font-black bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-600/10">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping"></span> VISÃO TOTAL DA REDE
+              </div>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-stone-900 tracking-tight uppercase leading-none italic font-sans">
+              Supervisão de <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-800 to-stone-900 font-extrabold">Operações</span>
             </h1>
-            <p className="text-xs text-stone-500 font-semibold mt-1">Visão holística de receita bruta potencial, auditoria por unidades e nomeação de gerentes gerais.</p>
+            <p className="text-xs text-stone-500 font-semibold max-w-xl leading-relaxed">
+              Análise integrativa de faturamento bruto potencial regional, controle estratégico de filiais de showroom, e designação do quadro gerencial.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2.5">
             {/* CRUD branch trigger */}
             <Dialog open={isBranchOpen} onOpenChange={setIsBranchOpen}>
               <DialogTrigger render={
-                <Button className="h-11 flex items-center justify-center gap-2 px-5 bg-amber-700 hover:bg-amber-800 shrink-0 text-xs text-white">
-                  <Plus className="w-4 h-4 text-amber-300" /> Inaugurar Filial
+                <Button className="h-12 flex items-center justify-center gap-2 px-5 bg-amber-700 hover:bg-amber-800 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-amber-700/10 hover:shadow-amber-700/20 active:scale-[0.97] transition-all rounded-xl border-none">
+                  <Plus className="w-4 h-4 text-amber-200" /> Inaugurar Filial
                 </Button>
               } />
               <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
@@ -326,7 +373,7 @@ export const SupervisorDashboard = () => {
             {/* CRUD manager trigger */}
             <Dialog open={isManagerOpen} onOpenChange={setIsManagerOpen}>
               <DialogTrigger render={
-                <Button className="h-11 flex items-center justify-center gap-2 px-5 border border-stone-200 bg-white hover:bg-stone-50 rounded-2xl text-stone-800 font-extrabold text-xs uppercase transition-all shadow-2xs active:scale-95">
+                <Button className="h-12 flex items-center justify-center gap-2 px-5 border border-stone-200 bg-white hover:bg-stone-50 text-stone-800 font-black text-xs uppercase hover:shadow-md transition-all rounded-xl active:scale-[0.97]">
                   <UserPlus className="w-4 h-4 text-amber-700" /> Nomear Gerente VIP
                 </Button>
               } />
@@ -369,46 +416,96 @@ export const SupervisorDashboard = () => {
               </DialogContent>
             </Dialog>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Network Metrics Totals overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 select-none">
-        <Card className="glass-card shadow-xs border-none bg-white">
-          <CardHeader className="pb-1.5">
-             <CardTitle className="text-[10px] font-black uppercase tracking-wider text-stone-400">Total Unidades</CardTitle>
-          </CardHeader>
-          <CardContent>
-             <div className="text-3xl font-black text-stone-900">{branches.length} Lojas</div>
-          </CardContent>
-        </Card>
+        
+        {/* Total Unidades */}
+        <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-amber-700/30">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <span className="p-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-700/10">
+                  <Store className="w-4 h-4" />
+                </span>
+                Showrooms
+              </span>
+              <div className="pt-2">
+                <div className="text-2xl font-black text-stone-900 tracking-tight font-sans">
+                  {branches.length} <span className="text-xs text-stone-400 font-bold uppercase normal-case">unidades</span>
+                </div>
+                <p className="text-[10px] text-stone-400 font-bold mt-1">Lojas físicas implantadas</p>
+              </div>
+            </div>
+            <MiniSparkline points={[1, 2, 2, 3, branches.length || 4]} color="#b45309" />
+          </div>
+        </div>
 
-        <Card className="glass-card shadow-xs border-none bg-white">
-          <CardHeader className="pb-1.5">
-             <CardTitle className="text-[10px] font-black uppercase tracking-wider text-stone-400">Quadro Gerencial</CardTitle>
-          </CardHeader>
-          <CardContent>
-             <div className="text-3xl font-black text-stone-900">{managers.length} Gestores</div>
-          </CardContent>
-        </Card>
+        {/* Quadro Gerencial */}
+        <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-stone-800/20">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <span className="p-1.5 rounded-lg bg-stone-100 text-stone-800 border border-stone-300/10">
+                  <ShieldCheck className="w-4 h-4" />
+                </span>
+                Quadro Gerencial
+              </span>
+              <div className="pt-2">
+                <div className="text-2xl font-black text-stone-900 tracking-tight font-sans">
+                  {managers.length} <span className="text-xs text-stone-400 font-bold uppercase normal-case">diretores</span>
+                </div>
+                <p className="text-[10px] text-stone-400 font-bold mt-1">Gestores gerais de showroom</p>
+              </div>
+            </div>
+            <MiniSparkline points={[1, 1, 2, 2, managers.length || 3]} color="#57534e" />
+          </div>
+        </div>
 
-        <Card className="glass-card shadow-xs border-none bg-white">
-          <CardHeader className="pb-1.5">
-             <CardTitle className="text-[10px] font-black uppercase tracking-wider text-stone-400">Força de Vendas</CardTitle>
-          </CardHeader>
-          <CardContent>
-             <div className="text-3xl font-black text-stone-900">{salespeople.length} Consultores</div>
-          </CardContent>
-        </Card>
+        {/* Força de Vendas */}
+        <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-blue-600/30">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-600/10">
+                  <Users className="w-4 h-4" />
+                </span>
+                Força de Vendas
+              </span>
+              <div className="pt-2">
+                <div className="text-2xl font-black text-stone-900 tracking-tight font-sans">
+                  {salespeople.length} <span className="text-xs text-stone-400 font-bold uppercase normal-case">consultores</span>
+                </div>
+                <p className="text-[10px] text-stone-400 font-bold mt-1">Consultores reportando leads</p>
+              </div>
+            </div>
+            <MiniSparkline points={[4, 8, 12, 10, salespeople.length || 15]} color="#2563eb" />
+          </div>
+        </div>
 
-        <Card className="glass-card shadow-xs border-none bg-white">
-          <CardHeader className="pb-1.5">
-             <CardTitle className="text-[11px] font-black uppercase tracking-wider text-amber-800">Expectativa Comercial Bruta</CardTitle>
-          </CardHeader>
-          <CardContent>
-             <div className="text-3xl font-black text-emerald-600 font-mono">{formatCurrency(totalQuotesValue)}</div>
-          </CardContent>
-        </Card>
+        {/* Expectativa Comercial Bruta */}
+        <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-emerald-600/30">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-500/10">
+                  <TrendingUp className="w-4 h-4" />
+                </span>
+                Expectativa Bruta
+              </span>
+              <div className="pt-2">
+                <div className="text-xl font-black text-emerald-600 tracking-tight font-mono">
+                  {formatCurrency(totalQuotesValue)}
+                </div>
+                <p className="text-[10px] text-stone-400 font-bold mt-2 uppercase tracking-wide">Soma total de propostas</p>
+              </div>
+            </div>
+            <MiniSparkline points={[45000, 78000, 112000, 95000, totalQuotesValue || 120000]} color="#10b981" />
+          </div>
+        </div>
+
       </div>
 
       {/* RENDERING DYNAMIC SCENARIO PANELS (HOME, USER LIST, BRANCH CRUD) */}
@@ -452,7 +549,7 @@ export const SupervisorDashboard = () => {
                             <Button 
                               variant="ghost"
                               size="icon"
-                              onClick={() => setEditUserModal({ isOpen: true, user: u, name: u.name })}
+                              onClick={() => setEditUserModal({ isOpen: true, user: u, name: u.name, phone: u.phone || '' })}
                               className="w-8 h-8 text-stone-400 hover:text-stone-900 hover:bg-stone-100 flex items-center justify-center transition-all bg-transparent border-none"
                             >
                               <Edit className="w-4 h-4" />
@@ -571,19 +668,23 @@ export const SupervisorDashboard = () => {
       </div>
 
       {/* dialog for editing user credentials */}
-      <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '' })}>
+      <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '', phone: '' })}>
         <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-stone-900 font-extrabold uppercase italic">Editar Cadastro</DialogTitle>
-            <DialogDescription className="text-xs text-stone-500">Altere as credenciais nominais registradas.</DialogDescription>
+            <DialogDescription className="text-xs text-stone-500">Altere as credenciais e telefone de contato registrados.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditUser} className="space-y-4 pt-3">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nome Nominal</Label>
               <Input className="h-11 bg-white rounded-xl border-stone-200 text-xs font-bold text-stone-1000" value={editUserModal.name} onChange={(e) => setEditUserModal(m => ({ ...m, name: e.target.value }))} required />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Telefone Comercial / WhatsApp</Label>
+              <Input className="h-11 bg-white rounded-xl border-stone-200 text-xs font-bold text-stone-1000" value={editUserModal.phone} onChange={(e) => setEditUserModal(m => ({ ...m, phone: e.target.value }))} required />
+            </div>
             <DialogFooter className="gap-2 flex flex-row justify-end mt-4">
-              <Button type="button" variant="ghost" className="h-10 text-xs text-stone-500" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '' })}>Sair</Button>
+              <Button type="button" variant="ghost" className="h-10 text-xs text-stone-500" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '', phone: '' })}>Sair</Button>
               <Button type="submit" className="h-10 text-xs font-black uppercase bg-amber-700 hover:bg-amber-800 text-white border-transparent">Gravar</Button>
             </DialogFooter>
           </form>

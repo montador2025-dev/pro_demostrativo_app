@@ -19,8 +19,8 @@ interface AppContextType extends AppState {
   updateBranch: (id: string, name: string) => void;
   deleteBranch: (id: string) => void;
   // Users
-  addUser: (name: string, role: Role, branchId?: string) => void;
-  updateUser: (id: string, name: string) => void;
+  addUser: (name: string, role: Role, branchId?: string, phone?: string) => void;
+  updateUser: (id: string, name: string, phone?: string) => void;
   deleteUser: (id: string) => void;
   transferUser: (userId: string, newBranchId: string) => void;
   reassignQuotes: (oldUserId: string, newUserId: string) => void;
@@ -35,9 +35,9 @@ const mockBranches: Branch[] = [
 ];
 
 const mockUsers: User[] = [
-  { id: 'u1', name: 'Carlos (Supervisor Geral)', role: 'supervisor', createdAt: new Date().toISOString() },
-  { id: 'u2', name: 'Ana (Gerente Centro)', role: 'manager', branchId: 'b1', createdAt: new Date().toISOString() },
-  { id: 'u3', name: 'Roberto (Vendedor Centro)', role: 'salesperson', branchId: 'b1', createdAt: new Date().toISOString() },
+  { id: 'u1', name: 'Carlos', role: 'supervisor', phone: '(21) 99999-1111', createdAt: new Date().toISOString() },
+  { id: 'u2', name: 'Ana', role: 'manager', branchId: 'b1', phone: '(21) 98888-2222', createdAt: new Date().toISOString() },
+  { id: 'u3', name: 'Roberto', role: 'salesperson', branchId: 'b1', phone: '(21) 97777-3333', createdAt: new Date().toISOString() },
 ];
 
 const mockQuotes: Quote[] = [
@@ -63,7 +63,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Try to load from localStorage, else use mocks
     const saved = localStorage.getItem('appState');
     if (saved) {
-      return JSON.parse(saved);
+      try {
+        const parsed = JSON.parse(saved);
+        // Force upgrade users to clean names and phone numbers
+        if (parsed && Array.isArray(parsed.users)) {
+          parsed.users = parsed.users.map((u: any) => {
+            const cleanName = u.name
+              .replace(/\s*\(Vendedor\s+Centro\)/i, '')
+              .replace(/\s*\(Gerente\s+Centro\)/i, '')
+              .replace(/\s*\(Supervisor\s+Geral\)/i, '');
+            let phone = u.phone;
+            if (!phone) {
+              phone = u.role === 'supervisor' ? '(21) 99999-1111' : u.role === 'manager' ? '(21) 98888-2222' : '(21) 97777-3333';
+            }
+            return { ...u, name: cleanName, phone };
+          });
+        }
+        if (parsed && parsed.currentUser) {
+          const cleanName = parsed.currentUser.name
+            .replace(/\s*\(Vendedor\s+Centro\)/i, '')
+            .replace(/\s*\(Gerente\s+Centro\)/i, '')
+            .replace(/\s*\(Supervisor\s+Geral\)/i, '');
+          let phone = parsed.currentUser.phone;
+          if (!phone) {
+            phone = parsed.currentUser.role === 'supervisor' ? '(21) 99999-1111' : parsed.currentUser.role === 'manager' ? '(21) 98888-2222' : '(21) 97777-3333';
+          }
+          parsed.currentUser = { ...parsed.currentUser, name: cleanName, phone };
+        }
+        return parsed;
+      } catch (e) {
+        console.error("Failed to parse appState, reverting to default mocks", e);
+      }
     }
     return {
       branches: mockBranches,
@@ -110,13 +140,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setState(s => ({ ...s, branches: s.branches.filter(b => b.id !== id) }));
   };
 
-  const addUser = (name: string, role: Role, branchId?: string) => {
-    const newUser: User = { id: uuidv4(), name, role, branchId, createdAt: new Date().toISOString() };
+  const addUser = (name: string, role: Role, branchId?: string, phone?: string) => {
+    const newUser: User = { 
+      id: uuidv4(), 
+      name, 
+      role, 
+      branchId, 
+      phone: phone || '(21) 99999-9999', 
+      createdAt: new Date().toISOString() 
+    };
     setState(s => ({ ...s, users: [...s.users, newUser] }));
   };
 
-  const updateUser = (id: string, name: string) => {
-    setState(s => ({ ...s, users: s.users.map(u => u.id === id ? { ...u, name } : u) }));
+  const updateUser = (id: string, name: string, phone?: string) => {
+    setState(s => ({ 
+      ...s, 
+      users: s.users.map(u => u.id === id ? { ...u, name, phone: phone !== undefined ? phone : u.phone } : u),
+      currentUser: s.currentUser?.id === id ? { ...s.currentUser, name, phone: phone !== undefined ? phone : s.currentUser.phone } : s.currentUser
+    }));
   };
 
   const deleteUser = (id: string) => {

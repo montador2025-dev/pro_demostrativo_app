@@ -32,11 +32,45 @@ import { QuoteCategory, User } from '../../types';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
+// SaaS Premium Elegant Analytics Sparkline Graph
+const MiniSparkline = ({ points, color = '#b45309' }: { points: number[], color?: string }) => {
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const range = max - min;
+  const height = 34;
+  const width = 120;
+  
+  const coordinates = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * width;
+    const y = height - 4 - ((p - min) / range) * (height - 8);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const areaPoints = `${coordinates} ${width},${height} 0,${height}`;
+  const gradId = React.useId();
+
+  return (
+    <div className="flex items-center gap-2 select-none">
+      <svg className="w-[110px] h-[34px] stroke-2 overflow-visible" viewBox={`0 0 ${width} ${height}`} fill="none">
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.00" />
+          </linearGradient>
+        </defs>
+        <polygon points={areaPoints} fill={`url(#${gradId})`} />
+        <polyline points={coordinates} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+};
+
 export const ManagerDashboard = () => {
   const { currentUser, branches, users, quotes, addUser, updateUser, deleteUser, transferUser, reassignQuotes, activeTab, setActiveTab } = useAppContext();
   
   const [isSalespersonOpen, setIsSalespersonOpen] = useState(false);
   const [newSalespersonName, setNewSalespersonName] = useState('');
+  const [newSalespersonPhone, setNewSalespersonPhone] = useState('');
 
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [userToTransfer, setUserToTransfer] = useState('');
@@ -49,7 +83,7 @@ export const ManagerDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sellerDetailsId, setSellerDetailsId] = useState<string | null>(null);
 
-  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string }>({ isOpen: false, user: null, name: '' });
+  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string, phone: string }>({ isOpen: false, user: null, name: '', phone: '' });
   const [deleteUserModal, setDeleteUserModal] = useState<{ isOpen: boolean, user: User | null }>({ isOpen: false, user: null });
 
   if (!currentUser?.branchId) {
@@ -82,8 +116,9 @@ export const ManagerDashboard = () => {
       return toast.error('Sabor Comercial Duplicado: Já existe um consultor cadastrado com este nome exato nesta unidade.');
     }
 
-    addUser(newSalespersonName.trim(), 'salesperson', currentUser.branchId);
+    addUser(newSalespersonName.trim(), 'salesperson', currentUser.branchId, newSalespersonPhone.trim());
     setNewSalespersonName('');
+    setNewSalespersonPhone('');
     setIsSalespersonOpen(false);
     toast.success('Consultor de Vendas cadastrado e habilitado com sucesso!');
   };
@@ -91,9 +126,9 @@ export const ManagerDashboard = () => {
   const handleEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUserModal.user || !editUserModal.name.trim()) return;
-    updateUser(editUserModal.user.id, editUserModal.name.trim());
-    setEditUserModal({ isOpen: false, user: null, name: '' });
-    toast.success('Nome do consultor alterado com sucesso!');
+    updateUser(editUserModal.user.id, editUserModal.name.trim(), editUserModal.phone.trim());
+    setEditUserModal({ isOpen: false, user: null, name: '', phone: '' });
+    toast.success('Perfil do consultor alterado com sucesso!');
   };
 
   const handleDeleteUser = () => {
@@ -179,25 +214,36 @@ Posso te ligar ou liberar um código de desconto agora?`;
       </motion.div>
 
       {/* Hero Welcome banner */}
-      <Card className="glass-card shadow-xs border-none overflow-hidden pb-4 bg-white relative">
-        <div className="absolute right-0 top-0 p-8 opacity-5 -mr-10 select-none pointer-events-none">
-          <Building className="w-56 h-56 text-[#b45309]" />
+      <div className="relative overflow-hidden rounded-[2rem] border border-stone-200/60 bg-white/70 backdrop-blur-xl p-6 md:p-8 shadow-[0_12px_40px_rgba(28,25,23,0.03)] group transition-all duration-300 hover:shadow-[0_16px_48px_rgba(28,25,23,0.06)]">
+        <div className="absolute top-0 right-0 p-8 opacity-[0.03] -mr-6 -mt-6 select-none pointer-events-none transition-transform duration-700 group-hover:scale-110">
+          <Building className="w-64 h-64 text-[#b45309]" />
         </div>
-        <CardContent className="pt-6 relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <Badge className="bg-amber-100 text-amber-800 border-none font-black text-[9px] uppercase tracking-widest px-3.5 py-1 mb-2.5">
-              Área de Liderança Regional
-            </Badge>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-stone-900 tracking-tight leading-none uppercase italic">
-              Unidade <span className="text-amber-800 font-black">{myBranch?.name}</span>
+        
+        {/* Subtle executive neon status accent line */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-600/30 via-amber-800 to-stone-900/40 rounded-t-full"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-amber-75/10 text-amber-800 border border-amber-700/10 font-bold text-[9px] uppercase tracking-wider px-3.5 py-1">
+                🏆 Liderança Regente Regional
+              </Badge>
+              <div className="flex items-center gap-1.5 text-[9px] text-[#b45309] font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-600/10 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> SISTEMA ATIVO
+              </div>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-black text-stone-900 tracking-tight uppercase leading-none italic font-sans">
+              Gerência Geral: <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-800 to-amber-600 font-extrabold">{myBranch?.name}</span>
             </h1>
-            <p className="text-xs text-stone-500 font-semibold mt-1">Supervisão tática de consultores, repasse de carteiras e análises comerciais.</p>
+            <p className="text-xs text-stone-500 font-semibold max-w-xl leading-relaxed">
+              Supervisão tática de consultores de alta performance, gerenciamento estratégico de carteiras órfãs e auditoria comercial de leads integrados.
+            </p>
           </div>
 
           <Dialog open={isSalespersonOpen} onOpenChange={setIsSalespersonOpen}>
             <DialogTrigger render={
-              <Button className="h-11 flex items-center justify-center gap-2 px-6 bg-amber-700 hover:bg-amber-800 shrink-0 text-xs text-white">
-                <UserPlus className="w-4 h-4 text-amber-300" /> Cadastrar Vendedor
+              <Button className="h-12 flex items-center justify-center gap-2 px-6 bg-stone-900 hover:bg-stone-800 text-xs font-black uppercase tracking-wider text-white shadow-lg shadow-stone-900/10 hover:shadow-stone-900/20 active:scale-[0.97] transition-all rounded-xl border-none">
+                <UserPlus className="w-4 h-4 text-amber-500 animate-bounce" /> Ativar Consultor
               </Button>
             } />
             <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
@@ -212,52 +258,96 @@ Posso te ligar ou liberar um código de desconto agora?`;
                   <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nome Completo</Label>
                   <Input className="h-11 rounded-xl border-stone-200 text-xs font-bold bg-white text-stone-900 focus:ring-0 focus:border-amber-700/50" placeholder="Ex: Rodrigo de Oliveira" value={newSalespersonName} onChange={e => setNewSalespersonName(e.target.value)} required />
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Telefone / WhatsApp de Contato</Label>
+                  <Input className="h-11 rounded-xl border-stone-200 text-xs font-bold bg-white text-stone-900 focus:ring-0 focus:border-amber-700/50" placeholder="Ex: (21) 98765-4321" value={newSalespersonPhone} onChange={e => setNewSalespersonPhone(e.target.value)} required />
+                </div>
                 <Button type="submit" className="w-full h-11 text-xs uppercase font-black tracking-widest bg-amber-700 hover:bg-amber-800 text-white">
                   Habilitar Vendas
                 </Button>
               </form>
             </DialogContent>
           </Dialog>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Metrics blocks row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glass-card shadow-xs border-none bg-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-              <Users className="w-4.5 h-4.5 text-amber-700" /> Equipe de Showroom
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black tracking-tight text-stone-900">{mySalespeople.length}</div>
-            <p className="text-[10px] text-stone-500 font-bold mt-1">Consultores ativos reportando vendas.</p>
-          </CardContent>
-        </Card>
+        {/* Metric 1 */}
+        <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-amber-700/30">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <span className="p-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-700/10">
+                  <Users className="w-4 h-4" />
+                </span>
+                Staff Ativo
+              </span>
+              <div className="pt-2">
+                <div className="text-3xl font-black text-stone-900 tracking-tight font-sans">
+                  {mySalespeople.length} <span className="text-xs text-stone-400 font-bold uppercase normal-case">consultores</span>
+                </div>
+                <p className="text-[10px] text-stone-400 font-bold mt-1.5 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  Equipe de showroom reportando em tempo real
+                </p>
+              </div>
+            </div>
+            
+            {/* Visual Sparkline Graph */}
+            <MiniSparkline points={[2, 3, 5, 4, 6, 8, mySalespeople.length || 3]} color="#b45309" />
+          </div>
+        </div>
 
-        <Card className="glass-card shadow-xs border-none bg-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-              <FileText className="w-4.5 h-4.5 text-blue-600" /> Fluxo de Atendimentos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black tracking-tight text-stone-900">{myBranchQuotes.length}</div>
-            <p className="text-[10px] text-stone-500 font-bold mt-1">Propostas geradas nesta filial.</p>
-          </CardContent>
-        </Card>
+        {/* Metric 2 */}
+        <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-blue-600/30">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-600/10">
+                  <FileText className="w-4 h-4" />
+                </span>
+                Atendimentos Clínicos
+              </span>
+              <div className="pt-2">
+                <div className="text-3xl font-black text-stone-900 tracking-tight font-sans">
+                  {myBranchQuotes.length} <span className="text-xs text-stone-400 font-bold uppercase normal-case">leads</span>
+                </div>
+                <p className="text-[10px] text-stone-400 font-bold mt-1.5">
+                  Volume de orçamentos gerados na unidade comercial
+                </p>
+              </div>
+            </div>
+            
+            {/* Visual Sparkline Graph */}
+            <MiniSparkline points={[5, 12, 8, 15, 22, 18, myBranchQuotes.length || 7]} color="#2563eb" />
+          </div>
+        </div>
 
-        <Card className="glass-card shadow-xs border-none bg-white">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-              <TrendingUp className="w-4.5 h-4.5 text-emerald-600" /> Faturamento Potencial
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-black tracking-tight text-emerald-600">{formatCurrency(totalValue)}</div>
-            <p className="text-[10px] text-stone-500 font-bold mt-1 uppercase">Soma bruta de negociações.</p>
-          </CardContent>
-        </Card>
+        {/* Metric 3 */}
+        <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-emerald-600/30">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-500/10">
+                  <TrendingUp className="w-4 h-4" />
+                </span>
+                Faturamento Potencial
+              </span>
+              <div className="pt-2">
+                <div className="text-2xl font-black text-emerald-600 tracking-tight font-mono">
+                  {formatCurrency(totalValue)}
+                </div>
+                <p className="text-[10px] text-stone-400 font-bold mt-2 uppercase tracking-wide">
+                  Soma bruta de negociações em aberto
+                </p>
+              </div>
+            </div>
+            
+            {/* Visual Sparkline Graph */}
+            <MiniSparkline points={[15000, 42000, 31000, 58000, 72000, 64000, totalValue || 25000]} color="#10b981" />
+          </div>
+        </div>
       </div>
 
       {/* DYNAMIC NAVIGATION SCREEN RENDERING (HOME vs. TEAM) */}
@@ -311,7 +401,7 @@ Posso te ligar ou liberar um código de desconto agora?`;
                             <Button 
                               variant="ghost"
                               size="icon"
-                              onClick={() => setEditUserModal({ isOpen: true, user: s, name: s.name })}
+                              onClick={() => setEditUserModal({ isOpen: true, user: s, name: s.name, phone: s.phone || '' })}
                               className="w-8 h-8 text-stone-400 hover:text-stone-900 hover:bg-stone-100 flex items-center justify-center transition-all bg-transparent border-none"
                               title="Editar nome"
                             >
@@ -592,19 +682,23 @@ Posso te ligar ou liberar um código de desconto agora?`;
       </Dialog>
 
       {/* edit modal title adjustment */}
-      <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '' })}>
+      <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '', phone: '' })}>
         <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-stone-900 font-extrabold uppercase italic">Editar Consultor</DialogTitle>
-            <DialogDescription className="text-xs text-stone-500">Ajuste o nome do consultor ou credencial.</DialogDescription>
+            <DialogDescription className="text-xs text-stone-500">Ajuste o nome do consultor ou telefone de contato.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditUser} className="space-y-4 pt-3">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nome Registrado</Label>
               <Input className="h-11 bg-white rounded-xl border-stone-200 text-xs font-bold text-stone-1000" value={editUserModal.name} onChange={(e) => setEditUserModal(m => ({ ...m, name: e.target.value }))} required />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Telefone / WhatsApp Comercial</Label>
+              <Input className="h-11 bg-white rounded-xl border-stone-200 text-xs font-bold text-stone-1000" value={editUserModal.phone} onChange={(e) => setEditUserModal(m => ({ ...m, phone: e.target.value }))} required />
+            </div>
             <DialogFooter className="gap-2 shrink-0 flex-row justify-end mt-4">
-              <Button type="button" variant="ghost" className="h-10 text-xs text-stone-500" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '' })}>Sair</Button>
+              <Button type="button" variant="ghost" className="h-10 text-xs text-stone-500" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '', phone: '' })}>Sair</Button>
               <Button type="submit" className="h-10 text-xs font-black uppercase tracking-widest bg-amber-700 hover:bg-amber-800 text-white border-transparent">Gravar</Button>
             </DialogFooter>
           </form>

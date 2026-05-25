@@ -101,35 +101,92 @@ export async function scrapeWebsiteFallback(site: string, query: string): Promis
 
   const protocol = site.startsWith('http') ? '' : 'https://';
   const cleanSite = site.replace(/\/$/, '');
-  const searchUrl = `${protocol}${cleanSite}/search?q=${encodeURIComponent(query)}`;
+
+  // Dynamic path generator for diverse e-commerce architectures
+  const searchPaths = [
+    `/search?q=${encodeURIComponent(query)}`,
+    `/busca?q=${encodeURIComponent(query)}`,
+    `/?s=${encodeURIComponent(query)}`,
+    `/busca?ft=${encodeURIComponent(query)}`
+  ];
+
+  let html = '';
+  let searchUrlUsed = '';
+  let lastFetchError: any = null;
+
+  // Attempt the search probing
+  for (const path of searchPaths) {
+    const tryUrl = `${protocol}${cleanSite}${path}`;
+    try {
+      console.log(`[Universal Scraper] Probing path option: ${tryUrl}`);
+      const response = await resilientFetch(tryUrl, { timeoutMs: 5000 });
+      html = await response.text();
+      searchUrlUsed = tryUrl;
+      break; // Successfully got html response! Exit probe loop
+    } catch (err: any) {
+      lastFetchError = err;
+      console.warn(`[Universal Scraper] Probe failed for path ${tryUrl}: ${err?.message || err}`);
+    }
+  }
+
+  if (!html) {
+    console.warn(`[Universal Scraper] All probing paths failed or blocked for ${site}. Fallback to empty results. Last error:`, lastFetchError);
+    if (isSonoShow) {
+      return SONOSHOW_OFFLINE_PRODUCTS.slice(0, 4);
+    }
+    return [];
+  }
 
   try {
-    const response = await resilientFetch(searchUrl, { timeoutMs: 6000 });
-    const html = await response.text();
-
     const products: CatalogProduct[] = [];
     
-    // Look for application/ld+json pattern for products
-    const ldJsonRegex = /<script\s+type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
-    let match;
-    while ((match = ldJsonRegex.exec(html)) !== null) {
+    // Look for application/ld+json pattern for products using high-performance, ReDoS-proof indexOf parsing
+    let searchPos = 0;
+    let limit = 8; // Limit to maximum 8 scripts to preserve quick parsing
+    
+    while (limit > 0) {
+      const ldJsonIdx = html.indexOf('"application/ld+json"', searchPos);
+      if (ldJsonIdx === -1) break;
+      
+      const scriptStartIdx = html.lastIndexOf('<script', ldJsonIdx);
+      if (scriptStartIdx === -1) {
+        searchPos = ldJsonIdx + 20;
+        continue;
+      }
+      
+      const scriptEndIdx = html.indexOf('</script>', ldJsonIdx);
+      if (scriptEndIdx === -1) {
+        searchPos = ldJsonIdx + 20;
+        continue;
+      }
+      
+      const tagOpenEnd = html.indexOf('>', scriptStartIdx);
+      if (tagOpenEnd === -1 || tagOpenEnd > scriptEndIdx) {
+        searchPos = scriptEndIdx + 9;
+        continue;
+      }
+      
+      const jsonText = html.substring(tagOpenEnd + 1, scriptEndIdx).trim();
+      searchPos = scriptEndIdx + 9;
+      limit--;
+      
       try {
-        const parsed = JSON.parse(match[1].trim());
+        const parsed = JSON.parse(jsonText);
         const objs = Array.isArray(parsed) ? parsed : [parsed];
         for (const obj of objs) {
-          if (obj['@type'] === 'Product' || obj['@type'] === 'product') {
+          if (obj && (obj['@type'] === 'Product' || obj['@type'] === 'product' || obj['@type']?.toLowerCase() === 'product')) {
             const offer = Array.isArray(obj.offers) ? obj.offers[0] : obj.offers;
             const price = offer?.price || offer?.lowPrice || 0;
             const image = Array.isArray(obj.image) ? obj.image[0] : obj.image || '';
             
             products.push({
               name: obj.name || 'Produto Encontrado',
-              description: obj.description?.slice(0, 160) || '',
+              description: obj.description?.slice(0, 160) || 'Nenhuma descrição.',
               price: Number(price),
               image: image,
               category: obj.category || 'Geral',
               sku: obj.sku || obj.mpn || 'SKU-GEN',
-              url: obj.url || searchUrl
+              url: obj.url || searchUrlUsed
             });
           }
         }
@@ -140,21 +197,25 @@ export async function scrapeWebsiteFallback(site: string, query: string): Promis
       return products;
     }
 
-    // Secondary fallback: meta og: tags pattern matching (useful for single item page lookups)
-    const titleMatch = html.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i);
-    const imageMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
-    const priceMatch = html.match(/<meta\s+property="product:price:amount"\s+content="([^"]+)"/i) || 
-                       html.match(/<meta\s+property="og:price:amount"\s+content="([^"]+)"/i);
-                       
+    // Secondary fallback: meta og: tags pattern matching. 
+    // Slices HTML to HEAD context (first 120,000 chars) to prevent ReDoS CPU lockups on huge body blocks.
+    const headEndIdx = html.toLowerCase().indexOf('</head>');
+    const headHtml = headEndIdx !== -1 ? html.substring(0, headEndIdx) : html.substring(0, 120000);
+
+    const titleMatch = headHtml.match(/<meta\s+property="og:title"\s+content="([^"]+)"/i);
+    const imageMatch = headHtml.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
+    const priceMatch = headHtml.match(/<meta\s+property="product:price:amount"\s+content="([^"]+)"/i) || 
+                       headHtml.match(/<meta\s+property="og:price:amount"\s+content="([^"]+)"/i);
+                        
     if (titleMatch && (imageMatch || priceMatch)) {
       return [{
         name: titleMatch[1],
-        description: 'Produto identificado via tags sociais de compartilhamento.',
+        description: 'Produto identificado via tags de compartilhamento social.',
         price: priceMatch ? parseFloat(priceMatch[1]) : 0,
         image: imageMatch ? imageMatch[1] : '',
         category: 'Geral',
         sku: 'SKU-SOCIAL',
-        url: searchUrl
+        url: searchUrlUsed
       }];
     }
 
@@ -165,7 +226,7 @@ export async function scrapeWebsiteFallback(site: string, query: string): Promis
 
     return [];
   } catch (err) {
-    console.warn(`HTML Web scraping failed for match lookup on ${site}:`, err);
+    console.warn(`HTML Web scraping parsing failed for match lookup on ${site}:`, err);
     // Return sample items if it's SonoShow to guarantee high fidelity demonstration
     if (isSonoShow) {
       return SONOSHOW_OFFLINE_PRODUCTS;

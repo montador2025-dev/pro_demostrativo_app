@@ -5,6 +5,15 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { queryUniversalCatalog } from './server/services/catalogService';
 
+// Register global crash avoidance guards
+process.on('uncaughtException', (err) => {
+  console.error('[Process] Caught uncaughtException to protect server uptime:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Process] Caught unhandledRejection to protect server uptime at:', promise, 'reason:', reason);
+});
+
 async function startServer() {
   const app = express();
   const PORT = 3000;

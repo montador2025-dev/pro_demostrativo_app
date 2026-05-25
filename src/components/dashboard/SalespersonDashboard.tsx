@@ -49,6 +49,39 @@ import { generateProfessionalQuotePDF } from '../../lib/pdfGenerator';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
+// SaaS Premium Elegant Analytics Sparkline Graph for Salesperson
+const MiniSparkline = ({ points, color = '#b45309' }: { points: number[], color?: string }) => {
+  const max = Math.max(...points, 1);
+  const min = Math.min(...points, 0);
+  const range = max - min;
+  const height = 34;
+  const width = 120;
+  
+  const coordinates = points.map((p, i) => {
+    const x = (i / (points.length - 1)) * width;
+    const y = height - 4 - ((p - min) / range) * (height - 8);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const areaPoints = `${coordinates} ${width},${height} 0,${height}`;
+  const gradId = React.useId();
+
+  return (
+    <div className="flex items-center gap-2 select-none">
+      <svg className="w-[110px] h-[34px] stroke-2 overflow-visible" viewBox={`0 0 ${width} ${height}`} fill="none">
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.00" />
+          </linearGradient>
+        </defs>
+        <polygon points={areaPoints} fill={`url(#${gradId})`} />
+        <polyline points={coordinates} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+};
+
 export const SalespersonDashboard = () => {
   const { currentUser, branches, quotes, addQuote, updateQuoteStatus, activeTab, setActiveTab } = useAppContext();
   
@@ -75,16 +108,21 @@ export const SalespersonDashboard = () => {
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
   // MÓDULO 1 & 2: API UNIVERSAL DE CATÁLOGO & BUSCA INTELIGENTE
-  const [catalogSearchMode, setCatalogSearchMode] = useState<'local' | 'online'>('local');
+  const [catalogSearchMode, setCatalogSearchMode] = useState<'local' | 'online'>('online');
   const [onlineCatalogUrl, setOnlineCatalogUrl] = useState('catalogo.sonoshowmoveis.com.br');
   const [isOnlineCatalogSearching, setIsOnlineCatalogSearching] = useState(false);
   const [onlineProducts, setOnlineProducts] = useState<any[]>([]);
   const [onlineError, setOnlineError] = useState('');
 
-  // Auto query with debounce
+  // Auto query with debounce (runs automatically ONLY for official Sono Show catalog to prevent flood crashes on custom sites while typing)
   useEffect(() => {
     if (catalogSearchMode !== 'online' || !catalogSearch.trim()) {
       setOnlineProducts([]);
+      return;
+    }
+
+    // Protect custom e-commerce URLs from keystroke-level floods
+    if (onlineCatalogUrl !== 'catalogo.sonoshowmoveis.com.br') {
       return;
     }
 
@@ -110,22 +148,28 @@ export const SalespersonDashboard = () => {
     return () => clearTimeout(delayDebounce);
   }, [catalogSearch, catalogSearchMode, onlineCatalogUrl]);
 
-  // Map online product listings on the fly to fulfill type alignments
+  // Map online product listings on the fly to fulfill type alignments securely
   const mappedOnlineProducts = useMemo(() => {
-    return onlineProducts.map((p, index) => {
-      const id = `online-${p.sku || index}-${Math.random().toString(36).substring(3,7)}`;
-      return {
-        id,
-        code: p.sku || `ON-${index}`,
-        name: p.name,
-        nickname: p.name.split(' ').slice(0,3).join(' '),
-        description: p.description || 'Produto importado via Radar Comercial.',
-        specifications: `Plataforma: ${p.category || 'E-commerce'} | SKU: ${p.sku || ''} | Fonte: ${onlineCatalogUrl}`,
-        imageUrl: p.image || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&q=80',
-        category: p.category || 'Geral',
-        price: Number(p.price) || 0
-      };
-    });
+    if (!Array.isArray(onlineProducts)) return [];
+    return onlineProducts
+      .filter(p => p && typeof p === 'object')
+      .map((p, index) => {
+        const pSku = p.sku || `ON-${index}`;
+        const pName = p.name || 'Produto sem nome';
+        const nickname = typeof pName === 'string' ? pName.split(' ').slice(0, 3).join(' ') : 'Produto...';
+        const id = `online-${pSku}-${index}`;
+        return {
+          id,
+          code: pSku,
+          name: pName,
+          nickname,
+          description: p.description || 'Produto importado via Radar Comercial.',
+          specifications: `Plataforma: ${p.category || 'E-commerce'} | SKU: ${pSku} | Fonte: ${onlineCatalogUrl}`,
+          imageUrl: p.image || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&q=80',
+          category: p.category || 'Geral',
+          price: Number(p.price) || 0
+        };
+      });
   }, [onlineProducts, onlineCatalogUrl]);
 
   useEffect(() => {
@@ -433,7 +477,23 @@ export const SalespersonDashboard = () => {
   };
 
   const handleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuoteValueStr(formatCurrencyInput(e.target.value));
+    const rawVal = e.target.value;
+    const formatted = formatCurrencyInput(rawVal);
+    setQuoteValueStr(formatted);
+
+    // Sync back to single cart item to prevent 0.00 prices when the overall total is edited manually
+    const valueNum = parseCurrencyInput(formatted);
+    setSelectedItems(prev => {
+      if (prev.length === 1) {
+        return prev.map(item => ({
+          ...item,
+          price: valueNum / item.quantity
+        }));
+      }
+      return prev;
+    });
+
+    setCustomSimulatedAmount(valueNum.toString());
   };
 
   // Safe Add Product to Cart
@@ -475,6 +535,27 @@ export const SalespersonDashboard = () => {
       // Also set calculator default simulation value
       setCustomSimulatedAmount(newTotal.toString());
 
+      return updated;
+    });
+  };
+
+  // Update specific cart item price interactively
+  const handleUpdateCartItemPrice = (productId: string, newPrice: number) => {
+    setSelectedItems(prev => {
+      const updated = prev.map(item => 
+        item.productId === productId 
+          ? { ...item, price: newPrice }
+          : item
+      );
+
+      // Recalculate full cart summary totals
+      const newTotal = updated.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      setQuoteValueStr(formatCurrency(newTotal).replace('R$', '').trim());
+      
+      const summary = updated.map(item => `${item.quantity}x ${item.nickname}`).join(' + ');
+      setProductInterest(summary);
+      setCustomSimulatedAmount(newTotal.toString());
+      
       return updated;
     });
   };
@@ -634,7 +715,8 @@ export const SalespersonDashboard = () => {
       pfdSuccess = await generateProfessionalQuotePDF({
         quote: quoteForDoc as any,
         sellerName: currentUser.name,
-        branchName: myBranch ? myBranch.name : 'Sono Show Móveis'
+        branchName: myBranch ? myBranch.name : 'Sono Show Móveis',
+        sellerPhone: currentUser.phone
       });
       toast.dismiss(loadId);
       if (pfdSuccess) {
@@ -702,7 +784,8 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
     const success = await generateProfessionalQuotePDF({
       quote: quote,
       sellerName: currentUser.name,
-      branchName: myBranch ? myBranch.name : 'Atendimento Sono Show'
+      branchName: myBranch ? myBranch.name : 'Atendimento Sono Show',
+      sellerPhone: currentUser.phone
     });
     toast.dismiss(loadId);
     if (success) {
@@ -825,83 +908,131 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
 
         {/* METRICS OVERVIEW PANELS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="glass-card shadow-xs border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-emerald-600" /> Vendas Convertidas (Este Mês)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-black tracking-tight text-emerald-600">{formatCurrency(wonSalesTotal)}</div>
-              <p className="text-[10px] text-stone-500 mt-1 font-bold">Baseado em {wonQuotes.length} propostas ganhas.</p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card shadow-xs border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-                <Target className="w-4 h-4 text-amber-700" /> Pipeline Ativo de Negociações
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-black tracking-tight text-stone-900">
-                {formatCurrency(pendingQuotes.reduce((a,q) => a + q.value, 0))}
-              </div>
-              <p className="text-[10px] text-stone-500 mt-1 font-bold">Total em aberto para fechar com {pendingQuotes.length} clientes.</p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass-card shadow-xs border-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-amber-700" /> Nível Operacional Comercial
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-black border uppercase ${currentBadge.color}`}>
-                  {currentBadge.title}
+          {/* Won Sales Card */}
+          <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-emerald-600/30">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                  <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-500/10">
+                    <TrendingUp className="w-4 h-4" />
+                  </span>
+                  Vendas Convertidas (Este Mês)
                 </span>
+                <div className="pt-2">
+                  <div className="text-2xl font-black text-emerald-600 tracking-tight font-sans">
+                    {formatCurrency(wonSalesTotal)}
+                  </div>
+                  <p className="text-[10px] text-stone-400 font-bold mt-1">
+                    Baseado em {wonQuotes.length} propostas fechadas
+                  </p>
+                </div>
               </div>
-              <p className="text-[10px] text-stone-500 mt-1.5 font-bold">Selo oficial baseado em conversões ativas.</p>
-            </CardContent>
-          </Card>
+              <MiniSparkline points={[5, 15, 20, 25, 42, 55, wonQuotes.length || 10]} color="#10b981" />
+            </div>
+          </div>
+
+          {/* Pipeline Card */}
+          <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-amber-700/30">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                  <span className="p-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-700/10">
+                    <Target className="w-4 h-4" />
+                  </span>
+                  Pipeline em Negociação
+                </span>
+                <div className="pt-2">
+                  <div className="text-2xl font-black text-stone-900 tracking-tight font-mono">
+                    {formatCurrency(pendingQuotes.reduce((a,q) => a + q.value, 0))}
+                  </div>
+                  <p className="text-[10px] text-stone-400 font-bold mt-1">
+                    Tratativas com {pendingQuotes.length} clientes quentes
+                  </p>
+                </div>
+              </div>
+              <MiniSparkline points={[10000, 42000, 31000, 58000, 72000, 64000, pendingQuotes.reduce((a,q) => a + q.value, 0) || 20000]} color="#b45309" />
+            </div>
+          </div>
+
+          {/* Nível Badge Card */}
+          <div className="group relative overflow-hidden rounded-2xl border border-stone-250/50 bg-white p-5 shadow-[0_4px_25px_rgba(28,25,23,0.02)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_30px_rgba(28,25,23,0.06)] hover:border-[#b45309]/30">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
+                  <span className="p-1.5 rounded-lg bg-amber-50 text-amber-700 border border-[#b45309]/10">
+                    <Award className="w-4 h-4" />
+                  </span>
+                  Classificação de Desempenho
+                </span>
+                <div className="pt-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-3.5 py-1 rounded-xl text-xs font-black border uppercase shadow-2xs tracking-widest ${currentBadge.color}`}>
+                      {currentBadge.title}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-stone-400 font-bold mt-2">
+                    Nível de vendas ativo na corporação
+                  </p>
+                </div>
+              </div>
+              <MiniSparkline points={[1, 1, 2, 2, 3, 4, 3]} color="#b45309" />
+            </div>
+          </div>
         </div>
 
         {/* MOTIVATIONAL SALES THERMOMETER */}
-        <Card className="glass-card border-none overflow-hidden pb-4">
-          <CardHeader className="border-b border-[#1c1917]/5">
-            <CardTitle className="flex items-center text-sm font-black text-stone-900 uppercase tracking-wider gap-2">
-              <Sparkles className="w-5 h-5 text-amber-600 animate-pulse" /> Termômetro de Produtividade Sono Show
-            </CardTitle>
-            <CardDescription className="font-semibold text-stone-500">
-              Sua meta comercial mensal de faturamento para atingir premiação máxima de comissão.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6 space-y-4">
-            <div className="flex justify-between items-center text-xs font-bold text-stone-600">
-              <span>Status: <strong className="text-amber-700">{goalPercentage}% Concluído</strong></span>
-              <span>Meta: <strong className="text-stone-900">{formatCurrency(salesGoal)}</strong></span>
-            </div>
-            
-            {/* Real beautiful visual slider bar */}
-            <div className="w-full h-4 bg-stone-100 rounded-full overflow-hidden border border-stone-200">
-              <motion.div 
-                initial={{ width: 0 }} 
-                animate={{ width: `${goalPercentage}%` }} 
-                transition={{ duration: 1, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-amber-600 to-amber-700 shadow-inner"
-              />
+        <div className="relative overflow-hidden rounded-[2rem] border border-stone-250/60 bg-gradient-to-r from-white via-white to-stone-105/20 p-6 md:p-8 shadow-[0_12px_40px_rgba(28,25,23,0.02)] group transition-all duration-300 hover:shadow-[0_16px_48px_rgba(28,25,23,0.04)]">
+          <div className="absolute top-0 right-0 p-8 opacity-[0.02] -mr-6 -mt-6 select-none pointer-events-none">
+            <Sparkles className="w-48 h-48 text-[#b45309]" />
+          </div>
+          
+          <div className="relative z-10 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="flex items-center text-xs font-black text-[#b45309] uppercase tracking-widest gap-2">
+                  <Sparkles className="w-4.5 h-4.5 text-amber-600 animate-pulse" /> Termômetro de Produtividade G-Atende
+                </span>
+                <p className="text-xs text-stone-500 font-semibold leading-relaxed">
+                  Sua pontuação de faturamento mensal para desbloqueio do comissionamento VIP Diamante.
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-4 text-xs font-bold leading-none select-none">
+                <div className="text-right">
+                  <span className="block text-[10px] text-stone-400 uppercase tracking-wider font-extrabold">Meta Comercial</span>
+                  <span className="text-stone-900 font-extrabold text-[13px]">{formatCurrency(salesGoal)}</span>
+                </div>
+                <div className="h-8 w-[1px] bg-stone-200"></div>
+                <div>
+                  <span className="block text-[10px] text-stone-400 uppercase tracking-wider font-extrabold">Progresso Realizado</span>
+                  <span className="text-[#b45309] font-black text-[13px]">{goalPercentage}% Concluído</span>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-4 text-[9px] font-bold text-stone-400 uppercase tracking-wider pt-1.5 select-none text-center">
-              <div>Iniciante<br/>(R$ 0)</div>
-              <div>Prata<br/>(R$ 10k)</div>
-              <div>Ouro<br/>(R$ 20k)</div>
-              <div>Diamante<br/>(R$ 35k)</div>
+            {/* Premium thermometer gradient progress bar */}
+            <div className="relative">
+              <div className="w-full h-4.5 bg-stone-100 rounded-full overflow-hidden border border-stone-250/50 shadow-inner">
+                <motion.div 
+                  initial={{ width: 0 }} 
+                  animate={{ width: `${goalPercentage}%` }} 
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                  className="h-full bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 relative overflow-hidden"
+                >
+                  {/* Subtle animated light highlight sheen inside progress */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+                </motion.div>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="grid grid-cols-4 text-[9px] font-black text-stone-400 uppercase tracking-widest pt-1.5 select-none text-center">
+              <div className="transition-colors hover:text-stone-700">Iniciante<br/><span className="font-mono text-[8px] text-stone-400 pt-0.5 block">R$ 0</span></div>
+              <div className="transition-colors hover:text-amber-800">Prata<br/><span className="font-mono text-[8px] text-stone-400 pt-0.5 block">R$ 10k</span></div>
+              <div className="transition-colors hover:text-amber-700">Ouro<br/><span className="font-mono text-[8px] text-stone-400 pt-0.5 block">R$ 20k</span></div>
+              <div className="transition-colors hover:text-amber-900">Diamante<br/><span className="font-mono text-[8px] text-stone-400 pt-0.5 block">R$ 35k</span></div>
+            </div>
+          </div>
+        </div>
 
         {/* HOME FAST ATENDE TRADING ACTION CARD */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -1182,7 +1313,21 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                             <img src={item.imageUrl} alt={item.nickname} className="w-10 h-10 rounded-lg object-cover bg-stone-50 shrink-0" referrerPolicy="no-referrer" />
                             <div className="truncate min-w-0">
                               <h5 className="text-xs font-bold text-stone-900 truncate uppercase">{item.nickname}</h5>
-                              <p className="text-[9px] text-stone-400 font-mono">CÓD: {item.code} | {formatCurrency(item.price)}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] text-stone-400 font-mono">CÓD: {item.code} | </span>
+                                <span className="text-[9px] text-amber-850 font-extrabold select-none">R$</span>
+                                <input 
+                                  type="text" 
+                                  aria-label={`Preço para ${item.nickname}`}
+                                  className="w-20 h-5 px-1 text-[9.5px] font-black text-amber-700 bg-stone-100/60 hover:bg-stone-200/50 focus:bg-white border-b border-amber-700/20 focus:border-amber-700 outline-none transition-all rounded text-center"
+                                  value={item.price > 0 ? (item.price.toFixed(2).replace('.', ',')) : '0,00'}
+                                  onChange={(e) => {
+                                    const rawVal = e.target.value.replace(/\D/g, '');
+                                    const numericPrice = rawVal ? Number(rawVal) / 100 : 0;
+                                    handleUpdateCartItemPrice(item.productId, numericPrice);
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
                           
@@ -1434,25 +1579,82 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
               )}
 
               {/* Filter search bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300" />
-                <Input 
-                  placeholder={
-                    catalogSearchMode === 'local' 
-                      ? "Buscar sofá, rack, código, categoria..." 
-                      : "Digite o termo (ex: sofá, mesa, colchão) e pesquise..."
-                  }
-                  className="bg-white h-11 pl-10 pr-10 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300"
-                  value={catalogSearch}
-                  onChange={(e) => setCatalogSearch(e.target.value)}
-                />
-                {catalogSearch && (
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-300" />
+                  <Input 
+                    placeholder={
+                      catalogSearchMode === 'local' 
+                        ? "Buscar sofá, rack, código do produto (ex: CAM008)..." 
+                        : "Digite Nome ou CÓDIGO do Produto no site..."
+                    }
+                    className="bg-white h-11 pl-10 pr-10 rounded-xl border-stone-200 text-xs font-bold text-stone-900 placeholder:text-stone-300 shadow-sm focus:ring-1 focus:ring-amber-500/20 w-full"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (catalogSearchMode === 'online' && catalogSearch.trim()) {
+                          setIsOnlineCatalogSearching(true);
+                          setOnlineError('');
+                          try {
+                            const url = `/api/catalog?site=${encodeURIComponent(onlineCatalogUrl)}&query=${encodeURIComponent(catalogSearch)}`;
+                            const response = await fetch(url);
+                            const data = await response.json();
+                            if (data.success && Array.isArray(data.products)) {
+                              setOnlineProducts(data.products);
+                            } else {
+                              setOnlineError(data.error || 'Nenhum item detectado nesta URL.');
+                            }
+                          } catch (err) {
+                            setOnlineError('Incapaz de conectar com o serviço de Catálogo Radar.');
+                          } finally {
+                            setIsOnlineCatalogSearching(false);
+                          }
+                        }
+                      }
+                    }}
+                  />
+                  {catalogSearch && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCatalogSearch('');
+                        setOnlineProducts([]);
+                      }}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors p-1"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {catalogSearchMode === 'online' && (
                   <button
                     type="button"
-                    onClick={() => setCatalogSearch('')}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors p-1"
+                    onClick={async () => {
+                      if (!catalogSearch.trim()) return;
+                      setIsOnlineCatalogSearching(true);
+                      setOnlineError('');
+                      try {
+                        const url = `/api/catalog?site=${encodeURIComponent(onlineCatalogUrl)}&query=${encodeURIComponent(catalogSearch)}`;
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        if (data.success && Array.isArray(data.products)) {
+                          setOnlineProducts(data.products);
+                        } else {
+                          setOnlineError(data.error || 'Nenhum item detectado nesta URL.');
+                        }
+                      } catch (err) {
+                        setOnlineError('Incapaz de conectar com o serviço de Catálogo Radar.');
+                      } finally {
+                        setIsOnlineCatalogSearching(false);
+                      }
+                    }}
+                    disabled={isOnlineCatalogSearching}
+                    className="bg-amber-700 hover:bg-amber-800 disabled:opacity-55 text-white rounded-xl px-4 text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-sm shrink-0 h-11"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <Search className="w-4 h-4" />
+                    <span>Buscar</span>
                   </button>
                 )}
               </div>

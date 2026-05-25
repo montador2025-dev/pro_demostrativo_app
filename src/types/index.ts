@@ -22,6 +22,7 @@ export interface User {
   branchId?: string; // Managers and Salespeople belong to a branch
   lastBranchId?: string; // Keep track of the last branch for transferred salespeople
   lastAccess?: string; // Tracking for supervisor visibility
+  phone?: string; // Contact phone of the user
   createdAt: string;
 }
 
