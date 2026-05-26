@@ -82,6 +82,37 @@ const MiniSparkline = ({ points, color = '#b45309' }: { points: number[], color?
   );
 };
 
+const fetchCatalogWithRunFallback = async (site: string, query: string): Promise<any> => {
+  const localUrl = `/api/catalog?site=${encodeURIComponent(site)}&query=${encodeURIComponent(query)}`;
+  try {
+    const response = await fetch(localUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP status error: ${response.status}`);
+    }
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Response is not JSON');
+    }
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.warn('[Catalog Scraper] Local fetch failed or returned invalid response, trying Cloud Run fallback:', err);
+    try {
+      const fallbackBase = "https://ais-pre-wilpbwh5ci77agpanmlcw7-273210465927.us-east5.run.app";
+      const fallbackUrl = `${fallbackBase}/api/catalog?site=${encodeURIComponent(site)}&query=${encodeURIComponent(query)}`;
+      const response = await fetch(fallbackUrl);
+      if (!response.ok) {
+        throw new Error(`Fallback HTTP status error: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (fallbackErr: any) {
+      console.error('[Catalog Scraper] Both local and fallback fetch failed:', fallbackErr);
+      throw fallbackErr;
+    }
+  }
+};
+
 export const SalespersonDashboard = () => {
   const { currentUser, branches, quotes, addQuote, updateQuoteStatus, activeTab, setActiveTab } = useAppContext();
   
@@ -130,9 +161,7 @@ export const SalespersonDashboard = () => {
       setIsOnlineCatalogSearching(true);
       setOnlineError('');
       try {
-        const url = `/api/catalog?site=${encodeURIComponent(onlineCatalogUrl)}&query=${encodeURIComponent(catalogSearch)}`;
-        const response = await fetch(url);
-        const data = await response.json();
+        const data = await fetchCatalogWithRunFallback(onlineCatalogUrl, catalogSearch);
         if (data.success && Array.isArray(data.products)) {
           setOnlineProducts(data.products);
         } else {
@@ -1598,9 +1627,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                           setIsOnlineCatalogSearching(true);
                           setOnlineError('');
                           try {
-                            const url = `/api/catalog?site=${encodeURIComponent(onlineCatalogUrl)}&query=${encodeURIComponent(catalogSearch)}`;
-                            const response = await fetch(url);
-                            const data = await response.json();
+                            const data = await fetchCatalogWithRunFallback(onlineCatalogUrl, catalogSearch);
                             if (data.success && Array.isArray(data.products)) {
                               setOnlineProducts(data.products);
                             } else {
@@ -1636,9 +1663,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                       setIsOnlineCatalogSearching(true);
                       setOnlineError('');
                       try {
-                        const url = `/api/catalog?site=${encodeURIComponent(onlineCatalogUrl)}&query=${encodeURIComponent(catalogSearch)}`;
-                        const response = await fetch(url);
-                        const data = await response.json();
+                        const data = await fetchCatalogWithRunFallback(onlineCatalogUrl, catalogSearch);
                         if (data.success && Array.isArray(data.products)) {
                           setOnlineProducts(data.products);
                         } else {

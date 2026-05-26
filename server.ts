@@ -21,6 +21,18 @@ async function startServer() {
   // Support JSON payload parsed correctly
   app.use(express.json());
 
+  // CORS and preflight setup
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,Content-Type,Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // Log all system API calls
   app.use((req, res, next) => {
     console.log(`[Radar Comercial Server] ${req.method} ${req.url}`);

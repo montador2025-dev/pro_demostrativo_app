@@ -23,8 +23,6 @@ service cloud.firestore {
     function isSupervisor() {
       return isSignedIn() && (
         request.auth.token.email == 'montador2025@gmail.com' ||
-        request.auth.token.email == 'carlos_u1@atendepro.com' ||
-        request.auth.token.email.matches('^carlos_.*@atendepro\\.com$') ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'supervisor')
       );
     }
