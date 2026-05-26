@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "Branch": {
+      "title": "Branch",
+      "description": "A regular organizational branch or showroom",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the branch" },
+        "name": { "type": "string", "description": "Full name of the branch" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "ISO timestamp of creation" }
+      },
+      "required": ["id", "name", "createdAt"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System user representing a supervisor, manager, or salesperson",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the user (often matches Auth UID)" },
+        "name": { "type": "string", "description": "Full name of the user" },
+        "role": { "type": "string", "enum": ["supervisor", "manager", "salesperson"], "description": "Access control role" },
+        "branchId": { "type": "string", "description": "Associated branch ID" },
+        "lastBranchId": { "type": "string", "description": "Track last branch if transferred" },
+        "lastAccess": { "type": "string", "format": "date-time", "description": "ISO timestamp of last activity" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "ISO timestamp of creation" }
+      },
+      "required": ["id", "name", "role", "createdAt"]
+    },
+    "Quote": {
+      "title": "Quote",
+      "description": "A commercial quote/negotiation registered by a salesperson",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique quote ID" },
+        "clientName": { "type": "string", "description": "Client full name" },
+        "clientPhone": { "type": "string", "description": "Client contact phone" },
+        "productInterest": { "type": "string", "description": "Main product of interest" },
+        "value": { "type": "number", "description": "Monetary value of the negotiation" },
+        "category": { "type": "string", "enum": ["card_turning", "researching", "price_high", "needs_spouse", "other"], "description": "Reason category" },
+        "customCategoryReason": { "type": "string", "description": "Details if other reason category is chosen" },
+        "returnDate": { "type": "string", "format": "date-time", "description": "ISO timestamp of scheduled contact" },
+        "status": { "type": "string", "enum": ["pending", "won", "lost"], "description": "Negotiation status" },
+        "createdBy": { "type": "string", "description": "Creator User ID" },
+        "branchId": { "type": "string", "description": "Associated branch ID at creation" },
+        "isTransferred": { "type": "boolean", "description": "Indicates transfer history" },
+        "notes": { "type": "string", "description": "Negotiation notes" },
+        "validityDays": { "type": "number", "description": "Number of days the quote is valid" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "ISO timestamp of registration" }
+      },
+      "required": ["id", "clientName", "clientPhone", "productInterest", "value", "category", "returnDate", "status", "createdBy", "branchId", "createdAt"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "System/organizational settings and license details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique company ID" },
+        "name": { "type": "string", "description": "Company legal/commercial name" },
+        "plan": { "type": "string", "description": "SaaS license tier" },
+        "maxUsers": { "type": "number", "description": "Max allowed users" },
+        "licenseExpires": { "type": "string", "format": "date-time", "description": "ISO expiration of license" }
+      },
+      "required": ["id", "name", "plan", "maxUsers", "licenseExpires"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Security and activity logs for compliance",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique log ID" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "ISO timestamp of event" },
+        "userId": { "type": "string", "description": "Executing user ID or system" },
+        "userName": { "type": "string", "description": "Executing user name" },
+        "role": { "type": "string", "description": "Executing user role" },
+        "action": { "type": "string", "description": "Action details/description" },
+        "ipAddress": { "type": "string", "description": "Masked IP address of active session" },
+        "status": { "type": "string", "enum": ["SUCCESS", "WARNING", "ALERT"], "description": "Severity status" }
+      },
+      "required": ["id", "timestamp", "userId", "userName", "role", "action", "ipAddress", "status"]
+    }
+  },
+  "firestore": {
+    "branches": {
+      "schema": "Branch",
+      "description": "Collection of corporate branches"
+    },
+    "users": {
+      "schema": "User",
+      "description": "Collection of platform users and credentials"
+    },
+    "quotes": {
+      "schema": "Quote",
+      "description": "Collection of sales negotiations and records"
+    },
+    "companies": {
+      "schema": "Company",
+      "description": "Collection of company wide configurations"
+    },
+    "auditLogs": {
+      "schema": "AuditLog",
+      "description": "Immutable stream of security logs"
+    }
+  }
+}

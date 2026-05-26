@@ -2,94 +2,173 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global helper functions
-    function isAuthenticated() {
+    // Global Safety Net catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Primitive Definitions
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
     function isSupervisor() {
-      return isAuthenticated() && (
-        request.auth.token.role == 'supervisor' || 
-        getUserData().role == 'supervisor'
+      return isSignedIn() && (
+        request.auth.token.email == 'montador2025@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'supervisor')
       );
     }
 
     function isManager() {
-      return isAuthenticated() && (
-        request.auth.token.role == 'manager' || 
-        getUserData().role == 'manager'
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserData(request.auth.uid).role == 'manager'
       );
     }
 
     function getManagerBranchId() {
-      return getUserData().branchId;
+      return getUserData(request.auth.uid).branchId;
+    }
+
+    // isValidBranch Validation
+    function isValidBranch(data) {
+      return data.keys().hasAll(['id', 'name', 'createdAt']) &&
+             data.keys().size() == 3 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.createdAt is string;
+    }
+
+    // isValidUser Validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'role', 'createdAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.role in ['supervisor', 'manager', 'salesperson'] &&
+             (!data.keys().hasAny(['phone']) || (data.phone is string && data.phone.size() <= 30)) &&
+             (!data.keys().hasAny(['branchId']) || (data.branchId is string && data.branchId.size() <= 128)) &&
+             (!data.keys().hasAny(['lastBranchId']) || (data.lastBranchId is string && data.lastBranchId.size() <= 128)) &&
+             (!data.keys().hasAny(['lastAccess']) || (data.lastAccess is string)) &&
+             data.createdAt is string;
+    }
+
+    // isValidQuote Validation
+    function isValidQuote(data) {
+      return data.keys().hasAll(['id', 'clientName', 'clientPhone', 'productInterest', 'value', 'category', 'returnDate', 'status', 'createdBy', 'branchId', 'createdAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.clientName is string && data.clientName.size() <= 100 &&
+             data.clientPhone is string && data.clientPhone.size() <= 40 &&
+             data.productInterest is string && data.productInterest.size() <= 200 &&
+             (data.value is number || data.value is int) &&
+             data.category in ['card_turning', 'researching', 'price_high', 'needs_spouse', 'other'] &&
+             (!data.keys().hasAny(['customCategoryReason']) || (data.customCategoryReason is string && data.customCategoryReason.size() <= 500)) &&
+             data.returnDate is string &&
+             data.status in ['pending', 'won', 'lost'] &&
+             data.createdBy is string && data.createdBy.size() <= 128 &&
+             data.branchId is string && data.branchId.size() <= 128 &&
+             data.createdAt is string &&
+             (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!data.keys().hasAny(['validityDays']) || (data.validityDays is number || data.validityDays is int)) &&
+             (!data.keys().hasAny(['isTransferred']) || data.isTransferred is bool);
+    }
+
+    // isValidCompany Validation
+    function isValidCompany(data) {
+      return data.keys().hasAll(['id', 'name', 'plan', 'maxUsers', 'licenseExpires']) &&
+             data.keys().size() == 5 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.plan is string && data.plan.size() <= 100 &&
+             (data.maxUsers is number || data.maxUsers is int) &&
+             data.licenseExpires is string;
+    }
+
+    // isValidAuditLog Validation
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['id', 'timestamp', 'userId', 'userName', 'role', 'action', 'ipAddress', 'status']) &&
+             data.keys().size() == 8 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.timestamp is string &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 100 &&
+             data.role is string && data.role.size() <= 50 &&
+             data.action is string && data.action.size() <= 1000 &&
+             data.ipAddress is string && data.ipAddress.size() <= 45 &&
+             data.status in ['SUCCESS', 'WARNING', 'ALERT'];
     }
 
     // Rules for SaaS Companies/Tenants
     match /companies/{companyId} {
-      allow read: if isAuthenticated() && (
-        isSupervisor() || 
-        request.auth.token.companyId == companyId || 
-        getUserData().companyId == companyId
-      );
-      allow write: if isSupervisor();
+      allow read: if isSignedIn();
+      allow create, delete: if isSupervisor();
+      allow update: if isSupervisor() && isValidCompany(request.resource.data);
     }
 
     // Rules for Showrooms / Physical Branches
     match /branches/{branchId} {
-      allow read: if isAuthenticated();
-      allow write: if isSupervisor();
+      allow read: if isSignedIn();
+      allow create, delete: if isSupervisor();
+      allow update: if isSupervisor() && isValidBranch(request.resource.data);
     }
 
     // Rules for Staff / User Credentials
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isSupervisor();
+      allow read: if isSignedIn();
+      allow create, delete: if isSupervisor();
       allow update: if isSupervisor() || (
-        isAuthenticated() && 
+        isSignedIn() && 
         request.auth.uid == userId && 
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'branchId', 'companyId'])
+        isValidUser(request.resource.data) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'branchId', 'createdAt'])
       );
-      allow delete: if isSupervisor();
     }
 
-    // Zero-Trust context validation rules for Commercial Quotes (Orçamentos)
+    // Rules for Commercial Quotes (Orçamentos)
     match /quotes/{quoteId} {
       
       // A salesperson can view only their own quotes. 
       // A manager can view any quote belonging to salespeople of their branch.
       // A supervisor can view all quotes.
-      allow read: if isAuthenticated() && (
+      allow read: if isSignedIn() && (
         isSupervisor() ||
         (isManager() && resource.data.branchId == getManagerBranchId()) ||
         resource.data.createdBy == request.auth.uid
       );
 
-      // Anyone with valid salesperson/manager access can create a quote to their assigned branch.
-      allow create: if isAuthenticated() && (
+      // Anyone with valid salesperson/manager access can create a quote under their branch context.
+      allow create: if isSignedIn() && isValidQuote(request.resource.data) && (
         isSupervisor() ||
         (isManager() && request.resource.data.branchId == getManagerBranchId()) ||
         request.resource.data.createdBy == request.auth.uid
       );
 
       // Quote lifecycle: Can only update if owner, or manager of that branch, or supervisor.
-      allow update: if isAuthenticated() && (
+      allow update: if isSignedIn() && isValidQuote(request.resource.data) && (
         isSupervisor() ||
         (isManager() && resource.data.branchId == getManagerBranchId()) ||
         resource.data.createdBy == request.auth.uid
+      ) && (
+        // Enforce that once locked in won/lost terminal state, only supervisors can modify.
+        resource.data.status == 'pending' || isSupervisor()
       );
 
       // Deleting a financial/commercial record is restricted to Supervisors only for absolute consistency.
       allow delete: if isSupervisor();
     }
 
-    // Lock down any other unmapped sub-collection by default
-    match /{document=**} {
-      allow read, write: if false;
+    // Rules for Audit Logs (Stream-only creation)
+    match /auditLogs/{logId} {
+      allow read: if isSupervisor();
+      allow create: if isSignedIn() && isValidAuditLog(request.resource.data);
+      allow update, delete: if false;
     }
   }
 }

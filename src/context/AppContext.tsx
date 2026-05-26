@@ -1,5 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  query, 
+  orderBy, 
+  limit, 
+  getDocs, 
+  getDoc, 
+  writeBatch 
+} from 'firebase/firestore';
+import { initializeApp, getApps } from 'firebase/app';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { Branch, User, Quote, Role, Company, AuditLog } from '../types';
 
 interface AppState {
@@ -9,6 +27,7 @@ interface AppState {
   currentUser: User | null;
   currentCompany: Company;
   auditLogs: AuditLog[];
+  isLoading: boolean;
 }
 
 interface AppContextType extends AppState {
@@ -63,406 +82,521 @@ const mockQuotes: Quote[] = [
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AppState>(() => {
-    const defaultCompany: Company = {
-      id: 'c1',
-      name: 'Grupo Sono Show Móveis S.A.',
-      plan: 'Enterprise SaaS Corporate Plus',
-      maxUsers: 150,
-      licenseExpires: '2028-05-25T12:00:00Z'
-    };
-    const defaultAuditLogs: AuditLog[] = [
-      { id: 'l1', timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userId: 'u1', userName: 'Carlos', role: 'supervisor', action: 'Políticas de controle de privilégios e auditoria de sessão SaaS implantadas', ipAddress: '186.205.112.5', status: 'SUCCESS' },
-      { id: 'l2', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userId: 'u1', userName: 'Carlos', role: 'supervisor', action: 'Varredura e indexação de dados do Firestore simulada', ipAddress: '186.205.112.5', status: 'SUCCESS' },
-      { id: 'l3', timestamp: new Date().toISOString(), userId: 'u1', userName: 'Carlos', role: 'supervisor', action: 'Sessão administrativa ativada com segurança baseada em token', ipAddress: '186.205.112.5', status: 'SUCCESS' }
-    ];
+const PASSWORD_SECRET = 'atendepro123_safe';
 
-    // Try to load from localStorage, else use mocks
-    const saved = localStorage.getItem('appState');
-    if (saved) {
+// Seeds general mocked structures if Firestore collections are absolutely blank
+const seedDatabaseIfNeeded = async () => {
+  try {
+    // 1. Check & Seed Branches
+    const branchesSnap = await getDocs(collection(db, 'branches'));
+    if (branchesSnap.empty) {
+      const batch = writeBatch(db);
+      mockBranches.forEach(b => {
+        batch.set(doc(db, 'branches', b.id), b);
+      });
+      await batch.commit();
+    }
+    
+    // 2. Check & Seed Users
+    const usersSnap = await getDocs(collection(db, 'users'));
+    if (usersSnap.empty) {
+      // Carlos already exists in Firebase Auth because of our boot logic! Its UID is:
+      const carlosUid = auth.currentUser?.uid || 'u1';
+      
+      // Let's register Ana and Roberto in Firebase Auth too so they can sign in later!
+      let anaUid = 'u2';
+      let robertoUid = 'u3';
+      
+      const secondaryAppName = 'temp-auth-creator-init-2';
+      let secondaryApp;
+      const apps = getApps();
+      const existing = apps.find(app => app.name === secondaryAppName);
+      if (existing) {
+        secondaryApp = existing;
+      } else {
+        secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+      }
+      const secondaryAuth = getAuth(secondaryApp);
+
       try {
-        const parsed = JSON.parse(saved);
-        // Force upgrade users to clean names and phone numbers
-        if (parsed && Array.isArray(parsed.users)) {
-          parsed.users = parsed.users.map((u: any) => {
+        const anaCred = await createUserWithEmailAndPassword(secondaryAuth, 'ana_u2@atendepro.com', PASSWORD_SECRET);
+        anaUid = anaCred.user.uid;
+      } catch (e) {
+        console.warn("Ana auth exists or skipped:", e);
+      }
+
+      try {
+        const robertoCred = await createUserWithEmailAndPassword(secondaryAuth, 'roberto_u3@atendepro.com', PASSWORD_SECRET);
+        robertoUid = robertoCred.user.uid;
+      } catch (e) {
+        console.warn("Roberto auth exists or skipped:", e);
+      }
+
+      // Write user documents to Firestore
+      await setDoc(doc(db, 'users', carlosUid), {
+        id: carlosUid,
+        name: 'Carlos',
+        role: 'supervisor',
+        phone: '(21) 99999-1111',
+        createdAt: new Date().toISOString()
+      });
+
+      await setDoc(doc(db, 'users', anaUid), {
+        id: anaUid,
+        name: 'Ana',
+        role: 'manager',
+        branchId: 'b1',
+        phone: '(21) 98888-2222',
+        createdAt: new Date().toISOString()
+      });
+
+      await setDoc(doc(db, 'users', robertoUid), {
+        id: robertoUid,
+        name: 'Roberto',
+        role: 'salesperson',
+        branchId: 'b1',
+        phone: '(21) 97777-3333',
+        createdAt: new Date().toISOString()
+      });
+
+      // 3. Seed Quotes with Roberto's UID
+      const mockSeededQuote = {
+        id: 'q1',
+        clientName: 'Maria Silva',
+        clientPhone: '11988887777',
+        productInterest: 'Guarda-roupa Casal com Espelho',
+        value: 4500.00,
+        category: 'card_turning',
+        returnDate: new Date(new Date().setDate(new Date().getDate() + 2)).toISOString(),
+        status: 'pending',
+        createdBy: robertoUid,
+        branchId: 'b1',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'quotes', 'q1'), mockSeededQuote);
+
+      // 4. Seed Audit Logs
+      const defaultAuditLogs = [
+        { id: 'l1', timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userId: carlosUid, userName: 'Carlos', role: 'supervisor', action: 'Políticas de controle de privilégios e auditoria de sessão SaaS implantadas', ipAddress: '186.205.112.5', status: 'SUCCESS' },
+        { id: 'l2', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userId: carlosUid, userName: 'Carlos', role: 'supervisor', action: 'Conexão e sincronização real-time com banco de dados Firebase Firestore ativado', ipAddress: '186.205.112.5', status: 'SUCCESS' },
+        { id: 'l3', timestamp: new Date().toISOString(), userId: carlosUid, userName: 'Carlos', role: 'supervisor', action: 'Sessão administrativa ativada com segurança baseada em token real-time', ipAddress: '186.205.112.5', status: 'SUCCESS' }
+      ];
+      const logBatch = writeBatch(db);
+      defaultAuditLogs.forEach(l => {
+        logBatch.set(doc(db, 'auditLogs', l.id), l);
+      });
+      await logBatch.commit();
+    }
+
+    // 4. Ensure Company Settings Doc
+    const companyDocRef = doc(db, 'companies', 'c1');
+    const companySnap = await getDoc(companyDocRef);
+    if (!companySnap.exists()) {
+      const defaultCompany: Company = {
+        id: 'c1',
+        name: 'Grupo Sono Show Móveis S.A.',
+        plan: 'Enterprise SaaS Corporate Plus',
+        maxUsers: 150,
+        licenseExpires: '2028-05-25T12:00:00Z'
+      };
+      await setDoc(companyDocRef, defaultCompany);
+    }
+  } catch (err) {
+    console.error("Failed to seed database, continuing using local fallback if needed:", err);
+  }
+};
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentCompany, setCurrentCompany] = useState<Company>({
+    id: 'c1',
+    name: 'Grupo Sono Show Móveis S.A.',
+    plan: 'Enterprise SaaS Corporate Plus',
+    maxUsers: 150,
+    licenseExpires: '2028-05-25T12:00:00Z'
+  });
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('home');
+
+  // Helper to synchronize active Firebase Auth session with selected user's mock credentials
+  const syncFirebaseAuthWithUser = async (user: User) => {
+    const safeName = user.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const email = `${safeName}_${user.id.toLowerCase().slice(0, 10)}@atendepro.com`;
+    const password = PASSWORD_SECRET;
+
+    if (auth.currentUser?.email === email) {
+      return; 
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log(`Successfully synced Firebase Auth session for: ${user.name}`);
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+          console.log(`Dynamically registered & synced Firebase Auth credentials for: ${user.name}`);
+        } catch (createErr) {
+          console.error(`Dynamic registration failed for user ${user.name}:`, createErr);
+        }
+      } else {
+        console.error(`Firebase Auth sync failed for ${user.name}:`, err);
+      }
+    }
+  };
+
+  // Real-Time Sync Loop
+  useEffect(() => {
+    let unsubBranches: () => void = () => {};
+    let unsubUsers: () => void = () => {};
+    let unsubQuotes: () => void = () => {};
+    let unsubCompany: () => void = () => {};
+    let unsubAudit: () => void = () => {};
+
+    const initAndListen = async () => {
+      setIsLoading(true);
+      try {
+        // Step 1: Boot strapping with Carlos' credentials to gain immediate read/write permissions
+        const supervisorEmail = 'carlos_u1@atendepro.com';
+        try {
+          await signInWithEmailAndPassword(auth, supervisorEmail, PASSWORD_SECRET);
+          console.log("Supervisor Carlos session active");
+        } catch (authErr: any) {
+          if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/invalid-login-credentials') {
+            await createUserWithEmailAndPassword(auth, supervisorEmail, PASSWORD_SECRET);
+            console.log("Supervisor Carlos registered and session active");
+          } else {
+            console.error("Auth bootstrapping error:", authErr);
+          }
+        }
+
+        // Step 2: Ensure collections & documents exist
+        await seedDatabaseIfNeeded();
+
+        // Step 3: Establish real-time live observers
+        unsubBranches = onSnapshot(collection(db, 'branches'), (snap) => {
+          const list: Branch[] = [];
+          snap.forEach(docSnap => list.push(docSnap.data() as Branch));
+          setBranches(list);
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'branches'));
+
+        unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+          const list: User[] = [];
+          snap.forEach(docSnap => {
+            const u = docSnap.data() as User;
             const cleanName = u.name
-              .replace(/\s*\(Vendedor\s+Centro\)/i, '')
-              .replace(/\s*\(Gerente\s+Centro\)/i, '')
-              .replace(/\s*\(Supervisor\s+Geral\)/i, '');
+               .replace(/\s*\(Vendedor\s+Centro\)/i, '')
+               .replace(/\s*\(Gerente\s+Centro\)/i, '')
+               .replace(/\s*\(Supervisor\s+Geral\)/i, '');
             let phone = u.phone;
             if (!phone) {
               phone = u.role === 'supervisor' ? '(21) 99999-1111' : u.role === 'manager' ? '(21) 98888-2222' : '(21) 97777-3333';
             }
-            return { ...u, name: cleanName, phone };
+            list.push({ ...u, name: cleanName, phone });
           });
-        }
-        if (parsed && parsed.currentUser) {
-          const cleanName = parsed.currentUser.name
-            .replace(/\s*\(Vendedor\s+Centro\)/i, '')
-            .replace(/\s*\(Gerente\s+Centro\)/i, '')
-            .replace(/\s*\(Supervisor\s+Geral\)/i, '');
-          let phone = parsed.currentUser.phone;
-          if (!phone) {
-            phone = parsed.currentUser.role === 'supervisor' ? '(21) 99999-1111' : parsed.currentUser.role === 'manager' ? '(21) 98888-2222' : '(21) 97777-3333';
+          setUsers(list);
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'users'));
+
+        unsubQuotes = onSnapshot(collection(db, 'quotes'), (snap) => {
+          const list: Quote[] = [];
+          snap.forEach(docSnap => list.push(docSnap.data() as Quote));
+          setQuotes(list);
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'quotes'));
+
+        unsubCompany = onSnapshot(doc(db, 'companies', 'c1'), (snap) => {
+          if (snap.exists()) {
+            setCurrentCompany(snap.data() as Company);
           }
-          parsed.currentUser = { ...parsed.currentUser, name: cleanName, phone };
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'companies'));
+
+        const auditQuery = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(100));
+        unsubAudit = onSnapshot(auditQuery, (snap) => {
+          const list: AuditLog[] = [];
+          snap.forEach(docSnap => list.push(docSnap.data() as AuditLog));
+          setAuditLogs(list);
+        }, (err) => handleFirestoreError(err, OperationType.GET, 'auditLogs'));
+
+      } catch (err) {
+        console.error("Initialization of AppContext synchronization failed:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAndListen();
+
+    return () => {
+      unsubBranches();
+      unsubUsers();
+      unsubQuotes();
+      unsubCompany();
+      unsubAudit();
+    };
+  }, []);
+
+  // Sync Logged User Profile and ensure custom auth alignment
+  useEffect(() => {
+    if (users.length > 0) {
+      const savedUserId = localStorage.getItem('currentUserId');
+      if (savedUserId) {
+        const found = users.find(u => u.id === savedUserId);
+        if (found) {
+          syncFirebaseAuthWithUser(found).then(() => {
+            setCurrentUser(found);
+          });
+          return;
         }
-        if (!parsed.currentCompany) {
-          parsed.currentCompany = defaultCompany;
-        }
-        if (!parsed.auditLogs) {
-          parsed.auditLogs = defaultAuditLogs;
-        }
-        return parsed;
-      } catch (e) {
-        console.error("Failed to parse appState, reverting to default mocks", e);
+      }
+      // Pick Supervisor as default
+      const defaultUser = users.find(u => u.role === 'supervisor') || users[0];
+      if (defaultUser) {
+        syncFirebaseAuthWithUser(defaultUser).then(() => {
+          setCurrentUser(defaultUser);
+          localStorage.setItem('currentUserId', defaultUser.id);
+        });
       }
     }
-    return {
-      branches: mockBranches,
-      users: mockUsers,
-      quotes: mockQuotes,
-      currentUser: mockUsers[0],
-      currentCompany: defaultCompany,
-      auditLogs: defaultAuditLogs,
-    };
-  });
+  }, [users]);
 
+  // Sync access timestamp over the server
   useEffect(() => {
-    localStorage.setItem('appState', JSON.stringify(state));
-  }, [state]);
-
-  useEffect(() => {
-    // Automated Access Tracking
-    if (state.currentUser) {
+    if (currentUser) {
       const now = new Date().toISOString();
-      setState(s => ({
-        ...s,
-        users: s.users.map(u => u.id === s.currentUser?.id ? { ...u, lastAccess: now } : u),
-        currentUser: s.currentUser ? { ...s.currentUser, lastAccess: now } : null
-      }));
+      updateDoc(doc(db, 'users', currentUser.id), { lastAccess: now }).catch(() => {});
     }
-  }, []); // Run once on initialization
+  }, [currentUser?.id]);
 
-  const [activeTab, setActiveTab] = useState('home');
-
-  const addAuditLog = (action: string, status: AuditLog['status'] = 'SUCCESS') => {
+  // Operations and Actions (Mutations)
+  const addAuditLog = async (action: string, status: AuditLog['status'] = 'SUCCESS', activeUser: User | null = currentUser) => {
     const newLog: AuditLog = {
       id: uuidv4(),
       timestamp: new Date().toISOString(),
-      userId: state.currentUser?.id || 'anonymous',
-      userName: state.currentUser?.name || 'Sistema',
-      role: state.currentUser?.role || 'system',
+      userId: activeUser?.id || 'anonymous',
+      userName: activeUser?.name || 'Sistema',
+      role: activeUser?.role || 'system',
       action,
       ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
       status
     };
-    setState(s => ({
-      ...s,
-      auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-    }));
+    try {
+      await setDoc(doc(db, 'auditLogs', newLog.id), newLog);
+    } catch (err) {
+      console.error("Audit log creation dropped locally: ", err);
+    }
   };
 
-  const updateCompanySettings = (name: string, plan: string) => {
-    setState(s => {
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'anonymous',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Parâmetros SaaS Atualizados: ${name} (${plan})`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
-      };
-      return {
-        ...s,
-        currentCompany: {
-          ...s.currentCompany,
-          name,
-          plan
-        },
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
-  };
-
-  const setCurrentUser = (user: User | null) => {
-    setState(s => {
-      const now = new Date().toISOString();
-      const actionText = user 
-        ? `Acesso concedido: Sessão ativa como ${user.name} (${user.role.toUpperCase()})` 
-        : `Sessão encerrada voluntariamente`;
-      
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: now,
-        userId: user?.id || 'anonymous',
-        userName: user?.name || 'Sistema',
-        role: user?.role || 'system',
-        action: actionText,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: user ? 'SUCCESS' : 'ALERT'
-      };
-
-      const updatedUsers = s.users.map(u => u.id === user?.id ? { ...u, lastAccess: now } : u);
-
-      return { 
-        ...s, 
-        currentUser: user ? { ...user, lastAccess: now } : null,
-        users: updatedUsers,
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
-    // Reset back to home when changing users
+  const handleSetCurrentUser = async (user: User | null) => {
+    if (user) {
+      localStorage.setItem('currentUserId', user.id);
+      await syncFirebaseAuthWithUser(user);
+      setCurrentUser(user);
+      const actionText = `Acesso concedido: Sessão ativa como ${user.name} (${user.role.toUpperCase()})`;
+      await addAuditLog(actionText, 'SUCCESS', user);
+    } else {
+      localStorage.removeItem('currentUserId');
+      setCurrentUser(null);
+      await addAuditLog(`Sessão encerrada voluntariamente`, 'ALERT', null);
+    }
     setActiveTab('home');
   };
 
-  const addBranch = (name: string) => {
-    const newBranch: Branch = { id: uuidv4(), name, createdAt: new Date().toISOString() };
-    setState(s => {
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Showroom Cadastrado: Nova filial criada - "${name}"`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
-      };
-      return {
-        ...s,
-        branches: [...s.branches, newBranch],
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
+  const addBranch = async (name: string) => {
+    const id = uuidv4();
+    const newBranch: Branch = { id, name, createdAt: new Date().toISOString() };
+    try {
+      await setDoc(doc(db, 'branches', id), newBranch);
+      await addAuditLog(`Showroom Cadastrado: Nova filial criada - "${name}"`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `branches/${id}`);
+    }
   };
 
-  const updateBranch = (id: string, name: string) => {
-    setState(s => {
-      const oldBranch = s.branches.find(b => b.id === id);
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Showroom Modificado: Filial "${oldBranch?.name || id}" renomeada para "${name}"`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
-      };
-      return {
-        ...s,
-        branches: s.branches.map(b => b.id === id ? { ...b, name } : b),
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
+  const updateBranch = async (id: string, name: string) => {
+    const oldBranch = branches.find(b => b.id === id);
+    try {
+      await updateDoc(doc(db, 'branches', id), { name });
+      await addAuditLog(`Showroom Modificado: Filial "${oldBranch?.name || id}" renomeada para "${name}"`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `branches/${id}`);
+    }
   };
 
-  const deleteBranch = (id: string) => {
-    setState(s => {
-      const branch = s.branches.find(b => b.id === id);
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `DELEÇÃO OPERACIONAL: Filial "${branch?.name || id}" removida com segurança`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'WARNING'
-      };
-      return {
-        ...s,
-        branches: s.branches.filter(b => b.id !== id),
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
+  const deleteBranch = async (id: string) => {
+    const branch = branches.find(b => b.id === id);
+    try {
+      await deleteDoc(doc(db, 'branches', id));
+      await addAuditLog(`DELEÇÃO OPERACIONAL: Filial "${branch?.name || id}" removida com segurança`, 'WARNING');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `branches/${id}`);
+    }
   };
 
-  const addUser = (name: string, role: Role, branchId?: string, phone?: string) => {
-    const newUser: User = { 
-      id: uuidv4(), 
-      name, 
-      role, 
-      branchId, 
-      phone: phone || '(21) 99999-9999', 
-      createdAt: new Date().toISOString() 
-    };
-    setState(s => {
-      const branch = s.branches.find(b => b.id === branchId);
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Staff Cadastrado: Habilitado acesso para "${name}" como (${role.toUpperCase()}) na filial ${branch?.name || 'Central'}`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
-      };
-      return {
-        ...s,
-        users: [...s.users, newUser],
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
-  };
+  const addUser = async (name: string, role: Role, branchId?: string, phone?: string) => {
+    const cleanPhone = (phone || '').replace(/\D/g, '');
+    const idSafe = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
+    const email = `${idSafe}_${cleanPhone || 'system'}@atendepro.com`.toLowerCase();
 
-  const updateUser = (id: string, name: string, phone?: string) => {
-    setState(s => {
-      const targetUser = s.users.find(u => u.id === id);
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Cadastro Retificado: Credenciais de "${targetUser?.name || id}" atualizadas`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
-      };
-      return { 
-        ...s, 
-        users: s.users.map(u => u.id === id ? { ...u, name, phone: phone !== undefined ? phone : u.phone } : u),
-        currentUser: s.currentUser?.id === id ? { ...s.currentUser, name, phone: phone !== undefined ? phone : s.currentUser.phone } : s.currentUser,
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
-  };
+    let finalUserId = uuidv4();
 
-  const deleteUser = (id: string) => {
-    setState(s => {
-      const targetUser = s.users.find(u => u.id === id);
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Revogação de Credenciais: Staff "${targetUser?.name || id}" desvinculado e excluído com segurança`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'ALERT'
-      };
-      return { 
-        ...s, 
-        users: s.users.filter(u => u.id !== id),
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
-  };
-
-  const transferUser = (userId: string, newBranchId: string) => {
-    setState(s => {
-      const targetUser = s.users.find(u => u.id === userId);
-      const oldBranch = s.branches.find(b => b.id === targetUser?.branchId);
-      const newBranch = s.branches.find(b => b.id === newBranchId);
-
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `TRANSFERÊNCIA GEOGRÁFICA: Alocado consultor "${targetUser?.name}" de "${oldBranch?.name || 'Central'}" para "${newBranch?.name || 'Central'}"`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
-      };
-
-      const users = s.users.map(u => {
-        if (u.id === userId) {
-          return { ...u, branchId: newBranchId, lastBranchId: u.branchId };
-        }
-        return u;
-      });
-      const quotes = s.quotes.map(q => {
-        if (q.createdBy === userId && q.status === 'pending') {
-          return { ...q, isTransferred: true };
-        }
-        return q;
-      });
-      return { ...s, users, quotes, auditLogs: [newLog, ...s.auditLogs].slice(0, 100) };
-    });
-  };
-
-  const reassignQuotes = (oldUserId: string, newUserId: string) => {
-    setState(s => {
-      const oldUser = s.users.find(u => u.id === oldUserId);
-      const newUser = s.users.find(u => u.id === newUserId);
+    try {
+      // Register in Firebase Auth via secondary app instance helper
+      const secondaryAppName = 'temp-auth-creator-add';
+      let secondaryApp;
+      const apps = getApps();
+      const existing = apps.find(app => app.name === secondaryAppName);
+      if (existing) {
+        secondaryApp = existing;
+      } else {
+        secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
+      }
+      const secondaryAuth = getAuth(secondaryApp);
       
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'system',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `MIGRAÇÃO DE CARTEIRA: Transferidos orçamentos ativos de "${oldUser?.name}" para "${newUser?.name}"`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
+      try {
+        const userCred = await createUserWithEmailAndPassword(secondaryAuth, email, PASSWORD_SECRET);
+        if (userCred.user) {
+          finalUserId = userCred.user.uid;
+        }
+      } catch (authErr: any) {
+        console.warn("User credentials could not be registered automatically:", authErr);
+      }
+
+      const newUser: User = { 
+        id: finalUserId, 
+        name, 
+        role, 
+        branchId, 
+        phone: phone || '(21) 99999-9999', 
+        createdAt: new Date().toISOString() 
       };
 
-      const quotes = s.quotes.map(q => {
-        if (q.createdBy === oldUserId && q.status === 'pending') {
-          return { ...q, createdBy: newUserId };
-        }
-        return q;
-      });
-      return { ...s, quotes, auditLogs: [newLog, ...s.auditLogs].slice(0, 100) };
-    });
+      await setDoc(doc(db, 'users', finalUserId), newUser);
+      const branchName = branches.find(b => b.id === branchId)?.name || 'Central';
+      await addAuditLog(`Staff Cadastrado: Habilitado acesso para "${name}" como (${role.toUpperCase()}) na filial ${branchName}`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${finalUserId}`);
+    }
   };
 
-  const addQuote = (quoteInput: Omit<Quote, 'id' | 'createdAt' | 'status'>) => {
+  const updateUser = async (id: string, name: string, phone?: string) => {
+    const targetUser = users.find(u => u.id === id);
+    const updatePayload: Partial<User> = { name };
+    if (phone !== undefined) {
+      updatePayload.phone = phone;
+    }
+    try {
+      await updateDoc(doc(db, 'users', id), updatePayload);
+      await addAuditLog(`Cadastro Retificado: Credenciais de "${targetUser?.name || id}" atualizadas`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${id}`);
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    const targetUser = users.find(u => u.id === id);
+    try {
+      await deleteDoc(doc(db, 'users', id));
+      await addAuditLog(`Revogação de Credenciais: Staff "${targetUser?.name || id}" desvinculado e excluído com segurança`, 'ALERT');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${id}`);
+    }
+  };
+
+  const transferUser = async (userId: string, newBranchId: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+    const oldBranch = branches.find(b => b.id === targetUser.branchId);
+    const newBranch = branches.find(b => b.id === newBranchId);
+
+    try {
+      const batch = writeBatch(db);
+      
+      batch.update(doc(db, 'users', userId), { 
+        branchId: newBranchId, 
+        lastBranchId: targetUser.branchId || null 
+      });
+
+      // Update pending items
+      quotes.forEach(q => {
+        if (q.createdBy === userId && q.status === 'pending') {
+          batch.update(doc(db, 'quotes', q.id), { isTransferred: true });
+        }
+      });
+
+      await batch.commit();
+      await addAuditLog(`TRANSFERÊNCIA GEOGRÁFICA: Alocado consultor "${targetUser.name}" de "${oldBranch?.name || 'Central'}" para "${newBranch?.name || 'Central'}"`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
+    }
+  };
+
+  const reassignQuotes = async (oldUserId: string, newUserId: string) => {
+    const oldUser = users.find(u => u.id === oldUserId);
+    const newUser = users.find(u => u.id === newUserId);
+    try {
+      const batch = writeBatch(db);
+      quotes.forEach(q => {
+        if (q.createdBy === oldUserId && q.status === 'pending') {
+          batch.update(doc(db, 'quotes', q.id), { createdBy: newUserId });
+        }
+      });
+      await batch.commit();
+      await addAuditLog(`MIGRAÇÃO DE CARTEIRA: Transferidos orçamentos ativos de "${oldUser?.name}" para "${newUser?.name}"`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `quotes`);
+    }
+  };
+
+  const addQuote = async (quoteInput: Omit<Quote, 'id' | 'createdAt' | 'status'>) => {
+    const id = uuidv4();
     const newQuote: Quote = {
       ...quoteInput,
-      id: uuidv4(),
+      id,
       status: 'pending',
       createdAt: new Date().toISOString()
     };
-    setState(s => {
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'anonymous',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Proposta Registrada: Orçamento criado para o cliente "${quoteInput.clientName}" no valor de R$ ${quoteInput.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: 'SUCCESS'
-      };
-      return { 
-        ...s, 
-        quotes: [...s.quotes, newQuote],
-        auditLogs: [newLog, ...s.auditLogs].slice(0, 100)
-      };
-    });
+    try {
+      await setDoc(doc(db, 'quotes', id), newQuote);
+      await addAuditLog(`Proposta Registrada: Orçamento criado para o cliente "${quoteInput.clientName}" no valor de R$ ${quoteInput.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `quotes/${id}`);
+    }
   };
 
-  const updateQuoteStatus = (id: string, status: Quote['status']) => {
-    setState(s => {
-      const quote = s.quotes.find(q => q.id === id);
-      const newLog: AuditLog = {
-        id: uuidv4(),
-        timestamp: new Date().toISOString(),
-        userId: s.currentUser?.id || 'anonymous',
-        userName: s.currentUser?.name || 'Sistema',
-        role: s.currentUser?.role || 'system',
-        action: `Negociação Atualizada: Orçamento de "${quote?.clientName}" alterado para status [${status.toUpperCase()}]`,
-        ipAddress: '186.205.112.' + Math.floor(Math.random() * 255),
-        status: status === 'won' ? 'SUCCESS' : status === 'lost' ? 'ALERT' : 'SUCCESS'
-      };
-      const quotes = s.quotes.map(q => q.id === id ? { ...q, status } : q);
-      return { ...s, quotes, auditLogs: [newLog, ...s.auditLogs].slice(0, 100) };
-    });
+  const updateQuoteStatus = async (id: string, status: Quote['status']) => {
+    const quote = quotes.find(q => q.id === id);
+    try {
+      await updateDoc(doc(db, 'quotes', id), { status });
+      await addAuditLog(`Negociação Atualizada: Orçamento de "${quote?.clientName}" alterado para status [${status.toUpperCase()}]`, status === 'won' ? 'SUCCESS' : status === 'lost' ? 'ALERT' : 'SUCCESS');
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `quotes/${id}`);
+    }
+  };
+
+  const updateCompanySettings = async (name: string, plan: string) => {
+    try {
+      await updateDoc(doc(db, 'companies', 'c1'), { name, plan });
+      await addAuditLog(`Parâmetros SaaS Atualizados: ${name} (${plan})`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'companies/c1');
+    }
   };
 
   return (
     <AppContext.Provider value={{
-      ...state,
-      setCurrentUser,
+      branches,
+      users,
+      quotes,
+      currentUser,
+      currentCompany,
+      auditLogs,
+      isLoading,
       activeTab,
       setActiveTab,
+      setCurrentUser: handleSetCurrentUser,
       addBranch,
       updateBranch,
       deleteBranch,
