@@ -3,7 +3,7 @@
   "appId": "1:799864741625:web:71e67a94989d8b6a3acc28",
   "apiKey": "AIzaSyAVhzTIFmks2kEKVPSlGMJjip5vPxBaqlQ",
   "authDomain": "vendaspro-f4d5c.firebaseapp.com",
-  "firestoreDatabaseId": "",
+  "firestoreDatabaseId": "(default)",
   "storageBucket": "vendaspro-f4d5c.firebasestorage.app",
   "messagingSenderId": "799864741625",
   "measurementId": "G-WSYDL1EDP4"
