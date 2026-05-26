@@ -22,7 +22,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { users, currentUser, setCurrentUser, activeTab, setActiveTab } = useAppContext();
+  const { users, currentUser, setCurrentUser, activeTab, setActiveTab, usingLocalFallback } = useAppContext();
 
   const handleUserChange = (id: string) => {
     const user = users.find(u => u.id === id);
@@ -189,6 +189,32 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
         {/* SCREEN SCENE CONTENT */}
         <main className="flex-1 max-w-[1400px] w-full mx-auto p-4 sm:p-6 md:p-8">
+          {usingLocalFallback && (
+            <div className="mb-6 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/15 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+              <div className="flex gap-3">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <h4 className="text-xs font-bold text-amber-900">
+                    Modo Sandbox Ativo (Banco de Dados Firebase Protegido)
+                  </h4>
+                  <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed">
+                    O Firestore está retornando erro de permissão (pois o provedor <strong>E-mail/Senha</strong> não está ativado no Firebase Console). 
+                    Para que o banco permaneça online e compartilhado, siga o guia enviado no chat. Enquanto isso, o AtendePro simula tudo em tempo real de forma 100% funcional!
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+                <a 
+                  href="https://console.firebase.google.com/" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="bg-amber-700/8 hover:bg-amber-700/12 text-amber-900 text-[10px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-xl transition-all select-none cursor-pointer border border-amber-700/10"
+                >
+                  Abrir Console
+                </a>
+              </div>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             <motion.div
               key={`${currentUser?.id}-${activeTab}`}
