@@ -12,7 +12,8 @@ import {
   limit, 
   getDocs, 
   getDoc, 
-  writeBatch 
+  writeBatch,
+  where
 } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
@@ -80,6 +81,15 @@ const mockQuotes: Quote[] = [
     createdAt: new Date().toISOString()
   }
 ];
+
+const uniqById = <T extends { id: string }>(arr: T[]): T[] => {
+  const seen = new Set<string>();
+  return arr.filter(item => {
+    if (!item || !item.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+};
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -251,13 +261,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Real-Time Sync Loop
+  // Real-Time Sync Loop for shared resources (Branches, Users, Company Context)
   useEffect(() => {
     let unsubBranches: () => void = () => {};
     let unsubUsers: () => void = () => {};
-    let unsubQuotes: () => void = () => {};
     let unsubCompany: () => void = () => {};
-    let unsubAudit: () => void = () => {};
 
     const initAndListen = async () => {
       setIsLoading(true);
@@ -279,14 +287,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Step 2: Ensure collections & documents exist
         await seedDatabaseIfNeeded();
 
-        // Step 3: Establish real-time live observers
+        // Step 3: Establish real-time live observers for shared endpoints
         unsubBranches = onSnapshot(collection(db, 'branches'), (snap) => {
           const list: Branch[] = [];
           snap.forEach(docSnap => list.push(docSnap.data() as Branch));
-          setBranches(list);
+          setBranches(uniqById(list));
           setUsingLocalFallback(false);
         }, (err) => {
-          setBranches(mockBranches);
+          setBranches(uniqById(mockBranches));
           setUsingLocalFallback(true);
           try {
             handleFirestoreError(err, OperationType.GET, 'branches');
@@ -309,28 +317,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             list.push({ ...u, name: cleanName, phone });
           });
-          setUsers(list);
+          setUsers(uniqById(list));
           setUsingLocalFallback(false);
         }, (err) => {
-          setUsers(mockUsers);
+          setUsers(uniqById(mockUsers));
           setUsingLocalFallback(true);
           try {
             handleFirestoreError(err, OperationType.GET, 'users');
-          } catch (e) {
-            console.warn("Caught Firestore permission issue; activating local simulation:", e);
-          }
-        });
-
-        unsubQuotes = onSnapshot(collection(db, 'quotes'), (snap) => {
-          const list: Quote[] = [];
-          snap.forEach(docSnap => list.push(docSnap.data() as Quote));
-          setQuotes(list);
-          setUsingLocalFallback(false);
-        }, (err) => {
-          setQuotes(mockQuotes);
-          setUsingLocalFallback(true);
-          try {
-            handleFirestoreError(err, OperationType.GET, 'quotes');
           } catch (e) {
             console.warn("Caught Firestore permission issue; activating local simulation:", e);
           }
@@ -350,27 +343,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
 
-        const auditQuery = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(100));
-        unsubAudit = onSnapshot(auditQuery, (snap) => {
-          const list: AuditLog[] = [];
-          snap.forEach(docSnap => list.push(docSnap.data() as AuditLog));
-          setAuditLogs(list);
-          setUsingLocalFallback(false);
-        }, (err) => {
-          const defaultAuditLogs = [
-            { id: 'l1', timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userId: 'u1', userName: 'Carlos', role: 'supervisor', action: 'Políticas de controle de privilégios e auditoria de sessão SaaS implantadas', ipAddress: '186.205.112.5', status: 'SUCCESS' },
-            { id: 'l2', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userId: 'u1', userName: 'Carlos', role: 'supervisor', action: 'Conexão e sincronização real-time com banco de dados Firebase Firestore ativado', ipAddress: '186.205.112.5', status: 'SUCCESS' },
-            { id: 'l3', timestamp: new Date().toISOString(), userId: 'u1', userName: 'Carlos', role: 'supervisor', action: 'Sessão administrativa ativada com segurança baseada em token real-time', ipAddress: '186.205.112.5', status: 'SUCCESS' }
-          ];
-          setAuditLogs(defaultAuditLogs);
-          setUsingLocalFallback(true);
-          try {
-            handleFirestoreError(err, OperationType.GET, 'auditLogs');
-          } catch (e) {
-            console.warn("Caught Firestore permission issue; activating local simulation:", e);
-          }
-        });
-
       } catch (err) {
         console.error("Initialization of AppContext synchronization failed:", err);
       } finally {
@@ -383,11 +355,71 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       unsubBranches();
       unsubUsers();
-      unsubQuotes();
       unsubCompany();
-      unsubAudit();
     };
   }, []);
+
+  // Dynamic Real-Time Sync Loop for sensitive collections (quotes and auditLogs)
+  // Re-binds snap listeners using specific Firestore queries that align with ABAC Security Rules
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let unsubQuotes: () => void = () => {};
+    let unsubAudit: () => void = () => {};
+
+    // 1. Configure Quote Query based on context-role
+    let quotesQuery;
+    if (currentUser.role === 'supervisor') {
+      quotesQuery = collection(db, 'quotes');
+    } else if (currentUser.role === 'manager' && currentUser.branchId) {
+      quotesQuery = query(collection(db, 'quotes'), where('branchId', '==', currentUser.branchId));
+    } else {
+      quotesQuery = query(collection(db, 'quotes'), where('createdBy', '==', currentUser.id));
+    }
+
+    // Subscribe to quotes securely
+    unsubQuotes = onSnapshot(quotesQuery, (snap) => {
+      const list: Quote[] = [];
+      snap.forEach(docSnap => list.push(docSnap.data() as Quote));
+      setQuotes(uniqById(list));
+      setUsingLocalFallback(false);
+    }, (err) => {
+      const filteredMocks = mockQuotes.filter(q => {
+        if (currentUser.role === 'supervisor') return true;
+        if (currentUser.role === 'manager') return q.branchId === currentUser.branchId;
+        return q.createdBy === currentUser.id;
+      });
+      setQuotes(uniqById(filteredMocks));
+      console.warn("Handled quotes query subscription error gracefully (activating local data fallback):", err);
+    });
+
+    // 2. Configure Audit Logs Query (Supervisor authentication context only)
+    if (currentUser.role === 'supervisor') {
+      const auditQuery = query(collection(db, 'auditLogs'), orderBy('timestamp', 'desc'), limit(100));
+      unsubAudit = onSnapshot(auditQuery, (snap) => {
+        const list: AuditLog[] = [];
+        snap.forEach(docSnap => list.push(docSnap.data() as AuditLog));
+        setAuditLogs(uniqById(list));
+        setUsingLocalFallback(false);
+      }, (err) => {
+        const defaultAuditLogs = [
+          { id: 'l1', timestamp: new Date(Date.now() - 3600000 * 4).toISOString(), userId: currentUser.id, userName: currentUser.name, role: 'supervisor', action: 'Políticas de controle de privilégios e auditoria de sessão SaaS implantadas', ipAddress: '186.205.112.5', status: 'SUCCESS' },
+          { id: 'l2', timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), userId: currentUser.id, userName: currentUser.name, role: 'supervisor', action: 'Conexão e sincronização real-time com banco de dados Firebase Firestore ativado', ipAddress: '186.205.112.5', status: 'SUCCESS' },
+          { id: 'l3', timestamp: new Date().toISOString(), userId: currentUser.id, userName: currentUser.name, role: 'supervisor', action: 'Sessão administrativa ativada com segurança baseada em token real-time', ipAddress: '186.205.112.5', status: 'SUCCESS' }
+        ];
+        setAuditLogs(uniqById(defaultAuditLogs));
+        console.warn("Handled auditLogs subscription error gracefully (activating default logs):", err);
+      });
+    } else {
+      // Non-supervisors have zero read access to live audit history
+      setAuditLogs([]);
+    }
+
+    return () => {
+      unsubQuotes();
+      unsubAudit();
+    };
+  }, [currentUser?.id, currentUser?.role, currentUser?.branchId]);
 
   // Sync Logged User Profile and ensure custom auth alignment
   useEffect(() => {
@@ -434,13 +466,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status
     };
     if (usingLocalFallback) {
-      setAuditLogs(prev => [newLog, ...prev]);
+      setAuditLogs(prev => uniqById([newLog, ...prev]));
       return;
     }
     try {
       await setDoc(doc(db, 'auditLogs', newLog.id), newLog);
     } catch (err) {
-      setAuditLogs(prev => [newLog, ...prev]);
+      setAuditLogs(prev => uniqById([newLog, ...prev]));
       console.error("Audit log creation dropped locally: ", err);
     }
   };
@@ -465,7 +497,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newBranch: Branch = { id, name, createdAt: new Date().toISOString() };
     
     const executeLocal = () => {
-      setBranches(prev => [...prev, newBranch]);
+      setBranches(prev => uniqById([...prev, newBranch]));
       addAuditLog(`Showroom Cadastrado: Nova filial criada - "${name}"`);
     };
 
@@ -558,7 +590,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const executeLocal = () => {
-      setUsers(prev => [...prev, newUser]);
+      setUsers(prev => uniqById([...prev, newUser]));
       const branchName = branches.find(b => b.id === branchId)?.name || 'Central';
       addAuditLog(`Staff Cadastrado: Habilitado acesso para "${name}" como (${role.toUpperCase()}) na filial ${branchName}`);
     };
@@ -752,7 +784,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const executeLocal = () => {
-      setQuotes(prev => [...prev, newQuote]);
+      setQuotes(prev => uniqById([...prev, newQuote]));
       addAuditLog(`Proposta Registrada: Orçamento criado para o cliente "${quoteInput.clientName}" no valor de R$ ${quoteInput.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
     };
 
