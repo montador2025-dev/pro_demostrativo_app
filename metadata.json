@@ -1,6 +1,6 @@
 {
-  "name": "AtendePro - Sono Show Móveis",
-  "description": "Sistema de gestão de orçamentos e acompanhamento de clientes AtendePro para Sono Show Móveis.",
+  "name": "RadarConquista",
+  "description": "RadarConquista - Sistema Inteligente de Vendas e Relacionamento. Transformando atendimento em conquista de vendas.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

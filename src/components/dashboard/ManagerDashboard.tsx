@@ -6,7 +6,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { formatCurrency, generateWhatsAppLink } from '../../lib/formatters';
+import { formatCurrency, generateWhatsAppLink, formatTimeAgo } from '../../lib/formatters';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../ui/dialog';
 import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { 
@@ -168,11 +168,11 @@ export const ManagerDashboard = () => {
   const handleManagerMessage = (quote: any) => {
     const todayStr = new Date().toLocaleDateString('pt-BR');
     const msg = 
-`🛋️ *SONO SHOW MÓVEIS* 🛋️
-_Sua casa, seu sonho._
+`🎯 *RADARCONQUISTA* 🎯
+_Transformando atendimento em conquista de vendas._
 
 Olá, *${quote.clientName}*!
-Aqui é o(a) gestor(a) *${currentUser.name}*, da gerência Sono Show *${myBranch?.name}*.
+Aqui é o(a) gestor(a) *${currentUser.name}*, da gerência RadarConquista *${myBranch?.name}*.
 
 Acompanho de perto os atendimentos de excelência do nosso showroom e vi sua proposta do dia ${new Date(quote.createdAt).toLocaleDateString('pt-BR')} no valor de *${formatCurrency(quote.value)}*.
 
@@ -390,7 +390,32 @@ Posso te ligar ou liberar um código de desconto agora?`;
                     const sTotal = sQuotes.reduce((acc, q) => acc + q.value, 0);
                     return (
                       <TableRow key={s.id} className="border-stone-100 hover:bg-stone-50/50 transition-colors">
-                        <TableCell className="font-bold text-stone-950 pl-6 uppercase">{s.name}</TableCell>
+                        <TableCell className="pl-6 uppercase">
+                          <div className="font-bold text-stone-950">{s.name}</div>
+                          <div className="text-[10px] text-stone-500 font-medium normal-case flex items-center gap-1.5 mt-0.5">
+                            {s.lastAccess ? (
+                              <>
+                                <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                                  (new Date().getTime() - new Date(s.lastAccess).getTime()) < 180000 
+                                    ? 'bg-emerald-500 animate-pulse' 
+                                    : 'bg-stone-300'
+                                }`}></span>
+                                <span className="font-medium text-stone-600">
+                                  {(new Date().getTime() - new Date(s.lastAccess).getTime()) < 180000 ? 'Online agora' : `Acesso: ${formatTimeAgo(s.lastAccess)}`}
+                                </span>
+                                <span className="text-stone-300">|</span>
+                                <span className="text-stone-400 font-normal font-sans">
+                                  {new Date(s.lastAccess).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-stone-300"></span>
+                                <span className="text-stone-400">Nunca acessou o sistema</span>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-center">
                           <span className="font-mono text-xs font-extrabold text-stone-800 bg-stone-100 border border-stone-200/50 rounded-md px-2 py-0.5">{sQuotes.length}</span>
                         </TableCell>

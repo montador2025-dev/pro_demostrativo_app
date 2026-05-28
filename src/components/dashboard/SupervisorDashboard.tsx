@@ -6,7 +6,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { formatCurrency } from '../../lib/formatters';
+import { formatCurrency, formatTimeAgo } from '../../lib/formatters';
 import { 
   Building2, 
   PlusCircle, 
@@ -91,7 +91,7 @@ export const SupervisorDashboard = () => {
     updateCompanySettings
   } = useAppContext();
   
-  const [compName, setCompName] = useState(currentCompany?.name || 'Grupo Sono Show Móveis S.A.');
+  const [compName, setCompName] = useState(currentCompany?.name || 'RadarConquista');
   const [compPlan, setCompPlan] = useState(currentCompany?.plan || 'Enterprise SaaS Corporate Plus');
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditResult, setAuditResult] = useState<string | null>(null);
@@ -319,7 +319,32 @@ export const SupervisorDashboard = () => {
                   
                   return (
                     <TableRow key={s.id} className="border-stone-100 hover:bg-stone-50/50 transition-colors">
-                      <TableCell className="font-bold text-stone-950 uppercase pl-6">{s.name}</TableCell>
+                      <TableCell className="pl-6 uppercase">
+                        <div className="font-bold text-stone-955">{s.name}</div>
+                        <div className="text-[10px] text-stone-500 font-medium normal-case flex items-center gap-1.5 mt-0.5">
+                          {s.lastAccess ? (
+                            <>
+                              <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                                (new Date().getTime() - new Date(s.lastAccess).getTime()) < 180000 
+                                  ? 'bg-emerald-500 animate-pulse' 
+                                  : 'bg-stone-300'
+                              }`}></span>
+                              <span className="font-medium text-stone-600">
+                                {(new Date().getTime() - new Date(s.lastAccess).getTime()) < 180000 ? 'Online agora' : `Acesso: ${formatTimeAgo(s.lastAccess)}`}
+                              </span>
+                              <span className="text-stone-300">|</span>
+                              <span className="text-stone-400 font-normal font-sans">
+                                {new Date(s.lastAccess).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-stone-300"></span>
+                              <span className="text-stone-400">Nunca acessou o sistema</span>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-center">
                         <span className="font-mono text-xs font-extrabold text-stone-700 bg-stone-100 rounded-md px-2 py-0.5">{sQuotes.length}</span>
                       </TableCell>
@@ -399,7 +424,7 @@ export const SupervisorDashboard = () => {
                   <DialogTitle className="text-stone-900 font-extrabold uppercase italic flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-amber-700" /> Nova Loja
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-stone-500">Cadastrar e inaugurar uma nova unidade comercial na plataforma AtendePro.</DialogDescription>
+                  <DialogDescription className="text-xs text-stone-500">Cadastrar e inaugurar uma nova unidade comercial na plataforma RadarConquista.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAddBranch} className="space-y-4 pt-3">
                   <div className="space-y-1.5">
@@ -567,7 +592,7 @@ export const SupervisorDashboard = () => {
                       Gerenciamento de Tenant SaaS Multi-Empresa
                     </CardTitle>
                     <CardDescription className="text-xs text-stone-400 font-semibold">
-                      Parâmetros corporativos da empresa e alinhamento do plano ativo no ecossistema AtendePro.
+                      Parâmetros corporativos da empresa e alinhamento do plano ativo no ecossistema RadarConquista.
                     </CardDescription>
                   </div>
                 </CardHeader>
@@ -755,7 +780,7 @@ export const SupervisorDashboard = () => {
                     })}
                   </div>
                   <div className="pt-4 border-t border-stone-50 text-center text-[9px] font-black uppercase tracking-widest text-[#1c1917]/35 mt-4">
-                    Audit Trail ● AtendePro Shield Ativo
+                    Audit Trail ● RadarConquista Shield Ativo
                   </div>
                 </CardContent>
               </Card>
@@ -785,7 +810,32 @@ export const SupervisorDashboard = () => {
                     const mappedBranch = branches.find(b => b.id === u.branchId);
                     return (
                       <TableRow key={u.id} className="border-stone-100 hover:bg-stone-50/50 transition-colors">
-                        <TableCell className="font-bold text-stone-950 pl-6 uppercase">{u.name}</TableCell>
+                        <TableCell className="pl-6 uppercase">
+                          <div className="font-bold text-stone-950">{u.name}</div>
+                          <div className="text-[10px] text-stone-500 font-medium normal-case flex items-center gap-1.5 mt-0.5">
+                            {u.lastAccess ? (
+                              <>
+                                <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                                  (new Date().getTime() - new Date(u.lastAccess).getTime()) < 180000 
+                                    ? 'bg-emerald-500 animate-pulse' 
+                                    : 'bg-stone-300'
+                                }`}></span>
+                                <span className="font-medium text-stone-600">
+                                  {(new Date().getTime() - new Date(u.lastAccess).getTime()) < 180000 ? 'Online agora' : `Acesso: ${formatTimeAgo(u.lastAccess)}`}
+                                </span>
+                                <span className="text-stone-300">|</span>
+                                <span className="text-stone-400 font-normal font-sans font-sans">
+                                  {new Date(u.lastAccess).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-stone-300"></span>
+                                <span className="text-stone-400">Nunca acessou o sistema</span>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge className={`uppercase text-[8px] font-black border-none py-1 px-2 ${
                             u.role === 'supervisor' ? 'bg-amber-100 text-amber-800' : u.role === 'manager' ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-700'
@@ -950,7 +1000,7 @@ export const SupervisorDashboard = () => {
         title="Desativar Acesso"
         description={
           <>
-            Você tem certeza sobre a exclusão de <strong>{deleteUserModal.user?.name}</strong> da base operacional Sono Show? Esta operação é definitiva.
+            Você tem certeza sobre a exclusão de <strong>{deleteUserModal.user?.name}</strong> da base operacional RadarConquista? Esta operação é definitiva.
           </>
         }
         confirmText="Remover Perfil"

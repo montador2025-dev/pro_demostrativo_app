@@ -366,7 +366,7 @@ export async function generateProfessionalQuotePDF({
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184); // Slate 400
-    doc.text('Sono Show Móveis S.A. | Atendimento Exclusivo AtendePro', 12, currentY + 5);
+    doc.text('RadarConquista | radarconquista.com.br', 12, currentY + 5);
     doc.text('Documento gerado digitalmente pelo comitê de vendas e relacionamento ao consumidor.', 12, currentY + 9);
     doc.text('Agradecemos a sua preferência!', 194, currentY + 5, { align: 'right' });
 

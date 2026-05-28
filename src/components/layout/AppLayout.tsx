@@ -79,11 +79,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       {/* DESKTOP SIDEBAR */}
       <aside className="w-72 bg-white border-r border-[#1c1917]/8 flex-shrink-0 relative z-30 hidden md:flex flex-col h-screen sticky top-0 shadow-sm">
         {/* Sidebar Header with Brand Logo */}
-        <div className="p-6 border-b border-[#1c1917]/6 flex items-center gap-3">
-          <Logo className="scale-85 origin-left" />
-          <span className="font-extrabold text-xl tracking-tight uppercase italic text-stone-900">
-            Atende<span className="text-[#b45309] text-glow">Pro</span>
-          </span>
+        <div className="p-5 border-b border-[#1c1917]/6 flex flex-col gap-1">
+          <Logo showText={true} />
         </div>
 
         {/* Dynamic Sidebar Menu Items */}
@@ -139,18 +136,15 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         <header className="bg-white/80 border-b border-[#1c1917]/6 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-3">
             {/* Mobile-only header info */}
-            <div className="md:hidden flex items-center gap-2">
-              <Logo className="scale-75 origin-left" />
-              <span className="font-extrabold text-lg tracking-tight uppercase italic text-stone-900">
-                Atende<span className="text-[#b45309]">Pro</span>
-              </span>
+            <div className="md:hidden flex items-center pt-1">
+              <Logo showText={true} size="sm" />
             </div>
             
             {/* Desktop header title info */}
             <div className="hidden md:flex items-center gap-2.5 px-3 py-1 rounded-full bg-stone-100 border border-stone-200/50">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                Showroom Sono Show Ativo
+                RadarConquista • radarconquista.com.br
               </span>
             </div>
           </div>

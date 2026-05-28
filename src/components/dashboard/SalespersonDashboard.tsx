@@ -744,7 +744,7 @@ export const SalespersonDashboard = () => {
       pfdSuccess = await generateProfessionalQuotePDF({
         quote: quoteForDoc as any,
         sellerName: currentUser.name,
-        branchName: myBranch ? myBranch.name : 'Sono Show Móveis',
+        branchName: myBranch ? myBranch.name : 'RadarConquista',
         sellerPhone: currentUser.phone
       });
       toast.dismiss(loadId);
@@ -765,11 +765,11 @@ export const SalespersonDashboard = () => {
       });
 
       const messageContent = 
-`🛋️ *SONO SHOW MÓVEIS* 🛋️
-_Sua casa, seu sonho._
+`🎯 *RADARCONQUISTA* 🎯
+_Transformando atendimento em conquista de vendas._
 
 Olá, *${trimmedName}*!
-Espero que esteja excelente! Aqui estão as condições exclusivas do orçamento que preparamos para você na nossa unidade *${myBranch ? myBranch.name : 'Sono Show'}*:
+Espero que esteja excelente! Aqui estão as condições exclusivas do orçamento que preparamos para você na nossa unidade *${myBranch ? myBranch.name : 'RadarConquista'}*:
 
 ━━━━━━━━━━━━━━━━━━━━
 📝 *DADOS DA PROPOSTA*
@@ -791,7 +791,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
       window.open(generateWhatsAppLink(clientPhone, messageContent), '_blank');
     }
 
-    toast.success('Ótimo trabalho! Orçamento comercial registrado na base AtendePro.');
+    toast.success('Orçamento registrado com sucesso no painel RadarConquista!');
 
     // Reset workflow states safely
     setClientName('');
@@ -813,7 +813,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
     const success = await generateProfessionalQuotePDF({
       quote: quote,
       sellerName: currentUser.name,
-      branchName: myBranch ? myBranch.name : 'Atendimento Sono Show',
+      branchName: myBranch ? myBranch.name : 'Atendimento RadarConquista',
       sellerPhone: currentUser.phone
     });
     toast.dismiss(loadId);
@@ -1123,7 +1123,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
           <Card className="glass-card border-none bg-gradient-to-br from-amber-600/5 to-amber-700/[0.01]">
             <CardHeader>
               <CardTitle className="text-sm font-black uppercase text-stone-900 tracking-wider">
-                💡 Dicas Sono Show Atendimento
+                💡 Dicas RadarConquista Atendimento
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-xs text-stone-600 leading-relaxed font-semibold">
@@ -1137,7 +1137,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
               </div>
               <div className="flex items-start gap-2.5">
                 <div className="p-1 rounded bg-amber-600/10 text-amber-700 shrink-0 font-bold">3</div>
-                <p><strong>Gere o PDF oficial:</strong> O cliente Sono Show sente muito mais segurança ao comprar vendo uma proposta formal assinada em PDF.</p>
+                <p><strong>Gere o PDF oficial:</strong> O cliente RadarConquista sente muito mais segurança ao comprar vendo uma proposta formal assinada em PDF.</p>
               </div>
             </CardContent>
             <CardFooter>
@@ -1516,7 +1516,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
             <CardHeader className="border-b border-stone-100 pb-5">
               <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center text-sm font-black text-stone-900 uppercase tracking-widest">
-                  <BookOpen className="w-4.5 h-4.5 mr-2 text-amber-700" /> Catálogo Sono Show
+                  <BookOpen className="w-4.5 h-4.5 mr-2 text-amber-700" /> Catálogo RadarConquista
                 </CardTitle>
                 <Badge className="bg-amber-75/15 text-amber-800 border-none rounded-md px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider select-none">
                   INTEGRADO
@@ -1588,7 +1588,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                           backgroundSize: '14px'
                         }}
                       >
-                        <option value="catalogo.sonoshowmoveis.com.br">🇧🇷 Sono Show Catálogo</option>
+                        <option value="catalogo.sonoshowmoveis.com.br">🇧🇷 Catálogo RadarConquista</option>
                         <option value="custom">🌐 Outro e-Commerce...</option>
                       </select>
                     </div>
@@ -2075,7 +2075,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                         type="button"
                         className="h-10 text-[9px] rounded-lg bg-[#25D366] hover:bg-[#20bd5a] border-none text-white font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95"
                         onClick={() => {
-                          const msg = `🛋️ *SONO SHOW MÓVEIS* 🛋️\n\nOlá *${quote.clientName}*! \nAqui é o consultor *${currentUser.name}* da Sono Show.\nEstou passando para dar sequência ao atendimento do orçamento *#${quote.id.substring(0,6)}*:\n\n• *Produtos:* ${quote.productInterest}\n💵 *Valor:* ${formatCurrency(quote.value)}\n\nGostaria de saber se ficou com alguma dúvida sobre as formas de pagamento ou entrega rápida que conversamos? \nFico à total disposição para reservarmos seus móveis hoje!`;
+                          const msg = `🎯 *RADARCONQUISTA* 🎯\n\nOlá *${quote.clientName}*! \nAqui é o consultor *${currentUser.name}* da RadarConquista.\nEstou passando para dar sequência ao atendimento do orçamento *#${quote.id.substring(0,6)}*:\n\n• *Produtos:* ${quote.productInterest}\n💵 *Valor:* ${formatCurrency(quote.value)}\n\nGostaria de saber se ficou com alguma dúvida sobre as formas de pagamento ou entrega rápida que conversamos? \nFico à total disposição de vocês!`;
                           window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
                         }}
                       >
@@ -2318,7 +2318,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                 <div className="py-20 text-center text-stone-400 font-semibold select-none">
                   <Calculator className="w-12 h-12 mx-auto mb-3 opacity-25 text-amber-75" />
                   <p className="text-xs uppercase">Digite um valor para simular</p>
-                  <p className="text-[10px] text-stone-400 font-medium max-w-xs mx-auto mt-1 leading-relaxed">Defina um montante financeiro no editor ao lado para renderizar a tabela com coeficiente bancário Sono Show.</p>
+                  <p className="text-[10px] text-stone-400 font-medium max-w-xs mx-auto mt-1 leading-relaxed">Defina um montante financeiro no editor ao lado para renderizar a tabela com coeficiente bancário RadarConquista.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-stone-100">
@@ -2380,7 +2380,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
           <div className="flex items-center gap-2 py-0.5 px-2 bg-amber-500/10 rounded-lg border border-amber-550/10">
             <div className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></div>
             <span className="text-[10px] font-black text-amber-900 uppercase tracking-widest select-none">
-              Sono Show AtendePro v3
+              RadarConquista | radarconquista.com.br
             </span>
           </div>
 

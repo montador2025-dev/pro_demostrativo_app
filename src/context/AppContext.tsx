@@ -205,8 +205,8 @@ const seedDatabaseIfNeeded = async () => {
     if (!companySnap.exists()) {
       const defaultCompany: Company = {
         id: 'c1',
-        name: 'Grupo Sono Show Móveis S.A.',
-        plan: 'Enterprise SaaS Corporate Plus',
+        name: 'RadarConquista',
+        plan: 'Sistema Inteligente de Vendas e Relacionamento',
         maxUsers: 150,
         licenseExpires: '2028-05-25T12:00:00Z'
       };
@@ -224,8 +224,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentCompany, setCurrentCompany] = useState<Company>({
     id: 'c1',
-    name: 'Grupo Sono Show Móveis S.A.',
-    plan: 'Enterprise SaaS Corporate Plus',
+    name: 'RadarConquista',
+    plan: 'Sistema Inteligente de Vendas e Relacionamento',
     maxUsers: 150,
     licenseExpires: '2028-05-25T12:00:00Z'
   });
@@ -445,12 +445,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [users]);
 
-  // Sync access timestamp over the server
+  // Sync access timestamp over the server periodically (every 2 minutes) while active
   useEffect(() => {
-    if (currentUser) {
+    if (!currentUser) return;
+    
+    const updateAccess = () => {
       const now = new Date().toISOString();
-      updateDoc(doc(db, 'users', currentUser.id), { lastAccess: now }).catch(() => {});
-    }
+      updateDoc(doc(db, 'users', currentUser.id), { lastAccess: now }).catch((err) => {
+        console.warn("Could not sync lastAccess:", err);
+      });
+    };
+
+    // Run immediately
+    updateAccess();
+
+    // Run every 2 minutes
+    const interval = setInterval(updateAccess, 120000);
+    return () => clearInterval(interval);
   }, [currentUser?.id]);
 
   // Operations and Actions (Mutations)
