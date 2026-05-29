@@ -72,6 +72,21 @@ export const ManagerDashboard = () => {
   const [newSalespersonName, setNewSalespersonName] = useState('');
   const [newSalespersonPhone, setNewSalespersonPhone] = useState('');
 
+  const getWhatsAppLink = (name: string, email: string, phone: string, branchName: string) => {
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length > 0 && !cleanPhone.startsWith('55') && cleanPhone.length <= 11) {
+      cleanPhone = '55' + cleanPhone;
+    }
+    const message = `Olá, *${name}*! 🚀\n\n` +
+      `Seu acesso como *Consultor de Vendas* da unidade *${branchName}* no sistema *RadarConquista* foi ativado!\n\n` +
+      `📝 *Credenciais de Acesso:*\n` +
+      `• *E-mail:* ${email}\n` +
+      `• *Senha Padrão:* radar123\n\n` +
+      `🔗 Acesse aqui: ${window.location.origin}\n\n` +
+      `_Por favor, faça logon e configure seus acessos._`;
+    return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+  };
+
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [userToTransfer, setUserToTransfer] = useState('');
   const [targetBranch, setTargetBranch] = useState('');
@@ -126,15 +141,25 @@ export const ManagerDashboard = () => {
     setIsSalespersonOpen(false);
     
     toast.success(
-      <div className="flex flex-col gap-1 text-xs">
-        <p className="font-bold text-emerald-800">✅ Consultor Cadastrado com Sucesso!</p>
-        <p className="text-stone-600">Acesse o sistema utilizando as credenciais:</p>
-        <div className="bg-stone-50 border border-stone-200 p-2 rounded-lg font-mono text-[10px] space-y-0.5 mt-1 text-stone-800">
+      <div className="flex flex-col gap-1.5 text-xs font-sans">
+        <p className="font-bold text-emerald-800 flex items-center gap-1">✅ Consultor Habilitado!</p>
+        <p className="text-stone-600">Acesse o sistema utilizando as seguintes credenciais:</p>
+        <div className="bg-stone-50 border border-stone-200 p-2 rounded-lg font-mono text-[10px] space-y-0.5 mt-1 text-stone-850 font-bold">
           <p><span className="font-bold text-stone-500">E-mail:</span> {generatedEmail}</p>
-          <p><span className="font-bold text-stone-500">Senha:</span> radar123</p>
+          <p><span className="font-bold text-stone-500 font-mono">Senha:</span> radar123</p>
         </div>
+        {phone && (
+          <a 
+            href={getWhatsAppLink(name, generatedEmail, phone, myBranch?.name || 'Central')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center justify-center gap-1.5 w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold text-[10px] py-1.5 px-3 rounded-md uppercase tracking-wider transition-colors border-none cursor-pointer"
+          >
+            <Send className="w-3.5 h-3.5 text-white" /> Enviar Credenciais p/ WhatsApp do Consultor
+          </a>
+        )}
       </div>,
-      { duration: 15000 }
+      { duration: 25000 }
     );
   };
 
@@ -438,6 +463,18 @@ Posso te ligar ou liberar um código de desconto agora?`;
                         <TableCell className="text-right pr-6">
                           <div className="flex items-center justify-end gap-1.5">
                             
+                            {s.phone && (
+                              <a
+                                href={getWhatsAppLink(s.name, getEmailForUser(s.name, s.phone, s.id), s.phone, myBranch?.name || 'Central')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-8 h-8 text-[#25D366] hover:text-[#128C7E] hover:bg-emerald-50 rounded-md flex items-center justify-center transition-all bg-transparent border-none shrink-0"
+                                title="Enviar credenciais p/ WhatsApp"
+                              >
+                                <Send className="w-4 h-4 shrink-0" />
+                              </a>
+                            )}
+
                             <Button 
                               variant="ghost"
                               size="icon"

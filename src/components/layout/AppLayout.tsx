@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { Logo } from '../ui/Logo';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { toast } from 'sonner';
+import { auth } from '../../lib/firebase';
+import { updatePassword } from 'firebase/auth';
 import { 
   ShieldCheck, 
   Building2, 
@@ -18,12 +24,59 @@ import {
   Calculator, 
   Sparkles, 
   Briefcase,
-  LogOut
+  LogOut,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { users, currentUser, setCurrentUser, activeTab, setActiveTab, usingLocalFallback } = useAppContext();
+
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      toast.error("Por favor, preencha todos os campos.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("A nova senha deve ter pelo menos 6 caracteres para segurança.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("A nova senha e a confirmação não coincidem.");
+      return;
+    }
+
+    setIsUpdating(true);
+    const loadingToast = toast.loading("Registrando nova senha pessoal de acesso...");
+
+    try {
+      if (auth.currentUser) {
+        await updatePassword(auth.currentUser, newPassword);
+        toast.success("Sua senha corporativa no banco de dados foi atualizada com sucesso!");
+      } else {
+        toast.success("Senha atualizada com sucesso no ambiente corporativo simulado!");
+      }
+      setIsPasswordModalOpen(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      console.error("Failed to update password:", err);
+      toast.error("Erro ao propagar alteração de senha: " + (err.message || "Por favor, faça login novamente para trocar de senha por segurança."));
+    } finally {
+      toast.dismiss(loadingToast);
+      setIsUpdating(false);
+    }
+  };
 
   const handleUserChange = (id: string) => {
     const user = users.find(u => u.id === id);
@@ -130,10 +183,19 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           
           <Button
             variant="ghost"
-            onClick={() => setCurrentUser(null)}
-            className="w-full flex items-center justify-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-stone-500 hover:text-red-700 hover:bg-red-50/50 transition-colors border-none"
+            onClick={() => setIsPasswordModalOpen(true)}
+            className="w-full flex items-center justify-start gap-2.5 px-3.5 py-2 rounded-xl text-xs font-extrabold text-stone-500 hover:text-amber-800 hover:bg-amber-50/50 transition-colors border-none"
           >
-            <LogOut className="w-4 h-4 text-stone-400 group-hover/button:text-red-650" />
+            <KeyRound className="w-4 h-4 text-stone-400 shrink-0" />
+            <span>Mudar Minha Senha</span>
+          </Button>
+          
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentUser(null)}
+            className="w-full flex items-center justify-start gap-2.5 px-3.5 py-2 rounded-xl text-xs font-extrabold text-stone-500 hover:text-red-700 hover:bg-red-50/50 transition-colors border-none -mt-1"
+          >
+            <LogOut className="w-4 h-4 text-stone-400 shrink-0" />
             <span>Sair do Sistema</span>
           </Button>
         </div>
@@ -206,6 +268,17 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </AvatarFallback>
             </Avatar>
 
+            {/* Header Alterar Senha Button */}
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setIsPasswordModalOpen(true)}
+              title="Alterar minha senha corporativa (Privacidade)"
+              className="text-stone-500 hover:text-amber-800 hover:bg-stone-50 border-stone-200 h-8 w-8 rounded-lg cursor-pointer flex items-center justify-center p-0 shrink-0"
+            >
+              <KeyRound className="w-4 h-4" />
+            </Button>
+
             {/* Header Sair Button */}
             <Button
               variant="outline"
@@ -256,6 +329,64 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           );
         })}
       </nav>
+      
+      {/* DIALOG DE ALTERAÇÃO DE SENHA PESSOAL */}
+      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
+        <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-stone-900 font-extrabold uppercase italic flex items-center gap-2">
+              <Lock className="w-5 h-5 text-amber-700" /> Alterar Minha Senha
+            </DialogTitle>
+            <DialogDescription className="text-xs text-stone-500">
+              Para maior segurança e privacidade, altere a senha padrão <code className="bg-stone-100 px-1 py-0.5 rounded font-mono font-bold text-amber-800">radar123</code> do seu contato.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handlePasswordUpdate} className="space-y-4 pt-3 font-sans">
+            <div className="space-y-1.5">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1 animate-none">Nova Senha Pessoal</Label>
+              <div className="relative">
+                <Input 
+                  type={showPassword ? "text" : "password"} 
+                  className="h-11 rounded-xl border-stone-200 text-xs font-bold bg-white text-stone-1000 pr-10" 
+                  placeholder="Min. 6 caracteres" 
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  required 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 bg-transparent border-none cursor-pointer p-0"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 font-sans">
+              <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Confirmar Nova Senha</Label>
+              <Input 
+                type="password" 
+                className="h-11 rounded-xl border-stone-200 text-xs font-bold bg-white text-stone-1000" 
+                placeholder="Repita a nova senha" 
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                required 
+              />
+            </div>
+
+            <Button 
+              type="submit" 
+              disabled={isUpdating}
+              className="w-full h-11 text-xs uppercase font-black bg-amber-700 hover:bg-amber-800 text-white flex items-center justify-center gap-2 rounded-xl transition-all cursor-pointer border-none"
+            >
+              <ShieldCheck className="w-4 h-4 text-white/90" />
+              {isUpdating ? "Criando..." : "Salvar Nova Senha"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
       
     </div>
   );

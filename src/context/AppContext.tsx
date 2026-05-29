@@ -218,9 +218,30 @@ const seedDatabaseIfNeeded = async (resolvedCarlosUid?: string, resolvedAnaUid?:
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [branches, setBranches] = useState<Branch[]>(() => {
+    try {
+      const saved = localStorage.getItem('fallback_branches');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [users, setUsers] = useState<User[]>(() => {
+    try {
+      const saved = localStorage.getItem('fallback_users');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [quotes, setQuotes] = useState<Quote[]>(() => {
+    try {
+      const saved = localStorage.getItem('fallback_quotes');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentCompany, setCurrentCompany] = useState<Company>({
     id: 'c1',
@@ -229,11 +250,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     maxUsers: 150,
     licenseExpires: '2028-05-25T12:00:00Z'
   });
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    try {
+      const saved = localStorage.getItem('fallback_auditLogs');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [usingLocalFallback, setUsingLocalFallback] = useState(false);
   const [hasRestoredAuth, setHasRestoredAuth] = useState(false);
+
+  // Sync state mutations to localStorage backups automatically
+  useEffect(() => {
+    if (branches && branches.length > 0) {
+      localStorage.setItem('fallback_branches', JSON.stringify(branches));
+    }
+  }, [branches]);
+
+  useEffect(() => {
+    if (users && users.length > 0) {
+      localStorage.setItem('fallback_users', JSON.stringify(users));
+    }
+  }, [users]);
+
+  useEffect(() => {
+    if (quotes && quotes.length > 0) {
+      localStorage.setItem('fallback_quotes', JSON.stringify(quotes));
+    }
+  }, [quotes]);
+
+  useEffect(() => {
+    if (auditLogs && auditLogs.length > 0) {
+      localStorage.setItem('fallback_auditLogs', JSON.stringify(auditLogs));
+    }
+  }, [auditLogs]);
 
   // Helper to synchronize active Firebase Auth session with selected user's mock credentials
   const syncFirebaseAuthWithUser = async (user: User): Promise<User> => {
@@ -350,36 +403,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const legacyPassword = 'atendepro123_safe';
 
-        // Step 1: Register or sign in Carlos supervisor first to capture real UID
-        const supervisorEmail = getEmailForUser('Carlos', '(21) 99999-1111');
-        const carlosUid = await robustAuthenticate(auth, supervisorEmail, PASSWORD_SECRET, legacyPassword) || '';
-        if (carlosUid) {
-          console.log("Supervisor Carlos authenticated on primary client auth. UID: " + carlosUid);
-        }
-
-        // Step 2: Now that Carlos is authenticated on the main auth instance, write his own user document first.
-        // Under security rules, a signed-in user matching ^carlos_.* has authority to self-create/write their own user document to /users/{uid}.
-        // Doing this before any secondary operations ensures Carlos immediately becomes an active "supervisor" in the database check rules,
-        // which gives their active session supreme read and write authority over other collections and documents.
-        if (carlosUid) {
-          try {
-            await setDoc(doc(db, 'users', carlosUid), {
-              id: carlosUid,
-              name: 'Carlos',
-              role: 'supervisor',
-              phone: '(21) 99999-1111',
-              createdAt: new Date().toISOString()
-            });
-            console.log("Aligned and self-seeded Carlos supervisor document on database");
-            try {
-              await deleteDoc(doc(db, 'users', 'u1'));
-            } catch (delErr) {}
-          } catch (carlosDocErr) {
-            console.error("Carlos self-aligned document write failed:", carlosDocErr);
-          }
-        }
-
-        // Step 3: Retrieve/register Ana, Roberto, and montador2025@gmail.com via secondary auth helper to avoid session conflict in primary auth
+        // Step 1: Initialize secondary auth to resolve UIDs cleanly without hijacking main session
         const secondaryAppNameForResolve = 'temp-auth-resolver-init';
         let secondaryApp;
         try {
@@ -394,18 +418,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.error("Failed to initialize secondary app for resolver:", appErr);
         }
 
+        let carlosUid = '';
         let resolvedAnaUid = 'u2';
         let resolvedRobertoUid = 'u3';
 
+        const supervisorEmail = getEmailForUser('Carlos', '(21) 99999-1111');
+        const anaMail = getEmailForUser('Ana', '(21) 98888-2222');
+        const robertoMail = getEmailForUser('Roberto', '(21) 97777-3333');
+        const masterEmail = 'montador2025@gmail.com';
+
         if (secondaryApp) {
           const sAuth = getSecondaryAuth(secondaryApp);
-          const anaMail = getEmailForUser('Ana', '(21) 98888-2222');
-          const robertoMail = getEmailForUser('Roberto', '(21) 97777-3333');
+          
+          carlosUid = await robustAuthenticate(sAuth, supervisorEmail, PASSWORD_SECRET, legacyPassword) || '';
           resolvedAnaUid = await robustAuthenticate(sAuth, anaMail, PASSWORD_SECRET, legacyPassword) || 'u2';
           resolvedRobertoUid = await robustAuthenticate(sAuth, robertoMail, PASSWORD_SECRET, legacyPassword) || 'u3';
 
           // Also guarantee master email login is registered in Auth as well
-          const masterEmail = 'montador2025@gmail.com';
           try {
             await robustAuthenticate(sAuth, masterEmail, PASSWORD_SECRET, legacyPassword);
             console.log("Master supervisor registered/aligned on secondary auth");
@@ -414,8 +443,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        // Step 4: Write Ana's and Roberto's real user documents.
-        // This is executed under Carlos's authenticated session, which is now fully holding supervisor privileges in the database rules!
+        if (!carlosUid) {
+          carlosUid = 'u1';
+        }
+
+        // Step 2: Now sign in as montador2025@gmail.com (Master bypass email) to gain supreme write authority on the database
+        console.log("Authenticating Master bypass session on primary instance...");
+        const masterUid = await robustAuthenticate(auth, masterEmail, PASSWORD_SECRET, legacyPassword);
+        if (masterUid) {
+          console.log("Master supervisor session active. Ready to seed and align user documents securely.");
+        }
+
+        // Step 3: Write user documents under Master's authorized session.
+        if (carlosUid) {
+          try {
+            await setDoc(doc(db, 'users', carlosUid), {
+              id: carlosUid,
+              name: 'Carlos',
+              role: 'supervisor',
+              phone: '(21) 99999-1111',
+              createdAt: new Date().toISOString()
+            });
+            console.log("Aligned and self-seeded Carlos supervisor document on database under Master bypass authentication");
+            try {
+              await deleteDoc(doc(db, 'users', 'u1'));
+            } catch (delErr) {}
+          } catch (carlosDocErr) {
+            console.error("Master failed to create or check Carlos supervisor document:", carlosDocErr);
+          }
+        }
+
         if (resolvedAnaUid) {
           try {
             await setDoc(doc(db, 'users', resolvedAnaUid), {
@@ -433,7 +490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             console.log("Aligned and saved Ana's user document at UID: " + resolvedAnaUid);
           } catch (anaDocErr) {
-            console.error("Carlos failed to write Ana's document:", anaDocErr);
+            console.error("Master failed to write Ana's document:", anaDocErr);
           }
         }
 
@@ -469,16 +526,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               console.error("Failed to migrate q1 quote owner:", q1MigrateErr);
             }
           } catch (robertoDocErr) {
-            console.error("Carlos failed to write Roberto's document:", robertoDocErr);
+            console.error("Master failed to write Roberto's document:", robertoDocErr);
           }
         }
 
-        // Step 5: Ensure other collections & documents exist
+        // Step 4: Ensure other collections & documents exist
         await seedDatabaseIfNeeded(carlosUid, resolvedAnaUid, resolvedRobertoUid);
 
-        // Step 6: Always guarantee that Carlos remains authenticated to prevent any secondary auth creation from hijacking the main Auth session
+        // Step 5: Always guarantee that Carlos remains authenticated to prevent any secondary auth creation from hijacking the main Auth session.
+        // We use robustAuthenticate so we attempt password recovery/migrations for Carlos session smoothly
+        console.log("Restoring active user session on primary client to Supervisor Carlos...");
         try {
-          await signInWithEmailAndPassword(auth, supervisorEmail, PASSWORD_SECRET);
+          await robustAuthenticate(auth, supervisorEmail, PASSWORD_SECRET, legacyPassword);
           console.log("Successfully validated and restored Carlos supervisor auth session in main client");
         } catch (reAuthErr) {
           console.error("Failed to restore Carlos supervisor auth context:", reAuthErr);
@@ -491,7 +550,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setBranches(uniqById(list));
           setUsingLocalFallback(false);
         }, (err) => {
-          setBranches(uniqById(mockBranches));
+          setBranches(prev => prev && prev.length > 0 ? prev : uniqById(mockBranches));
           setUsingLocalFallback(true);
           try {
             handleFirestoreError(err, OperationType.GET, 'branches');
@@ -517,7 +576,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setUsers(uniqById(list));
           setUsingLocalFallback(false);
         }, (err) => {
-          setUsers(uniqById(mockUsers));
+          setUsers(prev => prev && prev.length > 0 ? prev : uniqById(mockUsers));
           setUsingLocalFallback(true);
           try {
             handleFirestoreError(err, OperationType.GET, 'users');
@@ -599,7 +658,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (currentUser.role === 'manager') return q.branchId === currentUser.branchId;
         return q.createdBy === currentUser.id;
       });
-      setQuotes(uniqById(filteredMocks));
+      setQuotes(prev => prev && prev.length > 0 ? prev : uniqById(filteredMocks));
       console.warn("Handled quotes query subscription error gracefully (activating local data fallback):", err);
     });
 

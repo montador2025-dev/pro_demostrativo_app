@@ -132,8 +132,26 @@ export const SupervisorDashboard = () => {
   const [newBranchName, setNewBranchName] = useState('');
   
   const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [newUserRole, setNewUserRole] = useState<'manager' | 'supervisor'>('manager');
   const [newManagerName, setNewManagerName] = useState('');
+  const [newManagerPhone, setNewManagerPhone] = useState('');
   const [selectedBranch, setSelectedBranch] = useState<string>('');
+
+  const getWhatsAppLink = (name: string, email: string, phone: string, branchName: string, role: string = 'manager') => {
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length > 0 && !cleanPhone.startsWith('55') && cleanPhone.length <= 11) {
+      cleanPhone = '55' + cleanPhone;
+    }
+    const roleTitle = role === 'manager' ? 'Gerente' : 'Consultor de Vendas';
+    const message = `Olá, *${name}*! 🚀\n\n` +
+      `Seu acesso como *${roleTitle}* da unidade *${branchName}* no sistema *RadarConquista* foi ativado!\n\n` +
+      `📝 *Credenciais de Acesso:*\n` +
+      `• *E-mail:* ${email}\n` +
+      `• *Senha Padrão:* radar123\n\n` +
+      `🔗 Acesse aqui: ${window.location.origin}\n\n` +
+      `_Por favor, faça logon e configure seus acessos._`;
+    return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+  };
 
   // States for Edit/Delete actions
   const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string, phone: string }>({ isOpen: false, user: null, name: '', phone: '' });
@@ -165,32 +183,52 @@ export const SupervisorDashboard = () => {
 
   const handleAddManager = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newManagerName.trim() || !selectedBranch) return;
+    if (!newManagerName.trim() || !newManagerPhone.trim()) return;
+    if (newUserRole === 'manager' && !selectedBranch) {
+      return toast.error('Selecione uma filial para o gerente.');
+    }
     
     // Safety check: Ensure branch doesn't already have an assigned manager
-    const branchHasManager = managers.some(m => m.branchId === selectedBranch);
-    if (branchHasManager) {
-      return toast.error('Vaga Ocupada: Esta filial já possui um Gerente Geral designado. Remaneje-o primeiro.');
+    if (newUserRole === 'manager') {
+      const branchHasManager = managers.some(m => m.branchId === selectedBranch);
+      if (branchHasManager) {
+        return toast.error('Vaga Ocupada: Esta filial já possui um Gerente Geral designado. Remaneje-o primeiro.');
+      }
     }
 
     const name = newManagerName.trim();
-    const generatedEmail = getEmailForUser(name, undefined); // Manager does not require a phone, we resolve dynamic suffix
+    const phoneNum = newManagerPhone.trim();
+    const generatedEmail = getEmailForUser(name, phoneNum);
+    const branchObj = branches.find(b => b.id === selectedBranch);
+    const branchName = branchObj ? branchObj.name : 'Administração Geral';
 
-    addUser(name, 'manager', selectedBranch);
+    addUser(name, newUserRole, newUserRole === 'manager' ? selectedBranch : undefined, phoneNum);
     setNewManagerName('');
+    setNewManagerPhone('');
     setSelectedBranch('');
+    setNewUserRole('manager');
     setIsManagerOpen(false);
 
+    const friendlyRoleName = newUserRole === 'manager' ? 'Gerente' : 'Supervisor Geral';
+
     toast.success(
-      <div className="flex flex-col gap-1 text-xs font-sans">
-        <p className="font-bold text-amber-800">✅ Novo Gerente Designado com Sucesso!</p>
+      <div className="flex flex-col gap-1.5 text-xs font-sans">
+        <p className="font-bold text-amber-800 flex items-center gap-1">✅ Novo {friendlyRoleName} Ativado com Sucesso!</p>
         <p className="text-stone-600">Acesse o sistema utilizando as seguintes credenciais:</p>
         <div className="bg-stone-50 border border-stone-200 p-2 rounded-lg font-mono text-[10px] space-y-0.5 mt-1 text-stone-850">
           <p><span className="font-bold text-stone-500">E-mail:</span> {generatedEmail}</p>
           <p><span className="font-bold text-stone-500">Senha:</span> radar123</p>
         </div>
+        <a 
+          href={getWhatsAppLink(name, generatedEmail, phoneNum, branchName, newUserRole)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center justify-center gap-1.5 w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-extrabold text-[10px] py-1.5 px-3 rounded-md uppercase tracking-wider transition-colors border-none cursor-pointer"
+        >
+          <Send className="w-3.5 h-3.5 text-white" /> Enviar Credenciais p/ WhatsApp do {friendlyRoleName}
+        </a>
       </div>,
-      { duration: 15000 }
+      { duration: 25000 }
     );
   };
 
@@ -471,43 +509,81 @@ export const SupervisorDashboard = () => {
             <Dialog open={isManagerOpen} onOpenChange={setIsManagerOpen}>
               <DialogTrigger render={
                 <Button className="h-12 flex items-center justify-center gap-2 px-5 border border-stone-200 bg-white hover:bg-stone-50 text-stone-800 font-black text-xs uppercase hover:shadow-md transition-all rounded-xl active:scale-[0.97]">
-                  <UserPlus className="w-4 h-4 text-amber-700" /> Nomear Gerente VIP
+                  <UserPlus className="w-4 h-4 text-amber-700" /> Cadastrar Gestor VIP
                 </Button>
               } />
               <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm">
                 <DialogHeader>
                   <DialogTitle className="text-stone-900 font-extrabold uppercase italic flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-amber-700" /> Designação Administrativa
+                    <ShieldCheck className="w-5 h-5 text-amber-700" /> Designação de Gestor / Admin
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-stone-500">Vincular novo supervisor geral a uma filial de showroom da rede.</DialogDescription>
+                  <DialogDescription className="text-xs text-stone-500">Vincular novo gerente regional ou habilitar um novo supervisor geral para a rede.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleAddManager} className="space-y-4 pt-3">
+                  <div className="space-y-1.5 font-sans">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nível de Acesso (Cargo)</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setNewUserRole('manager')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-center ${
+                          newUserRole === 'manager' 
+                            ? 'bg-amber-500/10 border-amber-700 text-amber-900 font-black' 
+                            : 'border-stone-200 bg-white text-stone-500 hover:bg-stone-50'
+                        }`}
+                      >
+                        Gerente de Filial
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewUserRole('supervisor')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all text-center ${
+                          newUserRole === 'supervisor' 
+                            ? 'bg-amber-500/10 border-amber-700 text-amber-900 font-black' 
+                            : 'border-stone-200 bg-white text-stone-500 hover:bg-stone-50'
+                        }`}
+                      >
+                        Supervisor (Dono)
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Nome Completo do Gerente</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">
+                      Nome Completo do {newUserRole === 'manager' ? 'Gerente' : 'Supervisor'}
+                    </Label>
                     <Input className="h-11 rounded-xl border-stone-200 text-xs font-bold bg-white text-stone-1000" placeholder="Ex: Henrique Pires" value={newManagerName} onChange={e => setNewManagerName(e.target.value)} required />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Filial de Alocação</Label>
-                    <select
-                      value={selectedBranch}
-                      onChange={(e) => setSelectedBranch(e.target.value)}
-                      className="w-full h-11 rounded-xl border border-stone-200 bg-white px-3.5 text-xs font-bold text-stone-800 outline-none focus:border-amber-700/50 focus:ring-0 focus:outline-none transition-all cursor-pointer appearance-none"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-                        backgroundRepeat: 'no-repeat',
-                        backgroundPosition: 'right 14px center',
-                        backgroundSize: '16px'
-                      }}
-                      required
-                    >
-                      <option value="">Escolha a unidade...</option>
-                      {branches.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Telefone / WhatsApp Comercial</Label>
+                    <Input className="h-11 rounded-xl border-stone-200 text-xs font-bold bg-white text-stone-1000" placeholder="Ex: (21) 98888-7777" value={newManagerPhone} onChange={e => setNewManagerPhone(e.target.value)} required />
                   </div>
+                  
+                  {newUserRole === 'manager' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Filial de Alocação</Label>
+                      <select
+                        value={selectedBranch}
+                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        className="w-full h-11 rounded-xl border border-stone-200 bg-white px-3.5 text-xs font-bold text-stone-800 outline-none focus:border-amber-700/50 focus:ring-0 focus:outline-none transition-all cursor-pointer appearance-none"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 14px center',
+                          backgroundSize: '16px'
+                        }}
+                        required
+                      >
+                        <option value="">Escolha a unidade...</option>
+                        {branches.map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  
                   <Button type="submit" className="w-full h-11 text-xs uppercase font-black bg-amber-700 hover:bg-amber-800 text-white">
-                    Designar Gerente
+                    Designar {newUserRole === 'manager' ? 'Gerente' : 'Supervisor'}
                   </Button>
                 </form>
               </DialogContent>
@@ -914,13 +990,25 @@ export const SupervisorDashboard = () => {
                         </TableCell>
                         <TableCell className="font-bold text-stone-600 uppercase text-[11px]">{mappedBranch?.name || 'Administração Central'}</TableCell>
                         <TableCell className="text-right pr-6">
-                          <div className="flex justify-end gap-1.5">
+                          <div className="flex justify-end gap-1.5 items-center">
                             
+                            {u.role !== 'supervisor' && u.phone && (
+                              <a
+                                href={getWhatsAppLink(u.name, getEmailForUser(u.name, u.phone, u.id), u.phone, mappedBranch?.name || 'Central', u.role)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-8 h-8 text-[#25D366] hover:text-[#128C7E] hover:bg-emerald-50 rounded-md flex items-center justify-center transition-all bg-transparent border-none shrink-0"
+                                title="Enviar credenciais p/ WhatsApp"
+                              >
+                                <Send className="w-4 h-4 shrink-0" />
+                              </a>
+                            )}
+
                             <Button 
                               variant="ghost"
                               size="icon"
                               onClick={() => setEditUserModal({ isOpen: true, user: u, name: u.name, phone: u.phone || '' })}
-                              className="w-8 h-8 text-stone-400 hover:text-stone-900 hover:bg-stone-100 flex items-center justify-center transition-all bg-transparent border-none"
+                              className="w-8 h-8 text-stone-400 hover:text-stone-900 hover:bg-stone-100 flex items-center justify-center transition-all bg-transparent border-none shrink-0"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>

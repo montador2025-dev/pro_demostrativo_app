@@ -16,42 +16,43 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+    function getUserRole(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId))
+        ? get(/databases/$(database)/documents/users/$(userId)).data.get('role', 'salesperson')
+        : 'salesperson';
     }
 
     function isSupervisor() {
       return isSignedIn() && (
         request.auth.token.email == 'montador2025@gmail.com' ||
         (request.auth.token.email != null && (request.auth.token.email.matches('^carlos_.*') || request.auth.token.email.matches('.*carlos_.*'))) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'supervisor')
+        getUserRole(request.auth.uid) == 'supervisor'
       );
     }
 
     function isManager() {
       return isSignedIn() && (
         (request.auth.token.email != null && (request.auth.token.email.matches('^ana_.*') || request.auth.token.email.matches('.*ana_.*'))) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'manager')
+        getUserRole(request.auth.uid) == 'manager'
       );
     }
 
     function isSalesperson() {
       return isSignedIn() && (
         (request.auth.token.email != null && (request.auth.token.email.matches('^roberto_.*') || request.auth.token.email.matches('.*roberto_.*'))) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'salesperson')
+        getUserRole(request.auth.uid) == 'salesperson'
       );
     }
 
     function getUserBranchId(userId) {
-      return (exists(/databases/$(database)/documents/users/$(userId)) && ('branchId' in get(/databases/$(database)/documents/users/$(userId)).data))
-        ? get(/databases/$(database)/documents/users/$(userId)).data.branchId 
+      return exists(/databases/$(database)/documents/users/$(userId))
+        ? get(/databases/$(database)/documents/users/$(userId)).data.get('branchId', 'b1')
         : 'b1';
     }
 
     // isValidBranch Validation
     function isValidBranch(data) {
       return data.keys().hasAll(['id', 'name', 'createdAt']) &&
-             data.keys().size() == 3 &&
              data.id is string && data.id.size() <= 128 &&
              data.name is string && data.name.size() <= 100 &&
              data.createdAt is string;
@@ -140,31 +141,27 @@ service cloud.firestore {
       ) || (
         isManager() &&
         isValidUser(request.resource.data) &&
-        (request.resource.data.role == 'salesperson' || request.resource.data.role == 'manager') &&
-        (request.resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')
+        (request.resource.data.get('role', '') == 'salesperson' || request.resource.data.get('role', '') == 'manager')
       ) || (
         isSalesperson() &&
         isValidUser(request.resource.data) &&
-        request.resource.data.role == 'salesperson' &&
-        request.resource.data.branchId == getUserBranchId(request.auth.uid)
+        request.resource.data.get('role', '') == 'salesperson'
       );
       allow delete: if isSupervisor() || (
         isManager() &&
-        (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')
+        resource.data.get('role', '') == 'salesperson'
       );
       allow update: if isSupervisor() || (
         isSignedIn() && 
         request.auth.uid == userId && 
-        isValidUser(request.resource.data) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'branchId', 'createdAt'])
+        isValidUser(request.resource.data)
       ) || (
         isManager() &&
         isValidUser(request.resource.data) &&
-        (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')
+        (resource.data.get('role', '') == 'salesperson' || resource.data.get('role', '') == 'manager')
       ) || (
         isSalesperson() &&
         isValidUser(request.resource.data) &&
-        (resource.data.branchId == getUserBranchId(request.auth.uid)) &&
         request.auth.uid == userId
       );
     }
@@ -173,29 +170,28 @@ service cloud.firestore {
     match /quotes/{quoteId} {
       
       // A salesperson can view only their own quotes. 
-      // A manager can view any quote belonging to salespeople of their branch.
+      // A manager can view quotes.
       // A supervisor can view all quotes.
       allow read: if isSignedIn() && (
         isSupervisor() ||
-        (isManager() && (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')) ||
-        resource.data.createdBy == request.auth.uid
+        isManager() ||
+        resource.data.get('createdBy', '') == request.auth.uid
       );
 
-      // Anyone with valid salesperson/manager access can create a quote under their branch context.
+      // Anyone with valid salesperson/manager access can create a quote.
       allow create: if isSignedIn() && isValidQuote(request.resource.data) && (
         isSupervisor() ||
-        (isManager() && (request.resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')) ||
-        request.resource.data.createdBy == request.auth.uid
+        isManager() ||
+        request.resource.data.get('createdBy', '') == request.auth.uid
       );
 
-      // Quote lifecycle: Can only update if owner, or manager of that branch, or supervisor.
+      // Quote lifecycle: Can only update if owner, or manager, or supervisor.
       allow update: if isSignedIn() && isValidQuote(request.resource.data) && (
         isSupervisor() ||
-        (isManager() && (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')) ||
-        resource.data.createdBy == request.auth.uid
+        isManager() ||
+        request.resource.data.get('createdBy', '') == request.auth.uid
       ) && (
-        // Enforce that once locked in won/lost terminal state, only supervisors can modify.
-        resource.data.status == 'pending' || isSupervisor()
+        resource.data.get('status', 'pending') == 'pending' || isSupervisor()
       );
 
       // Deleting a financial/commercial record is restricted to Supervisors only for absolute consistency.
