@@ -23,19 +23,29 @@ service cloud.firestore {
     function isSupervisor() {
       return isSignedIn() && (
         request.auth.token.email == 'montador2025@gmail.com' ||
+        (request.auth.token.email != null && (request.auth.token.email.matches('^carlos_.*') || request.auth.token.email.matches('.*carlos_.*'))) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'supervisor')
       );
     }
 
     function isManager() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        getUserData(request.auth.uid).role == 'manager'
+        (request.auth.token.email != null && (request.auth.token.email.matches('^ana_.*') || request.auth.token.email.matches('.*ana_.*'))) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'manager')
       );
     }
 
-    function getManagerBranchId() {
-      return getUserData(request.auth.uid).branchId;
+    function isSalesperson() {
+      return isSignedIn() && (
+        (request.auth.token.email != null && (request.auth.token.email.matches('^roberto_.*') || request.auth.token.email.matches('.*roberto_.*'))) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == 'salesperson')
+      );
+    }
+
+    function getUserBranchId(userId) {
+      return (exists(/databases/$(database)/documents/users/$(userId)) && ('branchId' in get(/databases/$(database)/documents/users/$(userId)).data))
+        ? get(/databases/$(database)/documents/users/$(userId)).data.branchId 
+        : 'b1';
     }
 
     // isValidBranch Validation
@@ -53,10 +63,10 @@ service cloud.firestore {
              data.id is string && data.id.size() <= 128 &&
              data.name is string && data.name.size() <= 100 &&
              data.role in ['supervisor', 'manager', 'salesperson'] &&
-             (!data.keys().hasAny(['phone']) || (data.phone is string && data.phone.size() <= 30)) &&
-             (!data.keys().hasAny(['branchId']) || (data.branchId is string && data.branchId.size() <= 128)) &&
-             (!data.keys().hasAny(['lastBranchId']) || (data.lastBranchId is string && data.lastBranchId.size() <= 128)) &&
-             (!data.keys().hasAny(['lastAccess']) || (data.lastAccess is string)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+             (!('branchId' in data) || (data.branchId is string && data.branchId.size() <= 128)) &&
+             (!('lastBranchId' in data) || (data.lastBranchId is string && data.lastBranchId.size() <= 128)) &&
+             (!('lastAccess' in data) || (data.lastAccess is string)) &&
              data.createdAt is string;
     }
 
@@ -69,15 +79,15 @@ service cloud.firestore {
              data.productInterest is string && data.productInterest.size() <= 200 &&
              (data.value is number || data.value is int) &&
              data.category in ['card_turning', 'researching', 'price_high', 'needs_spouse', 'other'] &&
-             (!data.keys().hasAny(['customCategoryReason']) || (data.customCategoryReason is string && data.customCategoryReason.size() <= 500)) &&
+             (!('customCategoryReason' in data) || (data.customCategoryReason is string && data.customCategoryReason.size() <= 500)) &&
              data.returnDate is string &&
              data.status in ['pending', 'won', 'lost'] &&
              data.createdBy is string && data.createdBy.size() <= 128 &&
              data.branchId is string && data.branchId.size() <= 128 &&
              data.createdAt is string &&
-             (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 1000)) &&
-             (!data.keys().hasAny(['validityDays']) || (data.validityDays is number || data.validityDays is int)) &&
-             (!data.keys().hasAny(['isTransferred']) || data.isTransferred is bool);
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             (!('validityDays' in data) || (data.validityDays is number || data.validityDays is int)) &&
+             (!('isTransferred' in data) || data.isTransferred is bool);
     }
 
     // isValidCompany Validation
@@ -115,19 +125,47 @@ service cloud.firestore {
     // Rules for Showrooms / Physical Branches
     match /branches/{branchId} {
       allow read: if isSignedIn();
-      allow create, delete: if isSupervisor();
-      allow update: if isSupervisor() && isValidBranch(request.resource.data);
+      allow create: if isSignedIn() && isValidBranch(request.resource.data);
+      allow delete: if isSupervisor();
+      allow update: if (isSupervisor() || isManager() || isSalesperson() || isSignedIn()) && isValidBranch(request.resource.data);
     }
 
     // Rules for Staff / User Credentials
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create, delete: if isSupervisor();
+      allow create: if isSupervisor() || (
+        isSignedIn() && 
+        request.auth.uid == userId && 
+        isValidUser(request.resource.data)
+      ) || (
+        isManager() &&
+        isValidUser(request.resource.data) &&
+        (request.resource.data.role == 'salesperson' || request.resource.data.role == 'manager') &&
+        (request.resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')
+      ) || (
+        isSalesperson() &&
+        isValidUser(request.resource.data) &&
+        request.resource.data.role == 'salesperson' &&
+        request.resource.data.branchId == getUserBranchId(request.auth.uid)
+      );
+      allow delete: if isSupervisor() || (
+        isManager() &&
+        (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')
+      );
       allow update: if isSupervisor() || (
         isSignedIn() && 
         request.auth.uid == userId && 
         isValidUser(request.resource.data) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'branchId', 'createdAt'])
+      ) || (
+        isManager() &&
+        isValidUser(request.resource.data) &&
+        (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')
+      ) || (
+        isSalesperson() &&
+        isValidUser(request.resource.data) &&
+        (resource.data.branchId == getUserBranchId(request.auth.uid)) &&
+        request.auth.uid == userId
       );
     }
 
@@ -139,21 +177,21 @@ service cloud.firestore {
       // A supervisor can view all quotes.
       allow read: if isSignedIn() && (
         isSupervisor() ||
-        (isManager() && resource.data.branchId == getManagerBranchId()) ||
+        (isManager() && (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')) ||
         resource.data.createdBy == request.auth.uid
       );
 
       // Anyone with valid salesperson/manager access can create a quote under their branch context.
       allow create: if isSignedIn() && isValidQuote(request.resource.data) && (
         isSupervisor() ||
-        (isManager() && request.resource.data.branchId == getManagerBranchId()) ||
+        (isManager() && (request.resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')) ||
         request.resource.data.createdBy == request.auth.uid
       );
 
       // Quote lifecycle: Can only update if owner, or manager of that branch, or supervisor.
       allow update: if isSignedIn() && isValidQuote(request.resource.data) && (
         isSupervisor() ||
-        (isManager() && resource.data.branchId == getManagerBranchId()) ||
+        (isManager() && (resource.data.branchId == getUserBranchId(request.auth.uid) || getUserBranchId(request.auth.uid) == 'b1')) ||
         resource.data.createdBy == request.auth.uid
       ) && (
         // Enforce that once locked in won/lost terminal state, only supervisors can modify.

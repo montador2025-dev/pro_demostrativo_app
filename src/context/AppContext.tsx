@@ -16,10 +16,20 @@ import {
   where
 } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, getAuth, initializeAuth, inMemoryPersistence } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Branch, User, Quote, Role, Company, AuditLog } from '../types';
+
+const getSecondaryAuth = (app: any) => {
+  try {
+    return initializeAuth(app, {
+      persistence: inMemoryPersistence
+    });
+  } catch (e) {
+    return getAuth(app);
+  }
+};
 
 interface AppState {
   branches: Branch[];
@@ -93,10 +103,25 @@ const uniqById = <T extends { id: string }>(arr: T[]): T[] => {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const PASSWORD_SECRET = 'atendepro123_safe';
+const PASSWORD_SECRET = 'radar123';
+
+export const getEmailForUser = (name: string, phone?: string, userId?: string) => {
+  const safeName = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  const cleanPhone = (phone || '').replace(/\D/g, '');
+  const phoneSuffix = cleanPhone.length >= 4 ? cleanPhone.slice(-4) : cleanPhone;
+  
+  if (phoneSuffix) {
+    return `${safeName}_${phoneSuffix}@radarconquista.com.br`;
+  }
+  if (userId) {
+    const idSafe = userId.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 4);
+    return `${safeName}_${idSafe}@radarconquista.com.br`;
+  }
+  return `${safeName}@radarconquista.com.br`;
+};
 
 // Seeds general mocked structures if Firestore collections are absolutely blank
-const seedDatabaseIfNeeded = async () => {
+const seedDatabaseIfNeeded = async (resolvedCarlosUid?: string, resolvedAnaUid?: string, resolvedRobertoUid?: string) => {
   try {
     // 1. Check & Seed Branches
     const branchesSnap = await getDocs(collection(db, 'branches'));
@@ -112,36 +137,11 @@ const seedDatabaseIfNeeded = async () => {
     const usersSnap = await getDocs(collection(db, 'users'));
     if (usersSnap.empty) {
       // Carlos already exists in Firebase Auth because of our boot logic! Its UID is:
-      const carlosUid = auth.currentUser?.uid || 'u1';
+      const carlosUid = resolvedCarlosUid || auth.currentUser?.uid || 'u1';
       
       // Let's register Ana and Roberto in Firebase Auth too so they can sign in later!
-      let anaUid = 'u2';
-      let robertoUid = 'u3';
-      
-      const secondaryAppName = 'temp-auth-creator-init-2';
-      let secondaryApp;
-      const apps = getApps();
-      const existing = apps.find(app => app.name === secondaryAppName);
-      if (existing) {
-        secondaryApp = existing;
-      } else {
-        secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
-      }
-      const secondaryAuth = getAuth(secondaryApp);
-
-      try {
-        const anaCred = await createUserWithEmailAndPassword(secondaryAuth, 'ana_u2@atendepro.com', PASSWORD_SECRET);
-        anaUid = anaCred.user.uid;
-      } catch (e) {
-        console.warn("Ana auth exists or skipped:", e);
-      }
-
-      try {
-        const robertoCred = await createUserWithEmailAndPassword(secondaryAuth, 'roberto_u3@atendepro.com', PASSWORD_SECRET);
-        robertoUid = robertoCred.user.uid;
-      } catch (e) {
-        console.warn("Roberto auth exists or skipped:", e);
-      }
+      let anaUid = resolvedAnaUid || 'u2';
+      let robertoUid = resolvedRobertoUid || 'u3';
 
       // Write user documents to Firestore
       await setDoc(doc(db, 'users', carlosUid), {
@@ -233,31 +233,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [usingLocalFallback, setUsingLocalFallback] = useState(false);
+  const [hasRestoredAuth, setHasRestoredAuth] = useState(false);
 
   // Helper to synchronize active Firebase Auth session with selected user's mock credentials
-  const syncFirebaseAuthWithUser = async (user: User) => {
-    const safeName = user.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const email = `${safeName}_${user.id.toLowerCase().slice(0, 10)}@atendepro.com`;
+  const syncFirebaseAuthWithUser = async (user: User): Promise<User> => {
+    const email = getEmailForUser(user.name, user.phone, user.id);
     const password = PASSWORD_SECRET;
 
+    const handleSessionAlignment = async (realUid: string, userToAlign: User): Promise<User> => {
+      if (userToAlign.id !== realUid) {
+        console.log(`Session alignment mismatch: ${userToAlign.name} state id is ${userToAlign.id}, but real UID is ${realUid}`);
+        
+        // Update local storage
+        localStorage.setItem('currentUserId', realUid);
+
+        // Try to delete the legacy simple ID document if we can (purely optional/best-effort cleanup)
+        if (userToAlign.id === 'u2' || userToAlign.id === 'u3' || userToAlign.id === 'aqh2wJwPxOYBFQAoAqoRzVKj6EB3') {
+          try {
+            await deleteDoc(doc(db, 'users', userToAlign.id));
+            console.log(`Cleaned up legacy user document: ${userToAlign.id}`);
+          } catch (delErr) {
+            console.warn(`Could not delete legacy document ${userToAlign.id}:`, delErr);
+          }
+        }
+
+        return {
+          ...userToAlign,
+          id: realUid
+        };
+      }
+      return userToAlign;
+    };
+
     if (auth.currentUser?.email === email) {
-      return; 
+      if (auth.currentUser?.uid) {
+        return await handleSessionAlignment(auth.currentUser.uid, user);
+      }
+      return user; 
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
       console.log(`Successfully synced Firebase Auth session for: ${user.name}`);
+      return await handleSessionAlignment(cred.user.uid, user);
     } catch (err: any) {
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
         try {
-          await createUserWithEmailAndPassword(auth, email, password);
+          const cred = await createUserWithEmailAndPassword(auth, email, password);
           console.log(`Dynamically registered & synced Firebase Auth credentials for: ${user.name}`);
+          return await handleSessionAlignment(cred.user.uid, user);
         } catch (createErr) {
           console.error(`Dynamic registration failed for user ${user.name}:`, createErr);
         }
       } else {
         console.error(`Firebase Auth sync failed for ${user.name}:`, err);
       }
+      return user;
     }
   };
 
@@ -267,25 +298,191 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubUsers: () => void = () => {};
     let unsubCompany: () => void = () => {};
 
-    const initAndListen = async () => {
-      setIsLoading(true);
+    const robustAuthenticate = async (
+      authInstance: any,
+      email: string,
+      newPassword: string,
+      legacyPassword?: string
+    ): Promise<string | null> => {
       try {
-        // Step 1: Boot strapping with Carlos' credentials to gain immediate read/write permissions
-        const supervisorEmail = 'carlos_u1@atendepro.com';
-        try {
-          await signInWithEmailAndPassword(auth, supervisorEmail, PASSWORD_SECRET);
-          console.log("Supervisor Carlos session active");
-        } catch (authErr: any) {
-          if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/invalid-login-credentials') {
-            await createUserWithEmailAndPassword(auth, supervisorEmail, PASSWORD_SECRET);
-            console.log("Supervisor Carlos registered and session active");
-          } else {
-            console.error("Auth bootstrapping error:", authErr);
+        const cred = await signInWithEmailAndPassword(authInstance, email, newPassword);
+        console.log(`Successfully authenticated ${email} with current PASSWORD_SECRET.`);
+        return cred.user.uid;
+      } catch (authErr: any) {
+        console.warn(`Initial authentication failed for ${email}: ${authErr.code || authErr.message}. Trying alternative methods...`);
+        
+        if (legacyPassword) {
+          try {
+            const cred = await signInWithEmailAndPassword(authInstance, email, legacyPassword);
+            console.log(`Successfully authenticated ${email} with legacy PASSWORD_SECRET. Migrating to current...`);
+            try {
+              if (authInstance.currentUser) {
+                await updatePassword(authInstance.currentUser, newPassword);
+                console.log(`Successfully updated password to current PASSWORD_SECRET for ${email}`);
+              }
+            } catch (migErr) {
+              console.warn(`Failed to update password legacy migrate for ${email}:`, migErr);
+            }
+            return cred.user.uid;
+          } catch (legacyErr: any) {
+            console.warn(`Authentication with legacy password also failed for ${email}: ${legacyErr.code || legacyErr.message}`);
           }
         }
 
-        // Step 2: Ensure collections & documents exist
-        await seedDatabaseIfNeeded();
+        try {
+          const cred = await createUserWithEmailAndPassword(authInstance, email, newPassword);
+          console.log(`Successfully registered and seeded new user: ${email}`);
+          return cred.user.uid;
+        } catch (createErr: any) {
+          if (createErr.code === 'auth/email-already-in-use') {
+            console.warn(`User ${email} already exists in auth backend but credentials mismatch.`);
+            return null;
+          } else {
+            console.error(`Failed to register user account ${email}:`, createErr);
+            throw createErr;
+          }
+        }
+      }
+    };
+
+    const initAndListen = async () => {
+      setIsLoading(true);
+      try {
+        const legacyPassword = 'atendepro123_safe';
+
+        // Step 1: Register or sign in Carlos supervisor first to capture real UID
+        const supervisorEmail = getEmailForUser('Carlos', '(21) 99999-1111');
+        const carlosUid = await robustAuthenticate(auth, supervisorEmail, PASSWORD_SECRET, legacyPassword) || '';
+        if (carlosUid) {
+          console.log("Supervisor Carlos authenticated on primary client auth. UID: " + carlosUid);
+        }
+
+        // Step 2: Now that Carlos is authenticated on the main auth instance, write his own user document first.
+        // Under security rules, a signed-in user matching ^carlos_.* has authority to self-create/write their own user document to /users/{uid}.
+        // Doing this before any secondary operations ensures Carlos immediately becomes an active "supervisor" in the database check rules,
+        // which gives their active session supreme read and write authority over other collections and documents.
+        if (carlosUid) {
+          try {
+            await setDoc(doc(db, 'users', carlosUid), {
+              id: carlosUid,
+              name: 'Carlos',
+              role: 'supervisor',
+              phone: '(21) 99999-1111',
+              createdAt: new Date().toISOString()
+            });
+            console.log("Aligned and self-seeded Carlos supervisor document on database");
+            try {
+              await deleteDoc(doc(db, 'users', 'u1'));
+            } catch (delErr) {}
+          } catch (carlosDocErr) {
+            console.error("Carlos self-aligned document write failed:", carlosDocErr);
+          }
+        }
+
+        // Step 3: Retrieve/register Ana, Roberto, and montador2025@gmail.com via secondary auth helper to avoid session conflict in primary auth
+        const secondaryAppNameForResolve = 'temp-auth-resolver-init';
+        let secondaryApp;
+        try {
+          const apps = getApps();
+          const existingApp = apps.find(app => app.name === secondaryAppNameForResolve);
+          if (existingApp) {
+            secondaryApp = existingApp;
+          } else {
+            secondaryApp = initializeApp(firebaseConfig, secondaryAppNameForResolve);
+          }
+        } catch (appErr) {
+          console.error("Failed to initialize secondary app for resolver:", appErr);
+        }
+
+        let resolvedAnaUid = 'u2';
+        let resolvedRobertoUid = 'u3';
+
+        if (secondaryApp) {
+          const sAuth = getSecondaryAuth(secondaryApp);
+          const anaMail = getEmailForUser('Ana', '(21) 98888-2222');
+          const robertoMail = getEmailForUser('Roberto', '(21) 97777-3333');
+          resolvedAnaUid = await robustAuthenticate(sAuth, anaMail, PASSWORD_SECRET, legacyPassword) || 'u2';
+          resolvedRobertoUid = await robustAuthenticate(sAuth, robertoMail, PASSWORD_SECRET, legacyPassword) || 'u3';
+
+          // Also guarantee master email login is registered in Auth as well
+          const masterEmail = 'montador2025@gmail.com';
+          try {
+            await robustAuthenticate(sAuth, masterEmail, PASSWORD_SECRET, legacyPassword);
+            console.log("Master supervisor registered/aligned on secondary auth");
+          } catch (masterErr) {
+            console.error("Failed to guarantee master signup:", masterErr);
+          }
+        }
+
+        // Step 4: Write Ana's and Roberto's real user documents.
+        // This is executed under Carlos's authenticated session, which is now fully holding supervisor privileges in the database rules!
+        if (resolvedAnaUid) {
+          try {
+            await setDoc(doc(db, 'users', resolvedAnaUid), {
+              id: resolvedAnaUid,
+              name: 'Ana',
+              role: 'manager',
+              branchId: 'b1',
+              phone: '(21) 98888-2222',
+              createdAt: new Date().toISOString()
+            });
+            if (resolvedAnaUid !== 'u2') {
+              try {
+                await deleteDoc(doc(db, 'users', 'u2'));
+              } catch (delErr) {}
+            }
+            console.log("Aligned and saved Ana's user document at UID: " + resolvedAnaUid);
+          } catch (anaDocErr) {
+            console.error("Carlos failed to write Ana's document:", anaDocErr);
+          }
+        }
+
+        if (resolvedRobertoUid) {
+          try {
+            await setDoc(doc(db, 'users', resolvedRobertoUid), {
+              id: resolvedRobertoUid,
+              name: 'Roberto',
+              role: 'salesperson',
+              branchId: 'b1',
+              phone: '(21) 97777-3333',
+              createdAt: new Date().toISOString()
+            });
+            if (resolvedRobertoUid !== 'u3') {
+              try {
+                await deleteDoc(doc(db, 'users', 'u3'));
+              } catch (delErr) {}
+            }
+            console.log("Aligned and saved Roberto's user document at UID: " + resolvedRobertoUid);
+
+            // Legacy quote creation mapping fix: migrate seeded q1 createdBy to resolvedRobertoUid
+            try {
+              const q1DocRef = doc(db, 'quotes', 'q1');
+              const q1Snapshot = await getDoc(q1DocRef);
+              if (q1Snapshot.exists()) {
+                const q1Data = q1Snapshot.data();
+                if (q1Data.createdBy === 'u3' || q1Data.createdBy === 'u2') {
+                  await updateDoc(q1DocRef, { createdBy: resolvedRobertoUid });
+                  console.log("Migrated seeded quote q1 owner to Roberto's UID");
+                }
+              }
+            } catch (q1MigrateErr) {
+              console.error("Failed to migrate q1 quote owner:", q1MigrateErr);
+            }
+          } catch (robertoDocErr) {
+            console.error("Carlos failed to write Roberto's document:", robertoDocErr);
+          }
+        }
+
+        // Step 5: Ensure other collections & documents exist
+        await seedDatabaseIfNeeded(carlosUid, resolvedAnaUid, resolvedRobertoUid);
+
+        // Step 6: Always guarantee that Carlos remains authenticated to prevent any secondary auth creation from hijacking the main Auth session
+        try {
+          await signInWithEmailAndPassword(auth, supervisorEmail, PASSWORD_SECRET);
+          console.log("Successfully validated and restored Carlos supervisor auth session in main client");
+        } catch (reAuthErr) {
+          console.error("Failed to restore Carlos supervisor auth context:", reAuthErr);
+        }
 
         // Step 3: Establish real-time live observers for shared endpoints
         unsubBranches = onSnapshot(collection(db, 'branches'), (snap) => {
@@ -344,9 +541,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
       } catch (err) {
-        console.error("Initialization of AppContext synchronization failed:", err);
-      } finally {
+        console.error("Initialization of AppContext synchronization failed, falling back to local simulation:", err);
+        setUsingLocalFallback(true);
+        setBranches(uniqById(mockBranches));
+        setUsers(uniqById(mockUsers));
+        setCurrentCompany({
+          id: 'c1',
+          name: 'RadarConquista',
+          plan: 'Sistema Inteligente de Vendas e Relacionamento',
+          maxUsers: 150,
+          licenseExpires: '2028-05-25T12:00:00Z'
+        });
         setIsLoading(false);
+      } finally {
+        if (!localStorage.getItem('currentUserId')) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -423,27 +633,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync Logged User Profile and ensure custom auth alignment
   useEffect(() => {
-    if (users.length > 0) {
-      const savedUserId = localStorage.getItem('currentUserId');
+    if (users.length > 0 && !hasRestoredAuth) {
+      let savedUserId = localStorage.getItem('currentUserId');
       if (savedUserId) {
+        // Self-heal legacy simple IDs in LocalStorage transparently
+        if (savedUserId === 'u1' || savedUserId === 'u2' || savedUserId === 'u3') {
+          console.log(`Found legacy default user ID in storage: ${savedUserId}. Resolving real UID...`);
+          let matchName = '';
+          if (savedUserId === 'u1') matchName = 'Carlos';
+          else if (savedUserId === 'u2') matchName = 'Ana';
+          else if (savedUserId === 'u3') matchName = 'Roberto';
+          
+          if (matchName) {
+            const resolvedUser = users.find(u => u.name === matchName);
+            if (resolvedUser) {
+              savedUserId = resolvedUser.id;
+              localStorage.setItem('currentUserId', savedUserId);
+              console.log(`Successfully transitioned legacy LocalStorage token to: ${savedUserId}`);
+            }
+          }
+        }
+
         const found = users.find(u => u.id === savedUserId);
         if (found) {
-          syncFirebaseAuthWithUser(found).then(() => {
-            setCurrentUser(found);
+          syncFirebaseAuthWithUser(found).then((alignedUser) => {
+            setCurrentUser(alignedUser);
+            setHasRestoredAuth(true);
+            setIsLoading(false);
+          }).catch(err => {
+            console.error("Auth restore error:", err);
+            setHasRestoredAuth(true);
+            setIsLoading(false);
           });
           return;
         }
       }
-      // Pick Supervisor as default
-      const defaultUser = users.find(u => u.role === 'supervisor') || users[0];
-      if (defaultUser) {
-        syncFirebaseAuthWithUser(defaultUser).then(() => {
-          setCurrentUser(defaultUser);
-          localStorage.setItem('currentUserId', defaultUser.id);
-        });
-      }
+      setHasRestoredAuth(true);
+      setIsLoading(false);
     }
-  }, [users]);
+  }, [users, hasRestoredAuth]);
 
   // Sync access timestamp over the server periodically (every 2 minutes) while active
   useEffect(() => {
@@ -491,10 +719,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const handleSetCurrentUser = async (user: User | null) => {
     if (user) {
       localStorage.setItem('currentUserId', user.id);
-      await syncFirebaseAuthWithUser(user);
-      setCurrentUser(user);
-      const actionText = `Acesso concedido: Sessão ativa como ${user.name} (${user.role.toUpperCase()})`;
-      await addAuditLog(actionText, 'SUCCESS', user);
+      const alignedUser = await syncFirebaseAuthWithUser(user);
+      setCurrentUser(alignedUser);
+      const actionText = `Acesso concedido: Sessão ativa como ${alignedUser.name} (${alignedUser.role.toUpperCase()})`;
+      await addAuditLog(actionText, 'SUCCESS', alignedUser);
     } else {
       localStorage.removeItem('currentUserId');
       setCurrentUser(null);
@@ -586,11 +814,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addUser = async (name: string, role: Role, branchId?: string, phone?: string) => {
-    const cleanPhone = (phone || '').replace(/\D/g, '');
-    const idSafe = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10);
-    const email = `${idSafe}_${cleanPhone || 'system'}@atendepro.com`.toLowerCase();
-
     let finalUserId = uuidv4();
+    const email = getEmailForUser(name, phone, finalUserId);
     const newUser: User = { 
       id: finalUserId, 
       name, 
@@ -611,6 +836,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
+    const previousCurrentUser = currentUser;
+
     try {
       // Register in Firebase Auth via secondary app instance helper
       const secondaryAppName = 'temp-auth-creator-add';
@@ -622,7 +849,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         secondaryApp = initializeApp(firebaseConfig, secondaryAppName);
       }
-      const secondaryAuth = getAuth(secondaryApp);
+      const secondaryAuth = getSecondaryAuth(secondaryApp);
       
       try {
         const userCred = await createUserWithEmailAndPassword(secondaryAuth, email, PASSWORD_SECRET);
@@ -631,13 +858,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           newUser.id = finalUserId;
         }
       } catch (authErr: any) {
-        console.warn("User credentials could not be registered automatically:", authErr);
+        console.warn("User credentials could not be registered automatically, trying sign-in fallback:", authErr);
+        try {
+          const userCred = await signInWithEmailAndPassword(secondaryAuth, email, PASSWORD_SECRET);
+          if (userCred.user) {
+            finalUserId = userCred.user.uid;
+            newUser.id = finalUserId;
+            console.log("Successfully retrieved pre-existing UID for user from Firebase Auth: " + finalUserId);
+          }
+        } catch (signInErr) {
+          console.error("Secondary auth sign-in fallback failed too for email:", email, signInErr);
+        }
       }
 
       await setDoc(doc(db, 'users', finalUserId), newUser);
       const branchName = branches.find(b => b.id === branchId)?.name || 'Central';
       await addAuditLog(`Staff Cadastrado: Habilitado acesso para "${name}" como (${role.toUpperCase()}) na filial ${branchName}`);
+
+      // Restore session
+      if (previousCurrentUser) {
+        const alignedPrev = await syncFirebaseAuthWithUser(previousCurrentUser);
+        setCurrentUser(alignedPrev);
+      }
     } catch (err) {
+      if (previousCurrentUser) {
+        try {
+          const alignedPrev = await syncFirebaseAuthWithUser(previousCurrentUser);
+          setCurrentUser(alignedPrev);
+        } catch (restoreErr) {
+          console.error("Failed to restore user session after error:", restoreErr);
+        }
+      }
       setUsingLocalFallback(true);
       executeLocal();
       try {

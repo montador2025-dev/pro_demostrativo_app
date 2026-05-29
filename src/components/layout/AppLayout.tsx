@@ -17,7 +17,8 @@ import {
   Users, 
   Calculator, 
   Sparkles, 
-  Briefcase 
+  Briefcase,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -111,7 +112,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         </div>
 
         {/* Sidebar Footer with current role badge */}
-        <div className="p-4 border-t border-[#1c1917]/6 bg-stone-50/50 flex flex-col gap-3">
+        <div className="p-4 border-t border-[#1c1917]/6 bg-stone-50/50 flex flex-col gap-2.5">
           <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-stone-200 shadow-xs">
             <Avatar className="w-10 h-10 border border-amber-700/10 shadow-sm">
               <AvatarFallback className="bg-amber-700 text-white font-bold text-sm">
@@ -126,12 +127,38 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               </p>
             </div>
           </div>
+          
+          <Button
+            variant="ghost"
+            onClick={() => setCurrentUser(null)}
+            className="w-full flex items-center justify-start gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-extrabold text-stone-500 hover:text-red-700 hover:bg-red-50/50 transition-colors border-none"
+          >
+            <LogOut className="w-4 h-4 text-stone-400 group-hover/button:text-red-650" />
+            <span>Sair do Sistema</span>
+          </Button>
         </div>
       </aside>
 
       {/* MAIN CONTAINER */}
       <div className="flex-1 flex flex-col relative z-10">
         
+        {/* TEST LOGIN SCREEN SUGGESTION BANNER */}
+        <div className="bg-[#b45309] border-b border-amber-800 text-white px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between text-xs gap-3 shadow-sm shrink-0 select-none">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-200 shrink-0" />
+            <span className="font-sans font-semibold">
+              🔑 Nova Tela de Login corporativa ativada! Gostaria de testar as credenciais ou atalhos de teste?
+            </span>
+          </div>
+          <button
+            onClick={() => setCurrentUser(null)}
+            className="bg-white/15 hover:bg-white/25 active:bg-white/35 text-white px-3.5 py-1.5 rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer flex items-center gap-1.5 shadow-xs border border-white/10 shrink-0 leading-none"
+          >
+            <LogOut className="w-3 h-3" />
+            Sair e Testar Login
+          </button>
+        </div>
+
         {/* SYSTEM APP HEADER */}
         <header className="bg-white/80 border-b border-[#1c1917]/6 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0 z-40">
           <div className="flex items-center gap-3">
@@ -178,6 +205,17 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 {currentUser?.name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
+
+            {/* Header Sair Button */}
+            <Button
+              variant="outline"
+              size="icon-sm"
+              onClick={() => setCurrentUser(null)}
+              title="Sair do sistema"
+              className="text-stone-500 hover:text-red-700 hover:bg-red-50/50 border-stone-200 h-8 w-8 rounded-lg cursor-pointer flex items-center justify-center p-0 shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </header>
 

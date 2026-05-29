@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAppContext } from '../../context/AppContext';
+import { useAppContext, getEmailForUser } from '../../context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -116,11 +116,26 @@ export const ManagerDashboard = () => {
       return toast.error('Sabor Comercial Duplicado: Já existe um consultor cadastrado com este nome exato nesta unidade.');
     }
 
-    addUser(newSalespersonName.trim(), 'salesperson', currentUser.branchId, newSalespersonPhone.trim());
+    const name = newSalespersonName.trim();
+    const phone = newSalespersonPhone.trim();
+    const generatedEmail = getEmailForUser(name, phone);
+
+    addUser(name, 'salesperson', currentUser.branchId, phone);
     setNewSalespersonName('');
     setNewSalespersonPhone('');
     setIsSalespersonOpen(false);
-    toast.success('Consultor de Vendas cadastrado e habilitado com sucesso!');
+    
+    toast.success(
+      <div className="flex flex-col gap-1 text-xs">
+        <p className="font-bold text-emerald-800">✅ Consultor Cadastrado com Sucesso!</p>
+        <p className="text-stone-600">Acesse o sistema utilizando as credenciais:</p>
+        <div className="bg-stone-50 border border-stone-200 p-2 rounded-lg font-mono text-[10px] space-y-0.5 mt-1 text-stone-800">
+          <p><span className="font-bold text-stone-500">E-mail:</span> {generatedEmail}</p>
+          <p><span className="font-bold text-stone-500">Senha:</span> radar123</p>
+        </div>
+      </div>,
+      { duration: 15000 }
+    );
   };
 
   const handleEditUser = (e: React.FormEvent) => {

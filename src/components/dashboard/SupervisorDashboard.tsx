@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAppContext } from '../../context/AppContext';
+import { useAppContext, getEmailForUser } from '../../context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -39,6 +39,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { toast } from 'sonner';
 import { User, Branch } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { runFirestoreDiagnostics, type DiagnosticsReport } from '../../utils/firestoreDiagnostics';
 
 // SaaS Premium Elegant Analytics Sparkline Graph
 const MiniSparkline = ({ points, color = '#b45309' }: { points: number[], color?: string }) => {
@@ -95,15 +96,29 @@ export const SupervisorDashboard = () => {
   const [compPlan, setCompPlan] = useState(currentCompany?.plan || 'Enterprise SaaS Corporate Plus');
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditResult, setAuditResult] = useState<string | null>(null);
+  const [diagnosticsReport, setDiagnosticsReport] = useState<DiagnosticsReport | null>(null);
 
-  const triggerZeroTrustAudit = () => {
+  const triggerZeroTrustAudit = async () => {
     setIsAuditing(true);
     setAuditResult(null);
-    setTimeout(() => {
+    setDiagnosticsReport(null);
+    try {
+      const report = await runFirestoreDiagnostics();
+      setDiagnosticsReport(report);
+      const failures = report.firestoreChecks.filter(c => c.status === 'failed').length;
+      if (failures > 0) {
+        setAuditResult(`ALERTA: Detectadas ${failures} falha(s) de permissões ou credenciais no Firestore.`);
+        toast.warning(`Varredura Diagnóstica executada: ${failures} falha(s) encontrada(s).`);
+      } else {
+        setAuditResult('SUCESSO: Regras do Firestore validadas. Credenciais e claims em total sincronismo e permissões íntegras.');
+        toast.success('Varredura Completa: Estrutura em total conformidade e protegida!');
+      }
+    } catch (err: any) {
+      setAuditResult(`ERRO DE DIAGNÓSTICO: ${err?.message || err}`);
+      toast.error('Falha ao rodar auditoria do repositório de dados.');
+    } finally {
       setIsAuditing(false);
-      setAuditResult('SUCESSO: Regras do Firestore validadas. Criptografia ponta-a-ponta habilitada. Zero vulnerabilidades encontradas no tenant.');
-      toast.success('Varredura Completa: Estrutura em total conformidade e protegida!');
-    }, 1200);
+    }
   };
 
   const handleUpdateTenantSettings = (e: React.FormEvent) => {
@@ -158,11 +173,25 @@ export const SupervisorDashboard = () => {
       return toast.error('Vaga Ocupada: Esta filial já possui um Gerente Geral designado. Remaneje-o primeiro.');
     }
 
-    addUser(newManagerName.trim(), 'manager', selectedBranch);
+    const name = newManagerName.trim();
+    const generatedEmail = getEmailForUser(name, undefined); // Manager does not require a phone, we resolve dynamic suffix
+
+    addUser(name, 'manager', selectedBranch);
     setNewManagerName('');
     setSelectedBranch('');
     setIsManagerOpen(false);
-    toast.success('Novo Gerente designado com sucesso!');
+
+    toast.success(
+      <div className="flex flex-col gap-1 text-xs font-sans">
+        <p className="font-bold text-amber-800">✅ Novo Gerente Designado com Sucesso!</p>
+        <p className="text-stone-600">Acesse o sistema utilizando as seguintes credenciais:</p>
+        <div className="bg-stone-50 border border-stone-200 p-2 rounded-lg font-mono text-[10px] space-y-0.5 mt-1 text-stone-850">
+          <p><span className="font-bold text-stone-500">E-mail:</span> {generatedEmail}</p>
+          <p><span className="font-bold text-stone-500">Senha:</span> radar123</p>
+        </div>
+      </div>,
+      { duration: 15000 }
+    );
   };
 
   // Metrics calculation
@@ -233,7 +262,7 @@ export const SupervisorDashboard = () => {
 
   const filteredBranches = branchMetrics.filter(bm => 
     bm.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (bm.manager?.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    ((bm.manager?.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const detailedBranch = branchMetrics.find(bm => bm.id === branchDetailsId);
@@ -696,6 +725,46 @@ export const SupervisorDashboard = () => {
                     <p className="text-stone-300">service cloud.firestore {'{'} match /databases/{'{'}database{'}'}/documents {'{'} ... {'}}'}</p>
                     <p className="text-stone-400">// Isolação do Staff: allow write, delete: if isSupervisor();</p>
                     <p className="text-stone-400">// Isolação do Orçamento: allow update: if resource.data.createdBy == request.auth.uid;</p>
+
+                    {diagnosticsReport && (
+                      <div className="mt-4 border-t border-stone-800 pt-3 space-y-3 font-mono text-[10px] text-stone-300">
+                        <div className="bg-stone-900 p-2.5 rounded-lg border border-stone-800 space-y-1">
+                          <p className="text-amber-500 font-bold uppercase tracking-wider text-[9px]">Sessão Firebase Auth:</p>
+                          <p><span className="text-stone-500">UID:</span> {diagnosticsReport.auth.uid || 'Nenhum'}</p>
+                          <p><span className="text-stone-500">E-mail:</span> {diagnosticsReport.auth.email || 'Nenhum'}</p>
+                          <p><span className="text-stone-500">Verificado:</span> {diagnosticsReport.auth.emailVerified ? 'SIM' : 'NÃO'}</p>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <p className="text-amber-500 font-bold uppercase tracking-wider text-[9px] mb-1">Resultados dos Testes de Segurança:</p>
+                          {diagnosticsReport.firestoreChecks.map((check, i) => (
+                            <div key={i} className="p-2 bg-stone-900 border border-stone-800 rounded-lg space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className={check.status === 'passed' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
+                                  {check.status === 'passed' ? '✓' : '✗'} {check.name}
+                                </span>
+                                <span className="text-[8px] bg-stone-950 px-1.5 py-0.5 rounded text-stone-400">{check.path}</span>
+                              </div>
+                              <p className="text-stone-405 text-[9px]">{check.actualResult}</p>
+                              {check.errorDetails && (
+                                <p className="text-red-400/80 bg-red-950/20 p-1.5 rounded font-sans text-[9px] overflow-x-auto whitespace-pre-wrap">
+                                  Erro: {JSON.stringify(check.errorDetails)}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {diagnosticsReport.recommendations.length > 0 && (
+                          <div className="bg-amber-950/20 border border-amber-900/50 p-3 rounded-lg text-amber-200 space-y-1 font-sans text-[11px] leading-relaxed">
+                            <p className="font-bold text-[10px] uppercase tracking-wider text-amber-400 font-mono">Recomendações de Resolução:</p>
+                            {diagnosticsReport.recommendations.map((rec, i) => (
+                              <p key={i}>• {rec}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {auditResult && (
                       <div className="mt-3 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-800 text-emerald-400/90 text-[11px] font-semibold font-sans">
