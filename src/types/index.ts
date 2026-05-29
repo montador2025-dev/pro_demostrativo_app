@@ -24,6 +24,7 @@ export interface User {
   lastAccess?: string; // Tracking for supervisor visibility
   phone?: string; // Contact phone of the user
   createdAt: string;
+  allowedBranches?: string[]; // Allowed branches for supervisors to manage/see
 }
 
 export interface Product {

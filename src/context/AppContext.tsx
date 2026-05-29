@@ -53,7 +53,7 @@ interface AppContextType extends AppState {
   deleteBranch: (id: string) => void;
   // Users
   addUser: (name: string, role: Role, branchId?: string, phone?: string) => void;
-  updateUser: (id: string, name: string, phone?: string) => void;
+  updateUser: (id: string, name: string, phone?: string, allowedBranches?: string[]) => void;
   deleteUser: (id: string) => void;
   transferUser: (userId: string, newBranchId: string) => void;
   reassignQuotes: (oldUserId: string, newUserId: string) => void;
@@ -984,11 +984,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateUser = async (id: string, name: string, phone?: string) => {
+  const updateUser = async (id: string, name: string, phone?: string, allowedBranches?: string[]) => {
     const targetUser = users.find(u => u.id === id);
     const updatePayload: Partial<User> = { name };
     if (phone !== undefined) {
       updatePayload.phone = phone;
+    }
+    if (allowedBranches !== undefined) {
+      updatePayload.allowedBranches = allowedBranches;
     }
 
     const executeLocal = () => {
@@ -1206,11 +1209,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const isMaster = currentUser?.role === 'supervisor' && (
+    currentUser?.id === 'u_master' ||
+    currentUser?.name === 'Supervisor Master' ||
+    currentUser?.phone === '(21) 90000-0000' ||
+    auth.currentUser?.email === 'montador2025@gmail.com'
+  );
+
+  const isLimitedSupervisor = currentUser?.role === 'supervisor' && !isMaster && currentUser?.allowedBranches && currentUser.allowedBranches.length > 0;
+
+  const exposedBranches = isLimitedSupervisor 
+    ? branches.filter(b => currentUser.allowedBranches?.includes(b.id))
+    : branches;
+
+  const exposedUsers = isLimitedSupervisor
+    ? users.filter(u => u.role === 'supervisor' || (u.branchId && currentUser.allowedBranches?.includes(u.branchId)))
+    : users;
+
+  const exposedQuotes = isLimitedSupervisor
+    ? quotes.filter(q => currentUser.allowedBranches?.includes(q.branchId))
+    : quotes;
+
   return (
     <AppContext.Provider value={{
-      branches,
-      users,
-      quotes,
+      branches: exposedBranches,
+      users: exposedUsers,
+      quotes: exposedQuotes,
       currentUser,
       currentCompany,
       auditLogs,

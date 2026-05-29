@@ -89,9 +89,18 @@ export const SupervisorDashboard = () => {
     setActiveTab,
     currentCompany,
     auditLogs,
-    updateCompanySettings
+    updateCompanySettings,
+    currentUser
   } = useAppContext();
   
+  const isMaster = currentUser?.role === 'supervisor' && (
+    currentUser?.id === 'u_master' ||
+    currentUser?.name === 'Supervisor Master' ||
+    currentUser?.phone === '(21) 90000-0000'
+  );
+  
+  const isLimitedSupervisor = currentUser?.role === 'supervisor' && !isMaster && currentUser?.allowedBranches && currentUser.allowedBranches.length > 0;
+
   const [compName, setCompName] = useState(currentCompany?.name || 'RadarConquista');
   const [compPlan, setCompPlan] = useState(currentCompany?.plan || 'Enterprise SaaS Corporate Plus');
   const [isAuditing, setIsAuditing] = useState(false);
@@ -154,7 +163,7 @@ export const SupervisorDashboard = () => {
   };
 
   // States for Edit/Delete actions
-  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string, phone: string }>({ isOpen: false, user: null, name: '', phone: '' });
+  const [editUserModal, setEditUserModal] = useState<{ isOpen: boolean, user: User | null, name: string, phone: string, allowedBranches: string[] }>({ isOpen: false, user: null, name: '', phone: '', allowedBranches: [] });
   const [deleteUserModal, setDeleteUserModal] = useState<{ isOpen: boolean, user: User | null }>({ isOpen: false, user: null });
   const [editBranchModal, setEditBranchModal] = useState<{ isOpen: boolean, branch: Branch | null, name: string }>({ isOpen: false, branch: null, name: '' });
   const [deleteBranchModal, setDeleteBranchModal] = useState<{ isOpen: boolean, branch: Branch | null }>({ isOpen: false, branch: null });
@@ -251,8 +260,8 @@ export const SupervisorDashboard = () => {
   const handleEditUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUserModal.user || !editUserModal.name.trim()) return;
-    updateUser(editUserModal.user.id, editUserModal.name.trim(), editUserModal.phone.trim());
-    setEditUserModal({ isOpen: false, user: null, name: '', phone: '' });
+    updateUser(editUserModal.user.id, editUserModal.name.trim(), editUserModal.phone.trim(), editUserModal.user.role === 'supervisor' ? editUserModal.allowedBranches : undefined);
+    setEditUserModal({ isOpen: false, user: null, name: '', phone: '', allowedBranches: [] });
     toast.success('Perfil do colaborador retificado na base!');
   };
 
@@ -466,9 +475,15 @@ export const SupervisorDashboard = () => {
               <Badge className="bg-amber-75/10 text-amber-805 border border-amber-700/10 font-bold text-[9px] uppercase tracking-wider px-3.5 py-1">
                 ⚡ Diretoria & Operações Corporativas
               </Badge>
-              <div className="flex items-center gap-1.5 text-[9px] text-[#b45309] font-black bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-600/10">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping"></span> VISÃO TOTAL DA REDE
-              </div>
+              {!isLimitedSupervisor ? (
+                <div className="flex items-center gap-1.5 text-[9px] text-[#b45309] font-black bg-amber-50 text-amber-900 px-2 py-0.5 rounded-md border border-amber-600/10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping"></span> VISÃO TOTAL DA REDE
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[9px] text-stone-850 font-extrabold bg-stone-100 px-2.5 py-0.5 rounded-md border border-stone-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span> REGIONAL ATRIBUÍDA: {branches.length} FILIAIS
+                </div>
+              )}
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-stone-900 tracking-tight uppercase leading-none italic font-sans">
               Supervisão de <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-800 to-stone-900 font-extrabold">Operações</span>
@@ -1007,7 +1022,7 @@ export const SupervisorDashboard = () => {
                             <Button 
                               variant="ghost"
                               size="icon"
-                              onClick={() => setEditUserModal({ isOpen: true, user: u, name: u.name, phone: u.phone || '' })}
+                              onClick={() => setEditUserModal({ isOpen: true, user: u, name: u.name, phone: u.phone || '', allowedBranches: u.allowedBranches || [] })}
                               className="w-8 h-8 text-stone-400 hover:text-stone-900 hover:bg-stone-100 flex items-center justify-center transition-all bg-transparent border-none shrink-0"
                             >
                               <Edit className="w-4 h-4" />
@@ -1126,7 +1141,7 @@ export const SupervisorDashboard = () => {
       </div>
 
       {/* dialog for editing user credentials */}
-      <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '', phone: '' })}>
+      <Dialog open={editUserModal.isOpen} onOpenChange={(v) => !v && setEditUserModal({ isOpen: false, user: null, name: '', phone: '', allowedBranches: [] })}>
         <DialogContent className="bg-white border-stone-200 rounded-3xl max-w-sm shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-stone-900 font-extrabold uppercase italic">Editar Cadastro</DialogTitle>
@@ -1141,8 +1156,42 @@ export const SupervisorDashboard = () => {
               <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Telefone Comercial / WhatsApp</Label>
               <Input className="h-11 bg-white rounded-xl border-stone-200 text-xs font-bold text-stone-1000" value={editUserModal.phone} onChange={(e) => setEditUserModal(m => ({ ...m, phone: e.target.value }))} required />
             </div>
+
+            {/* Custom allowed branches management for supervisors */}
+            {editUserModal.user?.role === 'supervisor' && isMaster && (
+              <div className="space-y-2 border-t border-stone-100 pt-3">
+                <Label className="text-[10px] font-bold uppercase tracking-wider text-amber-800 ml-1 block">
+                  Filiais Autorizadas (Supervisor)
+                </Label>
+                <p className="text-[10px] text-stone-500 font-medium leading-relaxed mb-1">
+                  Selecione as filiais sob responsabilidade deste supervisor. Se nenhuma for marcada, ele herdará visão total.
+                </p>
+                <div className="max-h-36 overflow-y-auto border border-stone-200 rounded-xl p-2.5 space-y-2 bg-stone-50/50">
+                  {branches.map(b => {
+                    const isChecked = editUserModal.allowedBranches?.includes(b.id);
+                    return (
+                      <label key={b.id} className="flex items-center gap-2.5 cursor-pointer hover:bg-stone-100/50 p-1 rounded-lg transition-colors text-xs font-semibold text-stone-800">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const updated = e.target.checked
+                              ? [...(editUserModal.allowedBranches || []), b.id]
+                              : (editUserModal.allowedBranches || []).filter(id => id !== b.id);
+                            setEditUserModal(prev => ({ ...prev, allowedBranches: updated }));
+                          }}
+                          className="rounded border-stone-300 text-amber-700 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                        />
+                        <span className="uppercase">{b.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <DialogFooter className="gap-2 flex flex-row justify-end mt-4">
-              <Button type="button" variant="ghost" className="h-10 text-xs text-stone-500" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '', phone: '' })}>Sair</Button>
+              <Button type="button" variant="ghost" className="h-10 text-xs text-stone-500" onClick={() => setEditUserModal({ isOpen: false, user: null, name: '', phone: '', allowedBranches: [] })}>Sair</Button>
               <Button type="submit" className="h-10 text-xs font-black uppercase bg-amber-700 hover:bg-amber-800 text-white border-transparent">Gravar</Button>
             </DialogFooter>
           </form>
