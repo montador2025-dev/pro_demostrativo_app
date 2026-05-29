@@ -290,6 +290,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Helper to synchronize active Firebase Auth session with selected user's mock credentials
   const syncFirebaseAuthWithUser = async (user: User): Promise<User> => {
+    // Under no circumstances should we disrupt the real Master operator authenticated session (montador2025@gmail.com)
+    if (
+      auth.currentUser?.email === 'montador2025@gmail.com' || 
+      user.name === 'Supervisor Master' || 
+      user.id === 'u_master' ||
+      auth.currentUser?.email?.startsWith('montador2025')
+    ) {
+      console.log("Preserving Master operator authenticated session and bypassing credentials sync");
+      return user;
+    }
+
     const email = getEmailForUser(user.name, user.phone, user.id);
     const password = PASSWORD_SECRET;
 
@@ -455,6 +466,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // Step 3: Write user documents under Master's authorized session.
+        if (masterUid) {
+          try {
+            await setDoc(doc(db, 'users', masterUid), {
+              id: masterUid,
+              name: 'Supervisor Master',
+              role: 'supervisor',
+              phone: '(21) 90000-0000',
+              createdAt: new Date().toISOString()
+            });
+            console.log("Aligned and self-seeded Master supervisor document on database");
+          } catch (masterDocErr) {
+            console.error("Master failed to check or create Master supervisor document:", masterDocErr);
+          }
+        }
+
         if (carlosUid) {
           try {
             await setDoc(doc(db, 'users', carlosUid), {
