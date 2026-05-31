@@ -157,7 +157,7 @@ export const SupervisorDashboard = () => {
       `📝 *Credenciais de Acesso:*\n` +
       `• *E-mail:* ${email}\n` +
       `• *Senha Padrão:* radar123\n\n` +
-      `🔗 Acesse aqui: ${window.location.origin}\n\n` +
+      `🔗 Acesse aqui: ${window.location.origin}?logout=true&email=${encodeURIComponent(email)}\n\n` +
       `_Por favor, faça logon e configure seus acessos._`;
     return `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
   };

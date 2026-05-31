@@ -13,13 +13,29 @@ export const db = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestor
 export const auth = getAuth(app);
 
 // Connectivity Health Check (as required by SKILL.md guidelines)
-export async function testConnection() {
+export async function testConnection(silent: boolean = false): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+    return true;
+  } catch (error: any) {
+    // If we receive a security model exception, it means we reached the server and queried the rules successfully!
+    if (error && (
+      error.code === 'permission-denied' ||
+      error.code === 'unauthenticated' ||
+      (error.message && (
+        error.message.toLowerCase().includes('permission') ||
+        error.message.toLowerCase().includes('unauthenticated') ||
+        error.message.toLowerCase().includes('insufficient')
+      ))
+    )) {
+      return true;
     }
+    if (!silent) {
+      if (error instanceof Error && (error.message.includes('the client is offline') || error.message.includes('offline'))) {
+        console.error("Please check your Firebase configuration.");
+      }
+    }
+    return false;
   }
 }
 
@@ -74,4 +90,4 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 // Execute connection validation check on load
-testConnection();
+testConnection(true).catch(() => {});

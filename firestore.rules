@@ -198,7 +198,9 @@ service cloud.firestore {
       allow delete: if isSupervisor();
     }
 
-    // Rules for Audit Logs (Stream-only creation)
+    // Rules for Audit Logs (Absolute immutability policy)
+    // Only 'create' operations are permitted for authenticated users to safely stream logs.
+    // Updates and deletions are strictly blocked ('if false') for all security contexts.
     match /auditLogs/{logId} {
       allow read: if isSupervisor();
       allow create: if isSignedIn() && isValidAuditLog(request.resource.data);

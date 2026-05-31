@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { initializeApp, getApps } from 'firebase/app';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, getAuth, initializeAuth, inMemoryPersistence } from 'firebase/auth';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, auth, handleFirestoreError, OperationType, testConnection } from '../lib/firebase';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { Branch, User, Quote, Role, Company, AuditLog } from '../types';
 
@@ -414,6 +414,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const legacyPassword = 'atendepro123_safe';
 
+        // Verify Firebase backend and auth server internet reachability before initiating remote sequences
+        console.log("[Radar Auth] Verifying Firebase / Internet reachability...");
+        const isReachable = await Promise.race([
+          testConnection(true),
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000))
+        ]).catch(() => false);
+
+        if (!isReachable) {
+          console.warn("[Radar Cloud] Firebase is currently unreachable or operating in offline mode. activating offline simulation mode.");
+          throw new Error("firebase-network-unavailable");
+        }
+
         // Step 1: Initialize secondary auth to resolve UIDs cleanly without hijacking main session
         const secondaryAppNameForResolve = 'temp-auth-resolver-init';
         let secondaryApp;
@@ -719,6 +731,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Sync Logged User Profile and ensure custom auth alignment
   useEffect(() => {
     if (users.length > 0 && !hasRestoredAuth) {
+      const params = new URLSearchParams(window.location.search);
+      const isForceLogout = params.get('logout') === 'true' || params.get('logout') === '1' || params.get('autologout') === 'true';
+      if (isForceLogout) {
+        localStorage.removeItem('currentUserId');
+        setCurrentUser(null);
+        auth.signOut().catch(err => console.warn("Firebase signOut error during force logout:", err));
+        setHasRestoredAuth(true);
+        setIsLoading(false);
+        try {
+          const emailParam = params.get('email');
+          const newUrl = window.location.pathname + (emailParam ? `?email=${encodeURIComponent(emailParam)}` : '');
+          window.history.replaceState({}, document.title, newUrl);
+        } catch (e) {
+          console.warn("Could not clean url history state:", e);
+        }
+        return;
+      }
+
       let savedUserId = localStorage.getItem('currentUserId');
       if (savedUserId) {
         // Self-heal legacy simple IDs in LocalStorage transparently
@@ -763,6 +793,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) return;
     
     const updateAccess = () => {
+      if (usingLocalFallback || !auth.currentUser) return;
+      // Only update remote timestamp if the current local user ID aligns with authenticated Firebase user UID
+      if (currentUser.id !== auth.currentUser.uid) {
+        console.log("[Radar Auth] Skipping lastAccess sync for state transition or unaligned user:", currentUser.id);
+        return;
+      }
+      
       const now = new Date().toISOString();
       updateDoc(doc(db, 'users', currentUser.id), { lastAccess: now }).catch((err) => {
         console.warn("Could not sync lastAccess:", err);
@@ -775,7 +812,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Run every 2 minutes
     const interval = setInterval(updateAccess, 120000);
     return () => clearInterval(interval);
-  }, [currentUser?.id]);
+  }, [currentUser?.id, usingLocalFallback]);
 
   // Operations and Actions (Mutations)
   const addAuditLog = async (action: string, status: AuditLog['status'] = 'SUCCESS', activeUser: User | null = currentUser) => {

@@ -34,6 +34,15 @@ export const LoginScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'credentials' | 'demo'>('credentials');
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const emailParam = params.get('email');
+    if (emailParam) {
+      setEmail(emailParam);
+      toast.info('E-mail preenchido automaticamente a partir do convite!');
+    }
+  }, []);
+
   const handleCredentialsLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {

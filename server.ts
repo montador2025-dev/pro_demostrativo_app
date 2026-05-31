@@ -2,7 +2,6 @@
 
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { queryUniversalCatalog } from './server/services/catalogService';
 
 // Register global crash avoidance guards
@@ -80,6 +79,7 @@ async function startServer() {
   // Vite middleware setup to mount fullstack development engine
   if (process.env.NODE_ENV !== 'production') {
     console.log('[Radar Server] Running in Development Mode. Mounting Vite Dev Middleware...');
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
