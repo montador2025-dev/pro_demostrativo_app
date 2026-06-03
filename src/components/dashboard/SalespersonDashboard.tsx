@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useAppContext } from '../../context/AppContext';
+import { useAppContext, formatLocalDate } from '../../context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -362,8 +362,8 @@ export const SalespersonDashboard = () => {
         const itemsList = quote.items
           ? quote.items.map(item => `${item.name} (${item.code}) x${item.quantity}`).join(' | ')
           : '';
-        const createdDateFormatted = quote.createdAt ? new Date(quote.createdAt).toLocaleDateString('pt-BR') : '';
-        const returnDateFormatted = quote.returnDate ? new Date(quote.returnDate).toLocaleDateString('pt-BR') : '';
+        const createdDateFormatted = formatLocalDate(quote.createdAt);
+        const returnDateFormatted = formatLocalDate(quote.returnDate);
 
         return [
           quote.id,
@@ -1205,7 +1205,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10.5px] font-bold text-stone-600 bg-stone-100 px-2.5 py-0.5 rounded-lg border border-stone-200">
-                      {new Date(quote.returnDate).toLocaleDateString('pt-BR')}
+                      {formatLocalDate(quote.returnDate)}
                     </span>
                     <Button 
                       variant="ghost"
@@ -2168,7 +2168,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                          isOverdue ? 'bg-rose-100 text-rose-700' : 'bg-stone-100 text-stone-600'
                        }`}>
                          <Calendar className="w-3.5 h-3.5" />
-                         {new Date(quote.returnDate).toLocaleDateString('pt-BR')}
+                         {formatLocalDate(quote.returnDate)}
                        </div>
                     </div>
 

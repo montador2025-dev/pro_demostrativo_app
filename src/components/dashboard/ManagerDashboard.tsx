@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAppContext, getEmailForUser } from '../../context/AppContext';
+import { useAppContext, getEmailForUser, formatLocalDate } from '../../context/AppContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -214,7 +214,7 @@ _Transformando atendimento em conquista de vendas._
 Olá, *${quote.clientName}*!
 Aqui é o(a) gestor(a) *${currentUser.name}*, da gerência RadarConquista *${myBranch?.name}*.
 
-Acompanho de perto os atendimentos de excelência do nosso showroom e vi sua proposta do dia ${new Date(quote.createdAt).toLocaleDateString('pt-BR')} no valor de *${formatCurrency(quote.value)}*.
+Acompanho de perto os atendimentos de excelência do nosso showroom e vi sua proposta do dia ${formatLocalDate(quote.createdAt)} no valor de *${formatCurrency(quote.value)}*.
 
 Gostaria de me colocar pessoalmente à disposição para te conceder uma condição VIP especial ou facilitar sua forma de parcelamento hoje para garantirmos a entrega dos seus móveis!
 
@@ -570,7 +570,7 @@ Posso te ligar ou liberar um código de desconto agora?`;
                       <TableRow key={q.id} className="border-stone-100 hover:bg-stone-50/50 transition-colors">
                         <TableCell className="font-bold text-stone-950 pl-6 uppercase">{q.clientName}</TableCell>
                         <TableCell className="text-stone-600 font-bold uppercase text-[11px]">{salesperson?.name || 'Vendedor Removido'}</TableCell>
-                        <TableCell className="text-stone-500 font-mono text-xs">{new Date(q.returnDate).toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="text-stone-500 font-mono text-xs">{formatLocalDate(q.returnDate)}</TableCell>
                         <TableCell className="font-black text-stone-950 font-mono">{formatCurrency(q.value)}</TableCell>
                         <TableCell>
                           {q.status === 'pending' && <Badge className="bg-amber-100 text-amber-800 border-none font-bold text-[8px] uppercase tracking-wide">Pendente</Badge>}
@@ -663,7 +663,7 @@ Posso te ligar ou liberar um código de desconto agora?`;
                            </Badge>
                         </TableCell>
                         <TableCell className="text-xs font-bold text-stone-600">
-                           {new Date(q.returnDate).toLocaleDateString('pt-BR')}
+                           {formatLocalDate(q.returnDate)}
                         </TableCell>
                         <TableCell>
                           {q.status === 'pending' && <Badge className="bg-amber-100 text-amber-800 border-none font-bold text-[8.5px] uppercase">Aberto</Badge>}

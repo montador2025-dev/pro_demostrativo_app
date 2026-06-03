@@ -120,6 +120,17 @@ export const getEmailForUser = (name: string, phone?: string, userId?: string) =
   return `${safeName}@radarconquista.com.br`;
 };
 
+export const formatLocalDate = (dateStr?: string) => {
+  if (!dateStr) return 'Sem data';
+  try {
+    const parsed = new Date(dateStr);
+    if (isNaN(parsed.getTime())) return 'Sem data';
+    return parsed.toLocaleDateString('pt-BR');
+  } catch {
+    return 'Sem data';
+  }
+};
+
 // Seeds general mocked structures if Firestore collections are absolutely blank
 const seedDatabaseIfNeeded = async (resolvedCarlosUid?: string, resolvedAnaUid?: string, resolvedRobertoUid?: string) => {
   try {
