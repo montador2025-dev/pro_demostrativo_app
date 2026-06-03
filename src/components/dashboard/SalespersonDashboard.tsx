@@ -112,6 +112,65 @@ const fetchCatalogWithRunFallback = async (site: string, query: string): Promise
   }
 };
 
+const CartItemPriceInput = ({ item, onUpdatePrice }: { item: any, onUpdatePrice: (productId: string, price: number) => void }) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [localValue, setLocalValue] = useState('');
+
+  // Sync from props if not focused
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(item.price > 0 ? item.price.toFixed(2).replace('.', ',') : '');
+    }
+  }, [item.price, isFocused]);
+
+  const handleChange = (val: string) => {
+    // Keep raw typing format
+    setLocalValue(val);
+    
+    // Clean and parse the input in real-time
+    const cleaned = val.replace(/\./g, '').replace(',', '.');
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed) && parsed >= 0) {
+      onUpdatePrice(item.productId, parsed);
+    } else if (val === '') {
+      onUpdatePrice(item.productId, 0);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    const cleaned = localValue.replace(/\./g, '').replace(',', '.');
+    const parsed = parseFloat(cleaned);
+    if (isNaN(parsed) || parsed < 0) {
+      onUpdatePrice(item.productId, 0);
+      setLocalValue('');
+    } else {
+      setLocalValue(parsed.toFixed(2).replace('.', ','));
+    }
+  };
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsFocused(true);
+    setLocalValue(item.price > 0 ? item.price.toFixed(2).replace('.', ',') : '');
+    setTimeout(() => {
+      e.target.select();
+    }, 50);
+  };
+
+  return (
+    <input 
+      type="text" 
+      aria-label={`Preço para ${item.nickname}`}
+      placeholder="0,00"
+      className="w-20 h-6 px-1 text-[11px] font-black text-amber-700 bg-stone-100 hover:bg-stone-200 focus:bg-white border border-stone-300 focus:border-amber-700 outline-none transition-all rounded text-center"
+      value={localValue}
+      onFocus={handleFocus}
+      onChange={(e) => handleChange(e.target.value)}
+      onBlur={handleBlur}
+    />
+  );
+};
+
 export const SalespersonDashboard = () => {
   const { currentUser, branches, quotes, addQuote, updateQuoteStatus, activeTab, setActiveTab } = useAppContext();
   
@@ -1360,17 +1419,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-[9px] text-stone-400 font-mono">CÓD: {item.code} | </span>
                                 <span className="text-[9px] text-amber-850 font-extrabold select-none">R$</span>
-                                <input 
-                                  type="text" 
-                                  aria-label={`Preço para ${item.nickname}`}
-                                  className="w-20 h-5 px-1 text-[9.5px] font-black text-amber-700 bg-stone-100/60 hover:bg-stone-200/50 focus:bg-white border-b border-amber-700/20 focus:border-amber-700 outline-none transition-all rounded text-center"
-                                  value={item.price > 0 ? (item.price.toFixed(2).replace('.', ',')) : '0,00'}
-                                  onChange={(e) => {
-                                    const rawVal = e.target.value.replace(/\D/g, '');
-                                    const numericPrice = rawVal ? Number(rawVal) / 100 : 0;
-                                    handleUpdateCartItemPrice(item.productId, numericPrice);
-                                  }}
-                                />
+                                <CartItemPriceInput item={item} onUpdatePrice={handleUpdateCartItemPrice} />
                               </div>
                             </div>
                           </div>
