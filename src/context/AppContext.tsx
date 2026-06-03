@@ -206,7 +206,7 @@ const seedDatabaseIfNeeded = async (resolvedCarlosUid?: string, resolvedAnaUid?:
       const defaultCompany: Company = {
         id: 'c1',
         name: 'RadarConquista',
-        plan: 'Sistema Inteligente de Vendas e Relacionamento',
+        plan: 'Sistema Integrado de Vendas e Relacionamento',
         maxUsers: 150,
         licenseExpires: '2028-05-25T12:00:00Z'
       };
@@ -246,7 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentCompany, setCurrentCompany] = useState<Company>({
     id: 'c1',
     name: 'RadarConquista',
-    plan: 'Sistema Inteligente de Vendas e Relacionamento',
+    plan: 'Sistema Integrado de Vendas e Relacionamento',
     maxUsers: 150,
     licenseExpires: '2028-05-25T12:00:00Z'
   });
@@ -645,7 +645,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentCompany({
           id: 'c1',
           name: 'RadarConquista',
-          plan: 'Sistema Inteligente de Vendas e Relacionamento',
+          plan: 'Sistema Integrado de Vendas e Relacionamento',
           maxUsers: 150,
           licenseExpires: '2028-05-25T12:00:00Z'
         });

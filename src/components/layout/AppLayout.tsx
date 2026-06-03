@@ -22,7 +22,6 @@ import {
   Store, 
   Users, 
   Calculator, 
-  Sparkles, 
   Briefcase,
   LogOut,
   KeyRound,
@@ -207,7 +206,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         {/* TEST LOGIN SCREEN SUGGESTION BANNER */}
         <div className="bg-[#b45309] border-b border-amber-800 text-white px-6 py-2.5 flex flex-col sm:flex-row items-center justify-between text-xs gap-3 shadow-sm shrink-0 select-none">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-200 shrink-0" />
+            <KeyRound className="w-4 h-4 text-amber-200 shrink-0" />
             <span className="font-sans font-semibold">
               🔑 Nova Tela de Login corporativa ativada! Gostaria de testar as credenciais ou atalhos de teste?
             </span>

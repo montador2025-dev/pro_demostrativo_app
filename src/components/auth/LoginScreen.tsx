@@ -15,7 +15,7 @@ import {
   Eye, 
   EyeOff, 
   LogIn, 
-  Sparkles, 
+  KeyRound, 
   ShieldCheck, 
   Building2, 
   UserCircle2, 
@@ -320,7 +320,7 @@ export const LoginScreen: React.FC = () => {
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <KeyRound className="w-3.5 h-3.5 text-amber-600" />
                 Atalhos Demo
               </button>
             </div>

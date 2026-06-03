@@ -106,7 +106,7 @@ export const Logo: React.FC<LogoProps> = ({ className = '', showText = false, si
         <div className="flex items-center gap-1.5 mt-1.5 w-full">
           <div className="h-[1.5px] bg-[#ea580c] w-3 shrink-0 rounded-full"></div>
           <span className="text-[7px] font-black tracking-[0.06em] text-stone-500 whitespace-nowrap uppercase select-none font-sans">
-            SISTEMA INTELIGENTE DE VENDAS E RELACIONAMENTO
+            SISTEMA INTEGRADO DE VENDAS E RELACIONAMENTO
           </span>
           <div className="h-[1.5px] bg-stone-900 w-3 shrink-0 rounded-full"></div>
         </div>

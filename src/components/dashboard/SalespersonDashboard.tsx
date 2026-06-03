@@ -13,7 +13,6 @@ import {
   User, 
   ChevronRight, 
   AlertCircle, 
-  Sparkles, 
   Zap, 
   Search, 
   ShoppingBag, 
@@ -226,15 +225,21 @@ export const SalespersonDashboard = () => {
   if (!currentUser) return null;
   const myBranch = branches.find(b => b.id === currentUser.branchId);
   const myLegacyBranch = branches.find(b => b.id === currentUser.lastBranchId);
-  const myQuotes = quotes.filter(q => q.createdBy === currentUser.id);
+  
+  const myQuotes = useMemo(() => {
+    return quotes.filter(q => q.createdBy === currentUser.id);
+  }, [quotes, currentUser.id]);
 
   const displayedQuotes = useMemo(() => {
     if (selectedStatusFilter === 'all') return myQuotes;
     return myQuotes.filter(q => q.status === selectedStatusFilter);
   }, [myQuotes, selectedStatusFilter]);
   
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    return d;
+  }, []);
 
   const handleExportCSV = () => {
     if (displayedQuotes.length === 0) {
@@ -335,9 +340,17 @@ export const SalespersonDashboard = () => {
     }
   };
   
-  const pendingQuotes = myQuotes.filter(q => q.status === 'pending');
-  const wonQuotes = myQuotes.filter(q => q.status === 'won');
-  const lostQuotes = myQuotes.filter(q => q.status === 'lost');
+  const pendingQuotes = useMemo(() => {
+    return myQuotes.filter(q => q.status === 'pending');
+  }, [myQuotes]);
+
+  const wonQuotes = useMemo(() => {
+    return myQuotes.filter(q => q.status === 'won');
+  }, [myQuotes]);
+
+  const lostQuotes = useMemo(() => {
+    return myQuotes.filter(q => q.status === 'lost');
+  }, [myQuotes]);
 
   const targetValidityDate = useMemo(() => {
     const d = new Date();
@@ -345,11 +358,13 @@ export const SalespersonDashboard = () => {
     return d.toLocaleDateString('pt-BR');
   }, [validityDays]);
   
-  const quotesNeedingAttention = pendingQuotes.filter(q => {
-    const qDate = new Date(q.returnDate);
-    qDate.setHours(0,0,0,0);
-    return qDate.getTime() <= today.getTime();
-  });
+  const quotesNeedingAttention = useMemo(() => {
+    return pendingQuotes.filter(q => {
+      const qDate = new Date(q.returnDate);
+      qDate.setHours(0,0,0,0);
+      return qDate.getTime() <= today.getTime();
+    });
+  }, [pendingQuotes, today]);
 
   // Automatic Audio Reminder Alert System for pending quotes close to returnDate (today or tomorrow)
   const quotesNearReturn = useMemo(() => {
@@ -1012,14 +1027,14 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
         {/* MOTIVATIONAL SALES THERMOMETER */}
         <div className="relative overflow-hidden rounded-[2rem] border border-stone-250/60 bg-gradient-to-r from-white via-white to-stone-105/20 p-6 md:p-8 shadow-[0_12px_40px_rgba(28,25,23,0.02)] group transition-all duration-300 hover:shadow-[0_16px_48px_rgba(28,25,23,0.04)]">
           <div className="absolute top-0 right-0 p-8 opacity-[0.02] -mr-6 -mt-6 select-none pointer-events-none">
-            <Sparkles className="w-48 h-48 text-[#b45309]" />
+            <TrendingUp className="w-48 h-48 text-[#b45309]" />
           </div>
           
           <div className="relative z-10 space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <span className="flex items-center text-xs font-black text-[#b45309] uppercase tracking-widest gap-2">
-                  <Sparkles className="w-4.5 h-4.5 text-amber-600 animate-pulse" /> Termômetro de Produtividade G-Atende
+                  <TrendingUp className="w-4.5 h-4.5 text-amber-600 animate-pulse" /> Termômetro de Produtividade G-Atende
                 </span>
                 <p className="text-xs text-stone-500 font-semibold leading-relaxed">
                   Sua pontuação de faturamento mensal para desbloqueio do comissionamento VIP Diamante.
@@ -1290,7 +1305,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
           <Card className="glass-card border-none overflow-hidden pb-4 bg-white">
             <CardHeader className="border-b border-stone-100 pb-5">
               <CardTitle className="flex items-center text-lg font-black text-stone-900 uppercase italic tracking-tight">
-                <Sparkles className="w-5 h-5 mr-2.5 text-amber-700" /> Novo Orçamento Comercial
+                <ShoppingBag className="w-5 h-5 mr-2.5 text-amber-700" /> Novo Orçamento Comercial
               </CardTitle>
               <CardDescription className="text-xs text-stone-500 font-semibold leading-relaxed">
                 Preencha os dados do cliente e preencha o carrinho com os produtos que ele escolheu no showroom.
@@ -1556,7 +1571,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                       : 'text-stone-500 hover:text-stone-850 hover:bg-white/40'
                   }`}
                 >
-                  <Sparkles className="w-3 h-3 text-amber-500" /> Busca Comercial Radar
+                  <Search className="w-3 h-3 text-amber-500" /> Busca Comercial Radar
                 </button>
               </div>
 
@@ -1719,7 +1734,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-amber-500/10 border border-amber-500/20 text-amber-800 text-[9px] font-black uppercase tracking-wider py-2 px-3 rounded-xl flex items-center gap-1.5 leading-snug"
                   >
-                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-700 animate-pulse" />
+                    <Info className="w-3.5 h-3.5 shrink-0 text-amber-700 animate-pulse" />
                     <span>Nenhum em "{activeCatalogCategory}". Buscado no catálogo geral!</span>
                   </motion.div>
                 )}
