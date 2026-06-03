@@ -638,7 +638,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
       } catch (err) {
-        console.error("Initialization of AppContext synchronization failed, falling back to local simulation:", err);
+        console.warn("[Radar Cloud] Synchronization fallback active (operating in local simulation mode):", err instanceof Error ? err.message : err);
         setUsingLocalFallback(true);
         setBranches(uniqById(mockBranches));
         setUsers(uniqById(mockUsers));
@@ -776,7 +776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setHasRestoredAuth(true);
             setIsLoading(false);
           }).catch(err => {
-            console.error("Auth restore error:", err);
+            console.warn("[Radar Auth] Auth restore error (continuing with local identity simulation):", err);
             setHasRestoredAuth(true);
             setIsLoading(false);
           });

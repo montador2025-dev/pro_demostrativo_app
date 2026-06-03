@@ -1457,20 +1457,18 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                   ) : (
                     <div className="space-y-2.5 max-h-[250px] overflow-y-auto pr-1">
                       {selectedItems.map((item) => (
-                        <div key={item.productId} className="flex items-center justify-between p-3 rounded-xl bg-white border border-stone-200 hover:border-amber-700/20 transition-all">
+                        <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-white border border-stone-200 hover:border-amber-700/20 gap-3 transition-all">
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <img src={item.imageUrl} alt={item.nickname} className="w-10 h-10 rounded-lg object-cover bg-stone-50 shrink-0" referrerPolicy="no-referrer" />
                             <div className="truncate min-w-0">
                               <h5 className="text-xs font-bold text-stone-900 truncate uppercase">{item.nickname}</h5>
                               <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[9px] text-stone-400 font-mono">CÓD: {item.code} | </span>
-                                <span className="text-[9px] text-amber-850 font-extrabold select-none">R$</span>
-                                <CartItemPriceInput item={item} onUpdatePrice={handleUpdateCartItemPrice} />
+                                <span className="text-[9px] text-stone-400 font-mono">CÓD: {item.code}</span>
                               </div>
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-3 ml-4">
+                          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
                             {/* Qty edit Controls */}
                             <div className="flex items-center gap-1.5 bg-stone-100 rounded-lg p-1 border border-stone-200">
                               <Button 
@@ -1492,9 +1490,17 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                               </Button>
                             </div>
 
-                            <span className="text-xs font-bold text-amber-800 font-mono w-16 text-right">
-                              {formatCurrency(item.price * item.quantity)}
-                            </span>
+                            <div className="flex flex-col items-end min-w-[90px]">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] font-black text-amber-850 shrink-0 select-none">R$</span>
+                                <CartItemPriceInput item={item} onUpdatePrice={handleUpdateCartItemPrice} />
+                              </div>
+                              {item.quantity > 1 && (
+                                <span className="text-[8px] text-stone-400 font-bold mt-0.5 whitespace-nowrap">
+                                  Total: {formatCurrency(item.price * item.quantity)}
+                                </span>
+                              )}
+                            </div>
                             
                             <Button variant="ghost" size="icon" type="button" onClick={() => handleRemoveCartItem(item.productId)} className="text-stone-400 hover:text-rose-600 p-1 transition-all bg-transparent border-none w-auto h-auto">
                               <Trash2 className="w-4 h-4" />
