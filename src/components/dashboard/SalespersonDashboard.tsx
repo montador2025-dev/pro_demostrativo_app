@@ -113,48 +113,60 @@ const fetchCatalogWithRunFallback = async (site: string, query: string): Promise
 };
 
 const CartItemPriceInput = ({ item, onUpdatePrice }: { item: any, onUpdatePrice: (productId: string, price: number) => void }) => {
-  const [isFocused, setIsFocused] = useState(false);
   const [localValue, setLocalValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
 
   // Sync from props if not focused
   useEffect(() => {
     if (!isFocused) {
-      setLocalValue(item.price > 0 ? item.price.toFixed(2).replace('.', ',') : '');
+      if (item.price > 0) {
+        setLocalValue(item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+      } else {
+        setLocalValue('');
+      }
     }
   }, [item.price, isFocused]);
 
-  const handleChange = (val: string) => {
-    // Keep raw typing format
-    setLocalValue(val);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
     
-    // Clean and parse the input in real-time
-    const cleaned = val.replace(/\./g, '').replace(',', '.');
-    const parsed = parseFloat(cleaned);
-    if (!isNaN(parsed) && parsed >= 0) {
-      onUpdatePrice(item.productId, parsed);
-    } else if (val === '') {
-      onUpdatePrice(item.productId, 0);
-    }
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    const cleaned = localValue.replace(/\./g, '').replace(',', '.');
-    const parsed = parseFloat(cleaned);
-    if (isNaN(parsed) || parsed < 0) {
-      onUpdatePrice(item.productId, 0);
+    // Clean and capture only digits
+    const digits = rawVal.replace(/\D/g, '');
+    if (!digits) {
       setLocalValue('');
-    } else {
-      setLocalValue(parsed.toFixed(2).replace('.', ','));
+      onUpdatePrice(item.productId, 0);
+      return;
     }
+
+    const numericPrice = parseInt(digits, 10) / 100;
+    const formatted = numericPrice.toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+
+    setLocalValue(formatted);
+    onUpdatePrice(item.productId, numericPrice);
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     setIsFocused(true);
-    setLocalValue(item.price > 0 ? item.price.toFixed(2).replace('.', ',') : '');
+    if (item.price > 0) {
+      setLocalValue(item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    } else {
+      setLocalValue('');
+    }
     setTimeout(() => {
       e.target.select();
     }, 50);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (item.price > 0) {
+      setLocalValue(item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    } else {
+      setLocalValue('');
+    }
   };
 
   return (
@@ -162,10 +174,10 @@ const CartItemPriceInput = ({ item, onUpdatePrice }: { item: any, onUpdatePrice:
       type="text" 
       aria-label={`Preço para ${item.nickname}`}
       placeholder="0,00"
-      className="w-20 h-6 px-1 text-[11px] font-black text-amber-700 bg-stone-100 hover:bg-stone-200 focus:bg-white border border-stone-300 focus:border-amber-700 outline-none transition-all rounded text-center"
+      className="w-24 h-6 px-1.5 text-[11px] font-black text-amber-700 bg-stone-100 hover:bg-stone-200 focus:bg-white border border-stone-300 focus:border-amber-700 outline-none transition-all rounded text-center shadow-xs"
       value={localValue}
       onFocus={handleFocus}
-      onChange={(e) => handleChange(e.target.value)}
+      onChange={handleChange}
       onBlur={handleBlur}
     />
   );
@@ -584,7 +596,6 @@ export const SalespersonDashboard = () => {
     const formatted = formatCurrencyInput(rawVal);
     setQuoteValueStr(formatted);
 
-    // Sync back to single cart item to prevent 0.00 prices when the overall total is edited manually
     const valueNum = parseCurrencyInput(formatted);
     setSelectedItems(prev => {
       if (prev.length === 1) {
@@ -592,6 +603,41 @@ export const SalespersonDashboard = () => {
           ...item,
           price: valueNum / item.quantity
         }));
+      } else if (prev.length > 1) {
+        // Intelligent multi-item price distribution:
+        // Calculate sum of quantities and sum of current prices
+        const currentSum = prev.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+        const totalQty = prev.reduce((acc, item) => acc + item.quantity, 0);
+
+        if (currentSum > 0) {
+          // Adjust existing prices proportionally based on their weight in the current layout
+          let tempSum = 0;
+          const ratio = valueNum / currentSum;
+          return prev.map((item, idx) => {
+            if (idx === prev.length - 1) {
+              // Remaining cents adjustment on the last product to match total valueNum exactly
+              const calculatedPrice = Math.max(0, Number(((valueNum - tempSum) / item.quantity).toFixed(2)));
+              return { ...item, price: calculatedPrice };
+            } else {
+              const itemTotal = Number((item.price * item.quantity * ratio).toFixed(2));
+              tempSum += itemTotal;
+              return { ...item, price: Number((itemTotal / item.quantity).toFixed(2)) };
+            }
+          });
+        } else if (totalQty > 0) {
+          // Distribute the valueNum completely and equally among all items (and match exactly down to cents)
+          let tempSum = 0;
+          return prev.map((item, idx) => {
+            if (idx === prev.length - 1) {
+              const calculatedPrice = Math.max(0, Number(((valueNum - tempSum) / item.quantity).toFixed(2)));
+              return { ...item, price: calculatedPrice };
+            } else {
+              const itemTotal = Number((valueNum * (item.quantity / totalQty)).toFixed(2));
+              tempSum += itemTotal;
+              return { ...item, price: Number((itemTotal / item.quantity).toFixed(2)) };
+            }
+          });
+        }
       }
       return prev;
     });
