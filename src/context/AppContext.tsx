@@ -332,10 +332,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        return {
+        const aligned = {
           ...userToAlign,
-          id: realUid
+          id: realUid,
+          phone: userToAlign.phone || '(21) 99999-9999',
+          createdAt: userToAlign.createdAt || new Date().toISOString()
         };
+
+        try {
+          await setDoc(doc(db, 'users', realUid), aligned);
+          console.log(`[Firestore Align] Aligned and wrote user ${aligned.name} to Firestore at UID: ${realUid}`);
+        } catch (alignErr) {
+          console.warn("[Firestore Align] Optional alignment write bypassed:", alignErr);
+        }
+
+        return aligned;
       }
       return userToAlign;
     };

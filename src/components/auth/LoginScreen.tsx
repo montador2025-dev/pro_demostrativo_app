@@ -208,46 +208,7 @@ export const LoginScreen: React.FC = () => {
 
       // 2d. If still not found, BUT we successfully authenticated against standard corporate user,
       // let's dynamically self-seed their profile in Firestore to ensure uninterrupted access!
-      if (!loggedUser && email.trim() !== 'montador2025@gmail.com') {
-        const emailPrefix = safeEmail.split('@')[0];
-        let derivedName = emailPrefix
-          .split('_')[0]
-          .split('-')[0]
-          .replace(/[0-9]/g, '');
-        
-        if (derivedName.length > 0) {
-          derivedName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
-          if (derivedName.toLowerCase() === 'patrcial') {
-            derivedName = 'Patrícia L.';
-          }
-        } else {
-          derivedName = 'Consultor Radar';
-        }
-
-        const autoCreatedUser = {
-          id: uid,
-          name: derivedName,
-          role: 'salesperson' as const,
-          branchId: 'b1', // default to matrix showroom
-          phone: '(21) 99999-9999',
-          createdAt: new Date().toISOString()
-        };
-
-        try {
-          await setDoc(doc(db, 'users', uid), autoCreatedUser);
-          loggedUser = autoCreatedUser;
-          console.log("Dynamically self-seeded missing salesperson profile in Firestore on login success:", autoCreatedUser);
-        } catch (seedErr) {
-          console.error("Could not auto-create salesperson profile in Firestore:", seedErr);
-        }
-      }
-
-      if (loggedUser) {
-        toast.dismiss(loadingToast);
-        toast.success(`Bem-vindo de volta, ${loggedUser.name}!`);
-        setCurrentUser(loggedUser);
-      } else {
-        // Create matching supervisor context if master developer logged in successfully but user doc didn't exist yet
+      if (!loggedUser) {
         if (email.trim() === 'montador2025@gmail.com') {
           const masterProfile = {
             id: uid,
@@ -256,13 +217,58 @@ export const LoginScreen: React.FC = () => {
             phone: '(21) 90000-0000',
             createdAt: new Date().toISOString()
           };
-          toast.dismiss(loadingToast);
-          toast.success(`Bem-vindo de volta, Supervisor Master!`);
-          setCurrentUser(masterProfile);
+          loggedUser = masterProfile;
+          try {
+            await setDoc(doc(db, 'users', uid), masterProfile);
+          } catch (seedErr) {
+            console.error("Could not self-seed master profile in Firestore:", seedErr);
+          }
         } else {
-          toast.dismiss(loadingToast);
-          toast.error('Acesso revogado ou perfil não localizado no cadastro corporativo.');
+          const emailPrefix = safeEmail.split('@')[0];
+          let derivedName = emailPrefix
+            .split('_')[0]
+            .split('-')[0]
+            .replace(/[0-9]/g, '');
+          
+          if (derivedName.length > 0) {
+            derivedName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
+            if (derivedName.toLowerCase() === 'patrcial') {
+              derivedName = 'Patrícia L.';
+            } else if (derivedName.toLowerCase() === 'patricia') {
+              derivedName = 'Patrícia';
+            }
+          } else {
+            derivedName = 'Consultor Radar';
+          }
+
+          const autoCreatedUser = {
+            id: uid,
+            name: derivedName,
+            role: 'salesperson' as const,
+            branchId: 'b1', // default to matrix showroom
+            phone: '(21) 99999-9999',
+            createdAt: new Date().toISOString()
+          };
+
+          // Assign immediately to guarantee uninterrupted session access
+          loggedUser = autoCreatedUser;
+
+          try {
+            await setDoc(doc(db, 'users', uid), autoCreatedUser);
+            console.log("Dynamically self-seeded missing salesperson profile in Firestore on login success:", autoCreatedUser);
+          } catch (seedErr) {
+            console.error("Could not auto-create salesperson profile in Firestore:", seedErr);
+          }
         }
+      }
+
+      if (loggedUser) {
+        toast.dismiss(loadingToast);
+        toast.success(`Bem-vindo de volta, ${loggedUser.name}!`);
+        setCurrentUser(loggedUser);
+      } else {
+        toast.dismiss(loadingToast);
+        toast.error('Acesso revogado ou perfil não localizado no cadastro corporativo.');
       }
     } catch (error: any) {
       toast.dismiss(loadingToast);
