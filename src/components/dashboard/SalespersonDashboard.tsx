@@ -40,7 +40,8 @@ import {
   X,
   Bell,
   Volume2,
-  VolumeX
+  VolumeX,
+  UserCircle2
 } from 'lucide-react';
 import { QuoteCategory, QuoteStatus, Product, QuoteItem } from '../../types';
 import { productCatalog, searchProducts } from '../../data/catalog';
@@ -2569,6 +2570,46 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
 
         <div className="flex items-center gap-2 self-end sm:self-auto text-[9.5px] text-stone-400 font-bold select-none font-sans">
           <Clock className="w-3.5 h-3.5 text-stone-400" /> Atualizado: Hoje, às {today.toLocaleDateString('pt-BR')}
+        </div>
+      </motion.div>
+
+      {/* Salesperson Personalized Warm Welcoming Hero Banner */}
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="p-6 md:p-8 rounded-[2rem] bg-stone-900 text-white relative overflow-hidden shadow-md"
+      >
+        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none select-none">
+          <UserCircle2 className="w-56 h-56 text-white" />
+        </div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <span className="text-[9.5px] font-black uppercase tracking-widest text-[#b45309] p-1 px-2.5 bg-amber-450/10 rounded-full border border-amber-450/20">
+              Painel do Consultor Ativo
+            </span>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white leading-none">
+              Olá, <span className="text-amber-500 font-bold">{currentUser.name}</span>! 🚀
+            </h1>
+            <p className="text-xs text-stone-300 font-medium max-w-xl">
+              Seu painel comercial está pronto. Gerencie seus orçamentos, faça o follow-up nos momentos certos e atinja a sua classificação de comissão!
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3.5 shrink-0">
+            <div className="bg-white/8 rounded-2xl p-3 px-4 border border-white/6 text-right">
+              <span className="block text-[8.5px] font-black uppercase tracking-widest text-stone-400">Minha Unidade</span>
+              <span className="text-sm font-black text-white">{myBranch?.name || myLegacyBranch?.name || 'Showroom Matriz'}</span>
+            </div>
+            
+            <div className="bg-white/8 rounded-2xl p-3 px-4 border border-white/6 text-right">
+              <span className="block text-[8.5px] font-black uppercase tracking-widest text-stone-400">Status Indicador</span>
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 mt-0.5 justify-end">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Vendedor Ativo
+              </span>
+            </div>
+          </div>
         </div>
       </motion.div>
 

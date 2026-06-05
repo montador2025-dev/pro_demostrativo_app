@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppContext, getEmailForUser } from '../../context/AppContext';
 import { auth, db } from '../../lib/firebase';
 import { signInWithEmailAndPassword, updatePassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, setDoc, deleteDoc } from 'firebase/firestore';
 import { Logo } from '../ui/Logo';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -33,6 +33,7 @@ export const LoginScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'credentials' | 'demo'>('credentials');
+  const [invitedUser, setInvitedUser] = useState<any | null>(null);
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -40,8 +41,19 @@ export const LoginScreen: React.FC = () => {
     if (emailParam) {
       setEmail(emailParam);
       toast.info('E-mail preenchido automaticamente a partir do convite!');
+      
+      const safeEmail = emailParam.trim().toLowerCase();
+      const match = users.find(u => {
+        const candidateEmail = getEmailForUser(u.name, u.phone, u.id).toLowerCase();
+        const safeName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const simpleEmail = `${safeName}@radarconquista.com.br`;
+        return candidateEmail === safeEmail || simpleEmail === safeEmail;
+      });
+      if (match) {
+        setInvitedUser(match);
+      }
     }
-  }, []);
+  }, [users]);
 
   const handleCredentialsLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,15 +144,101 @@ export const LoginScreen: React.FC = () => {
       }
 
       const uid = userCredential.user.uid;
+      let loggedUser = null;
 
-      // 2. Look for the user Document inside users
-      let loggedUser = users.find(u => u.id === uid);
+      // 2. Fetch fresh list of users from Firestore now that we are authenticated, to bypass any initial offline fallback
+      let freshUsers: any[] = [];
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        usersSnap.forEach(docSnap => {
+          freshUsers.push(docSnap.data());
+        });
+        console.log(`Successfully fetched ${freshUsers.length} fresh users upon authentication`);
+      } catch (freshErr) {
+        console.warn("Could not force-fetch fresh users collection:", freshErr);
+      }
 
+      // 2a. Look for user in fresh users list by exact UID
+      loggedUser = freshUsers.find(u => u.id === uid);
+
+      // 2b. If not found by UID, try looking for user in users array or fresh database by email/phone to perform ID alignment
       if (!loggedUser) {
-        // Fallback: Fetch directly from firestore if not in users list yet
-        const userDoc = await getDoc(doc(db, 'users', uid));
-        if (userDoc.exists()) {
-          loggedUser = { id: uid, ...userDoc.data() } as any;
+        const listToSearch = freshUsers.length > 0 ? freshUsers : users;
+        const matchedByEmail = listToSearch.find(u => {
+          const candidateEmail = getEmailForUser(u.name, u.phone, u.id).toLowerCase();
+          const safeName = u.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const simpleEmail = `${safeName}@radarconquista.com.br`;
+          return candidateEmail === safeEmail || simpleEmail === safeEmail;
+        });
+
+        if (matchedByEmail) {
+          console.log(`Self-healing matched user session for ${matchedByEmail.name}. Aligning ID to auth UID: ${uid}`);
+          const alignedUser = {
+            ...matchedByEmail,
+            id: uid,
+            phone: matchedByEmail.phone || '(21) 99999-9999',
+            createdAt: matchedByEmail.createdAt || new Date().toISOString()
+          };
+
+          try {
+            await setDoc(doc(db, 'users', uid), alignedUser);
+            if (matchedByEmail.id !== uid) {
+              await deleteDoc(doc(db, 'users', matchedByEmail.id));
+              console.log(`Successfully migrated and cleaned up old document: ${matchedByEmail.id}`);
+            }
+          } catch (writeErr) {
+            console.error("Failed to write self-healed user document to Firestore:", writeErr);
+          }
+
+          loggedUser = alignedUser;
+        }
+      }
+
+      // 2c. If still not found, search directly inside Firestore users collection by UID document
+      if (!loggedUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', uid));
+          if (userDoc.exists()) {
+            loggedUser = { id: uid, ...userDoc.data() } as any;
+          }
+        } catch (docErr) {
+          console.warn("Error getting user doc directly:", docErr);
+        }
+      }
+
+      // 2d. If still not found, BUT we successfully authenticated against standard corporate user,
+      // let's dynamically self-seed their profile in Firestore to ensure uninterrupted access!
+      if (!loggedUser && email.trim() !== 'montador2025@gmail.com') {
+        const emailPrefix = safeEmail.split('@')[0];
+        let derivedName = emailPrefix
+          .split('_')[0]
+          .split('-')[0]
+          .replace(/[0-9]/g, '');
+        
+        if (derivedName.length > 0) {
+          derivedName = derivedName.charAt(0).toUpperCase() + derivedName.slice(1);
+          if (derivedName.toLowerCase() === 'patrcial') {
+            derivedName = 'Patrícia L.';
+          }
+        } else {
+          derivedName = 'Consultor Radar';
+        }
+
+        const autoCreatedUser = {
+          id: uid,
+          name: derivedName,
+          role: 'salesperson' as const,
+          branchId: 'b1', // default to matrix showroom
+          phone: '(21) 99999-9999',
+          createdAt: new Date().toISOString()
+        };
+
+        try {
+          await setDoc(doc(db, 'users', uid), autoCreatedUser);
+          loggedUser = autoCreatedUser;
+          console.log("Dynamically self-seeded missing salesperson profile in Firestore on login success:", autoCreatedUser);
+        } catch (seedErr) {
+          console.error("Could not auto-create salesperson profile in Firestore:", seedErr);
         }
       }
 
@@ -328,6 +426,22 @@ export const LoginScreen: React.FC = () => {
             {/* TAB 1: Real Credentials Login Form */}
             {activeTab === 'credentials' && (
               <form onSubmit={handleCredentialsLogin} className="space-y-4">
+                {invitedUser && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-4 rounded-xl bg-amber-500/10 border border-amber-600/20 flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-center gap-2 text-stone-900 font-bold text-sm">
+                      <UserCircle2 className="w-5 h-5 text-amber-700" />
+                      <span>Olá, {invitedUser.name}! 👋</span>
+                    </div>
+                    <p className="text-[11px] text-stone-600 leading-relaxed font-semibold">
+                      Seu acesso como <strong className="text-amber-900 font-extrabold uppercase">Consultor de Vendas</strong> foi ativado com sucesso! Informe as suas credenciais para gerenciar seus atendimentos e orçamentos.
+                    </p>
+                  </motion.div>
+                )}
+
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-xs font-bold text-stone-700 uppercase tracking-wide">
                     E-mail ou Celular Corporativo
