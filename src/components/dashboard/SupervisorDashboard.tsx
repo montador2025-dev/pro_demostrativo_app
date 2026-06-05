@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext, getEmailForUser } from '../../context/AppContext';
+import { auth } from '../../lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -101,6 +102,15 @@ export const SupervisorDashboard = () => {
   
   const isLimitedSupervisor = currentUser?.role === 'supervisor' && !isMaster && currentUser?.allowedBranches && currentUser.allowedBranches.length > 0;
 
+  const email = auth.currentUser?.email || '';
+  const isOwner = email === 'montador2025@gmail.com' || 
+                  email.startsWith('montador') || 
+                  email.startsWith('carlos') ||
+                  currentUser?.name?.toLowerCase()?.includes('carlos') ||
+                  currentUser?.name?.toLowerCase()?.includes('montador') ||
+                  currentUser?.id === 'u_master' ||
+                  currentUser?.id === 'u1';
+
   const [compName, setCompName] = useState(currentCompany?.name || 'RadarConquista');
   const [compPlan, setCompPlan] = useState(currentCompany?.plan || 'Enterprise SaaS Corporate Plus');
   const [isAuditing, setIsAuditing] = useState(false);
@@ -151,7 +161,12 @@ export const SupervisorDashboard = () => {
     if (cleanPhone.length > 0 && !cleanPhone.startsWith('55') && cleanPhone.length <= 11) {
       cleanPhone = '55' + cleanPhone;
     }
-    const roleTitle = role === 'manager' ? 'Gerente' : 'Consultor de Vendas';
+    let roleTitle = 'Consultor de Vendas';
+    if (role === 'manager') {
+      roleTitle = 'Gerente';
+    } else if (role === 'supervisor') {
+      roleTitle = 'Supervisor Geral';
+    }
     const message = `Olá, *${name}*! 🚀\n\n` +
       `Seu acesso como *${roleTitle}* da unidade *${branchName}* no sistema *RadarConquista* foi ativado!\n\n` +
       `📝 *Credenciais de Acesso:*\n` +
@@ -698,7 +713,7 @@ export const SupervisorDashboard = () => {
 
       {/* RENDERING DYNAMIC SCENARIO PANELS (HOME, USER LIST, BRANCH CRUD) */}
       <div className="pt-2">
-        {activeTab === 'security' ? (
+        {activeTab === 'security' && isOwner ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in">
             {/* SaaS multi-tenant & security configuration column */}
             <div className="lg:col-span-7 space-y-6">
@@ -1007,7 +1022,7 @@ export const SupervisorDashboard = () => {
                         <TableCell className="text-right pr-6">
                           <div className="flex justify-end gap-1.5 items-center">
                             
-                            {u.role !== 'supervisor' && u.phone && (
+                            {u.id !== currentUser?.id && u.phone && (
                               <a
                                 href={getWhatsAppLink(u.name, getEmailForUser(u.name, u.phone, u.id), u.phone, mappedBranch?.name || 'Central', u.role)}
                                 target="_blank"

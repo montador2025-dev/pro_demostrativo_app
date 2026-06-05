@@ -254,16 +254,29 @@ export const LoginScreen: React.FC = () => {
               derivedName = 'Patrícia L.';
             } else if (derivedName.toLowerCase() === 'patricia') {
               derivedName = 'Patrícia';
+            } else if (derivedName.toLowerCase() === 'ana') {
+              derivedName = 'Ana';
+            } else if (derivedName.toLowerCase() === 'carlos') {
+              derivedName = 'Carlos';
             }
           } else {
             derivedName = 'Consultor Radar';
           }
 
+          // Smart role detection based on email prefix/signatures
+          let derivedRole: 'salesperson' | 'manager' | 'supervisor' = 'salesperson';
+          const lowerEmail = safeEmail.toLowerCase();
+          if (lowerEmail.includes('ana_') || lowerEmail.includes('gerente') || lowerEmail.includes('manager')) {
+            derivedRole = 'manager';
+          } else if (lowerEmail.includes('carlos') || lowerEmail.includes('diretor') || lowerEmail.includes('supervisor')) {
+            derivedRole = 'supervisor';
+          }
+
           const autoCreatedUser = {
             id: uid,
             name: derivedName,
-            role: 'salesperson' as const,
-            branchId: 'b1', // default to matrix showroom
+            role: derivedRole,
+            branchId: derivedRole === 'salesperson' || derivedRole === 'manager' ? 'b1' : undefined, // default to matrix showroom for storefront roles
             phone: '(21) 99999-9999',
             createdAt: new Date().toISOString()
           };
@@ -273,9 +286,9 @@ export const LoginScreen: React.FC = () => {
 
           try {
             await setDoc(doc(db, 'users', uid), autoCreatedUser);
-            console.log("Dynamically self-seeded missing salesperson profile in Firestore on login success:", autoCreatedUser);
+            console.log(`Dynamically self-seeded missing ${derivedRole} profile in Firestore on login success:`, autoCreatedUser);
           } catch (seedErr) {
-            console.error("Could not auto-create salesperson profile in Firestore:", seedErr);
+            console.error(`Could not auto-create ${derivedRole} profile in Firestore:`, seedErr);
           }
         }
       }

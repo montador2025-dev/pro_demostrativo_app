@@ -96,12 +96,25 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const myMenuItems = () => {
     if (!currentUser) return [];
     if (currentUser.role === 'supervisor') {
-      return [
+      const email = auth.currentUser?.email || '';
+      const isOwner = email === 'montador2025@gmail.com' || 
+                      email.startsWith('montador') || 
+                      email.startsWith('carlos') ||
+                      currentUser.name?.toLowerCase()?.includes('carlos') ||
+                      currentUser.name?.toLowerCase()?.includes('montador') ||
+                      currentUser.id === 'u_master' ||
+                      currentUser.id === 'u1';
+
+      const items = [
         { id: 'home', label: 'Painel Geral', icon: <Home className="w-5 h-5" /> },
         { id: 'branches', label: 'Unidades (Lojas)', icon: <Store className="w-5 h-5" /> },
         { id: 'users', label: 'Gestão de Staff', icon: <Users className="w-5 h-5" /> },
-        { id: 'security', label: 'Controle & SaaS', icon: <ShieldCheck className="w-5 h-5" /> },
       ];
+
+      if (isOwner) {
+        items.push({ id: 'security', label: 'Controle & SaaS', icon: <ShieldCheck className="w-5 h-5" /> });
+      }
+      return items;
     }
     if (currentUser.role === 'manager') {
       return [
