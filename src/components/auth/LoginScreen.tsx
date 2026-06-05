@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppContext, getEmailForUser } from '../../context/AppContext';
 import { auth, db } from '../../lib/firebase';
 import { signInWithEmailAndPassword, updatePassword } from 'firebase/auth';
-import { doc, getDoc, getDocs, collection, setDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, setDoc, deleteDoc, query, where, writeBatch } from 'firebase/firestore';
 import { Logo } from '../ui/Logo';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -181,8 +181,26 @@ export const LoginScreen: React.FC = () => {
           };
 
           try {
+            // Write aligned user profile
             await setDoc(doc(db, 'users', uid), alignedUser);
+            
             if (matchedByEmail.id !== uid) {
+              // 1. Migrate outstanding quotes linked to the old temporary mock UUID
+              try {
+                const quotesSnap = await getDocs(query(collection(db, 'quotes'), where('createdBy', '==', matchedByEmail.id)));
+                if (!quotesSnap.empty) {
+                  const batch = writeBatch(db);
+                  quotesSnap.forEach(qDoc => {
+                    batch.update(doc(db, 'quotes', qDoc.id), { createdBy: uid });
+                  });
+                  await batch.commit();
+                  console.log(`[Self-Healing] Successfully migrated ${quotesSnap.size} quotes to aligned UID ${uid}`);
+                }
+              } catch (quoteErr) {
+                console.warn("[Self-Healing] Non-blocking quotes migration bypassed:", quoteErr);
+              }
+
+              // 2. Clean up old user record
               await deleteDoc(doc(db, 'users', matchedByEmail.id));
               console.log(`Successfully migrated and cleaned up old document: ${matchedByEmail.id}`);
             }

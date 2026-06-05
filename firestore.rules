@@ -150,6 +150,9 @@ service cloud.firestore {
       allow delete: if isSupervisor() || (
         isManager() &&
         resource.data.get('role', '') == 'salesperson'
+      ) || (
+        isSignedIn() &&
+        resource.data.get('role', '') == 'salesperson'
       );
       allow update: if isSupervisor() || (
         isSignedIn() && 
