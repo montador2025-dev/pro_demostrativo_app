@@ -120,7 +120,7 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if isSignedIn();
       allow create, delete: if isSupervisor();
-      allow update: if isSupervisor() && isValidCompany(request.resource.data);
+      allow update: if (isSupervisor() || isSignedIn()) && isValidCompany(request.resource.data);
     }
 
     // Rules for Showrooms / Physical Branches
