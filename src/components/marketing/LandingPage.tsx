@@ -3,7 +3,6 @@ import {
   ArrowRight, 
   Store, 
   Users, 
-  TrendingUp, 
   Sparkles, 
   Layers, 
   Lock, 
@@ -12,12 +11,7 @@ import {
   Clock, 
   Monitor, 
   FileText, 
-  ShieldCheck, 
-  Play, 
-  HelpCircle,
-  Plus, 
-  Minus,
-  Briefcase
+  ShieldCheck
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -27,23 +21,6 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
   // Active pillar for the deep-dive interactive switcher
   const [activeSegment, setActiveSegment] = useState<'sales' | 'manager' | 'supervisor'>('sales');
-  
-  // Simple interactive budget simulation inside the landing page to hook clients!
-  const [testRoom, setTestRoom] = useState<string>('living');
-  const [testWood, setTestWood] = useState<number>(3500); // base price
-  const [testDelivery, setTestDelivery] = useState<boolean>(true);
-  const [installments, setInstallments] = useState<number>(12);
-
-  const rooms = [
-    { id: 'living', name: 'Sala de Estar', base: 4500, desc: 'Painéis ripados, racks e nichos sob medida.' },
-    { id: 'kitchen', name: 'Cozinha Planejada', base: 7800, desc: 'Armários em MDF duplo, gaveteiros com amortecedor.' },
-    { id: 'bedroom', name: 'Quarto de Casal', base: 6200, desc: 'Guarda-roupa embutido com portas de correr e espelho.' },
-    { id: 'bathroom', name: 'Gabinete de Banheiro', base: 1800, desc: 'Compacto com gaveteiro e nicho para espelho.' }
-  ];
-
-  const currentRoom = rooms.find(r => r.id === testRoom) || rooms[0];
-  const calculatedTotal = (currentRoom.base + testWood) * (testDelivery ? 1.08 : 1.0);
-  const installmentValue = calculatedTotal / installments;
 
   return (
     <div className="min-h-screen bg-[#faf9f5] text-stone-800 font-sans antialiased selection:bg-amber-100 selection:text-amber-900 overflow-x-hidden">
@@ -65,16 +42,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
               <span className="font-sans font-black text-[15px] sm:text-[17px] tracking-tight text-stone-900 block uppercase">
                 Radar<span className="text-amber-700">Conquista</span>
               </span>
-              <span className="text-[9px] text-stone-400 font-bold uppercase tracking-widest block -mt-1 leading-none">
-                Sono Show Móveis S/A
+              <span className="text-[9px] text-amber-700 font-black uppercase tracking-widest block -mt-1 leading-none">
+                Sistemas e Vendas Corp S/A
               </span>
             </div>
           </div>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-stone-600">
             <a href="#solucoes" className="hover:text-amber-700 transition-colors">Soluções</a>
-            <a href="#simulador" className="hover:text-amber-700 transition-colors">Simulador Interno</a>
-            <a href="#pilares" className="hover:text-amber-700 transition-colors">Níveis de Acesso</a>
+            <a href="#pilares" className="hover:text-amber-700 transition-colors font-semibold">Níveis de Acesso</a>
             <a href="#seguranca" className="hover:text-amber-700 transition-colors">Infraestrutura</a>
           </nav>
 
@@ -104,25 +80,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
           </h1>
           
           <p className="text-base sm:text-lg md:text-xl text-stone-500 font-normal leading-relaxed max-w-2xl mx-auto">
-            Integração total do consultor de loja ao supervisor master. Simulações rápidas de parcelamento, catálogos interativos, geração de PDFs e auditoria em tempo real para a rede <strong>Sono Show Móveis</strong>.
+            Integração total do consultor de loja ao supervisor master. Propostas comerciais ágeis, catálogos de produtos interativos, geração de PDFs inteligente e auditoria em tempo real de forma totalmente integrada.
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={onEnterPortal}
               id="hero-cta-portal"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-amber-700 text-white font-extrabold uppercase text-xs tracking-wider hover:bg-amber-800 shadow-xl shadow-amber-700/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+              className="w-full sm:w-auto px-10 py-4 rounded-xl bg-amber-700 text-white font-extrabold uppercase text-xs tracking-wider hover:bg-amber-800 shadow-xl shadow-amber-700/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer font-sans"
             >
-              Iniciar Painel Corporativo
+              Iniciar Painel Corporativo Oficial
               <ArrowRight className="w-4 h-4" />
             </button>
-            <a
-              href="#simulador"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl border border-stone-300 text-stone-700 bg-white font-bold uppercase text-xs tracking-wider hover:bg-stone-50 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Briefcase className="w-4 h-4 text-stone-500" />
-              Ver Simulador de Testes
-            </a>
           </div>
 
           {/* Value Highlights */}
@@ -156,7 +125,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
               <span className="w-3 h-3 rounded-full bg-green-400 block"></span>
             </div>
             <div className="bg-stone-200/60 rounded-md px-16 py-1 text-[10px] font-mono text-stone-500 tracking-wider">
-              radarconquista.sonoshow.com.br/painel
+              radarconquista.com.br/painel
             </div>
             <div className="w-8"></div>
           </div>
@@ -246,183 +215,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
         </div>
       </section>
 
-      {/* Interactive Demonstration Section (Hook Simulator) */}
-      <section id="simulador" className="bg-[#f0ede6] border-y border-stone-200 py-16 px-4 sm:px-8 relative">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          <div className="lg:col-span-5 space-y-6">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-stone-300 text-stone-600 text-[10px] font-bold uppercase tracking-wider">
-              <TrendingUp className="w-3.5 h-3.5 text-stone-500" />
-              Experimente em Tempo Real
-            </div>
-            
-            <h2 className="text-3xl sm:text-4xl font-sans font-black text-stone-900 tracking-tight">
-              Simulador Instantâneo para Fechamento Rápido.
-            </h2>
-            
-            <p className="text-stone-600 text-sm sm:text-base leading-relaxed">
-              Diga adeus às planilhas complexas e de difícil entendimento para o consumidor. O vendedor configura o ambiente na frente do cliente, insere complementos opcionais, aplica o desconto autorizado e exibe o parcelamento final com um clique.
-            </p>
 
-            <div className="space-y-3.5">
-              <div className="flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                <p className="text-stone-600 text-sm">
-                  <strong>Simplicidade na negociação:</strong> Ofereça opções com transparência extrema para o consumidor.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                <p className="text-stone-600 text-sm">
-                  <strong>Integração com WhatsApp:</strong> Compartilhe o link do orçamento detalhado, formatado com negrito e bullet points automaticamente.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                <p className="text-stone-600 text-sm">
-                  <strong>Controle de Desconto:</strong> Evite estouro de margem com tetos inteligentes controlados centralmente pela diretoria.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive Calculator Simulator Widget */}
-          <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-2xl border border-stone-200/80 shadow-xl space-y-6">
-            <div>
-              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">
-                Mecanismo de Cálculo Ativo
-              </p>
-              <h3 className="text-lg font-extrabold text-stone-800">
-                Monte e Calcule uma Proposta Modelo:
-              </h3>
-            </div>
-
-            {/* Room choice cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {rooms.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => setTestRoom(r.id)}
-                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
-                    testRoom === r.id 
-                    ? 'border-amber-700 bg-amber-50/50 ring-1 ring-amber-700' 
-                    : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                  }`}
-                >
-                  <p className={`text-[11px] font-bold ${testRoom === r.id ? 'text-amber-900' : 'text-stone-700'}`}>
-                    {r.name}
-                  </p>
-                  <p className="text-[10px] text-stone-400 mt-0.5 font-mono">
-                    R$ {r.base.toLocaleString('pt-BR')}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            <div className="p-3 bg-stone-50 rounded-lg text-[11px] text-stone-500 leading-relaxed border border-stone-100">
-              <strong>Estrutura:</strong> {currentRoom.desc}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Wood parameter multiplier slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-stone-600">
-                  <span>Adicional de Ferragens & Acabamento</span>
-                  <span className="font-mono text-amber-700">R$ {testWood.toLocaleString('pt-BR')}</span>
-                </div>
-                <input 
-                  type="range" 
-                  min="500" 
-                  max="10000" 
-                  step="500"
-                  value={testWood}
-                  onChange={(e) => setTestWood(parseInt(e.target.value))}
-                  className="w-full accent-amber-700 h-1.5 bg-stone-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="flex justify-between text-[9px] text-stone-400 font-bold uppercase">
-                  <span>MDF Comum</span>
-                  <span>MDF Alta Densidade + Escorregamento VIP</span>
-                </div>
-              </div>
-
-              {/* Installments slider or check */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-stone-600">
-                  <span>Opção de Parcelamento</span>
-                  <span className="font-mono text-stone-800">{installments} parcelas</span>
-                </div>
-                <div className="flex gap-2">
-                  {[1, 3, 6, 10, 12, 18, 24].map((inst) => (
-                    <button
-                      key={inst}
-                      onClick={() => setInstallments(inst)}
-                      className={`flex-1 py-1.5 rounded text-xs font-bold cursor-pointer transition-all ${
-                        installments === inst 
-                        ? 'bg-amber-700 text-white shadow-sm' 
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-600'
-                      }`}
-                    >
-                      {inst}x
-                    </button>
-                  ))}
-                </div>
-                <div className="text-[10px] text-stone-400">
-                  * Acima de 12x pode incidir taxas do emissor do cartão.
-                </div>
-              </div>
-            </div>
-
-            {/* Checkbox for delivery & assembly */}
-            <div className="flex items-center gap-3 p-3 rounded-lg border border-stone-100 bg-stone-50/50">
-              <input
-                id="landing-test-delivery"
-                type="checkbox"
-                checked={testDelivery}
-                onChange={(e) => setTestDelivery(e.target.checked)}
-                className="w-4 h-4 text-amber-700 bg-stone-100 border-stone-300 rounded focus:ring-amber-500 cursor-pointer"
-              />
-              <label htmlFor="landing-test-delivery" className="text-xs font-sans text-stone-600 cursor-pointer select-none">
-                <strong>Solicitar Frete Premium & Montagem Técnica (+8%):</strong> Equipe própria entrega e monta em até 7 dias úteis após faturamento.
-              </label>
-            </div>
-
-            {/* Simulated result box */}
-            <div className="bg-amber-50 border border-amber-200/80 p-5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="space-y-1 text-center sm:text-left">
-                <span className="text-[9px] font-bold text-amber-800 uppercase tracking-widest block">
-                  Simulação de Fechamento Radar
-                </span>
-                <p className="text-[10px] text-stone-400">Valor Total à Vista:</p>
-                <p className="text-3xl font-black text-amber-900 tracking-tight">
-                  R$ {calculatedTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-
-              <div className="w-full sm:w-auto p-4 bg-white rounded-lg border border-amber-200/50 text-center sm:text-right shadow-sm space-y-0.5">
-                <span className="text-[9px] font-bold text-stone-400 uppercase tracking-wider block">
-                  Parcelamento Proposto
-                </span>
-                <p className="text-stone-500 text-xs">{installments}x iguais de</p>
-                <p className="text-xl font-bold text-stone-800 font-mono">
-                  R$ {installmentValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">Sem juros no boleto</p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button 
-                onClick={onEnterPortal}
-                className="flex-1 py-3 bg-stone-900 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl hover:bg-stone-800 transition-all text-center flex items-center justify-center gap-2 cursor-pointer shadow-md"
-              >
-                Gerar PDF deste Orçamento Oficial
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-          </div>
-        </div>
-      </section>
 
       {/* Role Segments Matrix (The Pillars) */}
       <section id="pilares" className="max-w-7xl mx-auto px-4 sm:px-8 py-16 space-y-12">
@@ -564,7 +357,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-6 space-y-5">
             <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block font-mono">
-              Empresa Homologada Sono Show Móveis
+              Padrão Corporativo e Segurança Máxima
             </span>
             <h2 className="text-3xl sm:text-4xl font-sans font-black tracking-tight text-white leading-tight">
               Infraestrutura SaaS com Segurança de Nível Bancário.
@@ -659,7 +452,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
               Radar<span className="text-amber-500">Conquista</span>
             </p>
             <p className="text-[10px] text-stone-600 font-bold mt-1 uppercase tracking-wide">
-              Mecanismos Corporativos Sono Show Móveis S/A
+              Mecanismos Corporativos de Gestão e Vendas
             </p>
           </div>
           <p className="text-[10px] text-stone-600">
