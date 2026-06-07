@@ -3,13 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { SupervisorDashboard } from './components/dashboard/SupervisorDashboard';
 import { ManagerDashboard } from './components/dashboard/ManagerDashboard';
 import { SalespersonDashboard } from './components/dashboard/SalespersonDashboard';
 import { LoginScreen } from './components/auth/LoginScreen';
+import { LandingPage } from './components/marketing/LandingPage';
 import { Toaster } from './components/ui/sonner';
 
 const DashboardRouter = () => {
@@ -28,6 +29,15 @@ const DashboardRouter = () => {
 
 const MainAppContent = () => {
   const { currentUser, isLoading } = useAppContext();
+  const [viewMode, setViewMode] = useState<'landing' | 'login'>('landing');
+
+  // If a specific workspace query parameter is present, bypass landing directly to login
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('email')) {
+      setViewMode('login');
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -40,15 +50,20 @@ const MainAppContent = () => {
     );
   }
 
-  if (!currentUser) {
-    return <LoginScreen />;
+  // Active session instantly bypasses landing for optimal SaaS user flow
+  if (currentUser) {
+    return (
+      <AppLayout>
+        <DashboardRouter />
+      </AppLayout>
+    );
   }
 
-  return (
-    <AppLayout>
-      <DashboardRouter />
-    </AppLayout>
-  );
+  if (viewMode === 'landing') {
+    return <LandingPage onEnterPortal={() => setViewMode('login')} />;
+  }
+
+  return <LoginScreen onBackToLanding={() => setViewMode('landing')} />;
 };
 
 export default function App() {

@@ -18,72 +18,56 @@ export const Logo: React.FC<LogoProps> = ({ className = '', showText = false, si
   const radarIcon = (
     <svg
       viewBox="0 0 100 100"
-      className={`${sizeClasses[size]} shrink-0 select-none`}
+      className={`${sizeClasses[size]} shrink-0 select-none filter drop-shadow-[0_2px_4px_rgba(120,40,0,0.15)]`}
       fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+      xmlns="http://www.w3.org/2050/svg"
     >
-      {/* Outer circular segments mirroring the split color styling */}
-      {/* Left Orange Outer Arc */}
+      <defs>
+        {/* Exact rich copper/brown radial gradient reproducing the premium brand emblem background */}
+        <radialGradient id="radar-emblem-grad" cx="45%" cy="40%" r="60%" fx="30%" fy="30%">
+          <stop offset="0%" stopColor="#ca5616" />
+          <stop offset="55%" stopColor="#aa400c" />
+          <stop offset="100%" stopColor="#672100" />
+        </radialGradient>
+      </defs>
+
+      {/* Main circular solid background badge */}
+      <circle cx="50" cy="50" r="48" fill="url(#radar-emblem-grad)" />
+
+      {/* Outer concentric lines representing the stylish radar/fingerprint layout exactly like the logo */}
+      {/* Outer arc */}
       <path
-        d="M 50 10 A 40 40 0 0 0 13.5 68"
-        stroke="#ea580c" /* Vibrant orange-600 */
-        strokeWidth="7"
+        d="M 50 18 A 32 32 0 1 1 25.5 68.5"
+        stroke="#f3e8df"
+        strokeWidth="6.5"
         strokeLinecap="round"
-        className="opacity-95"
+        opacity="0.95"
       />
-      
-      {/* Right Dark Grey/Black Outer Arc */}
+
+      {/* Middle arc */}
       <path
-        d="M 68 18 A 40 40 0 0 1 50 90 A 40 40 0 0 1 27 82"
-        stroke="#272525" /* stone-900 / dark charcoal */
-        strokeWidth="7"
+        d="M 68 45 A 22 22 0 1 0 38.5 67.5"
+        stroke="#f3e8df"
+        strokeWidth="6.5"
         strokeLinecap="round"
-        className="opacity-95"
+        opacity="0.95"
       />
 
-      {/* Internal Concentric Ring 1 (Middle grid structure) */}
-      <circle
-        cx="50"
-        cy="50"
-        r="28"
-        stroke="#44403c" /* stone-700 */
-        strokeWidth="2.5"
-        strokeDasharray="4 6"
-        opacity="0.75"
-      />
-
-      {/* Internal Concentric Ring 2 (Inner ring) */}
-      <circle
-        cx="50"
-        cy="50"
-        r="17"
-        stroke="#1c1917" /* stone-900 */
-        strokeWidth="2"
-        opacity="0.8"
-      />
-
-      {/* Central Hub Solid Circle */}
-      <circle cx="50" cy="50" r="5" fill="#1c1917" />
-
-      {/* Radar active line sweep pointing right-up (Approx. 40 degrees) */}
-      <line
-        x1="50"
-        y1="50"
-        x2="73"
-        y2="27"
-        stroke="#ea580c"
-        strokeWidth="4"
+      {/* Inner arc */}
+      <path
+        d="M 50 38 A 12 12 0 1 1 39.5 54.5"
+        stroke="#f3e8df"
+        strokeWidth="6.5"
         strokeLinecap="round"
+        opacity="0.95"
       />
 
-      {/* Glowing Radar sweeps targets points */}
-      <circle cx="73" cy="27" r="3.5" fill="#ea580c" className="animate-ping origin-center" style={{ animationDuration: '3s' }} />
-      <circle cx="73" cy="27" r="3.5" fill="#ea580c" />
+      {/* Centered hub target marker dot */}
+      <circle cx="50" cy="50" r="5" fill="#f3e8df" />
 
-      {/* Soft passive targets detected dots consistent with original branding logo image */}
-      <circle cx="28" cy="40" r="2.5" fill="#ea580c" opacity="0.8" />
-      <circle cx="34" cy="65" r="2.5" fill="#ea580c" opacity="0.8" />
-      <circle cx="68" cy="62" r="2" fill="#ea580c" opacity="0.8" />
+      {/* Decorative auxiliary tracking dot matching the left edge accent dots in original branding image */}
+      <circle cx="21" cy="46" r="3" fill="#f3e8df" />
+      <circle cx="28" cy="30" r="2" fill="#f3e8df" opacity="0.8" />
     </svg>
   );
 
@@ -93,22 +77,22 @@ export const Logo: React.FC<LogoProps> = ({ className = '', showText = false, si
 
   // Full Text Horizontal Logo
   return (
-    <div className={`flex items-center gap-2.5 select-none ${className}`}>
+    <div className={`flex items-center gap-3 select-none ${className}`}>
       {radarIcon}
       <div className="flex flex-col justify-center min-w-0">
-        {/* RadarConquista text heading precisely stylized as italic bold sans */}
-        <div className="flex items-center font-black tracking-[-0.03em] text-[21px] uppercase italic leading-none select-none">
-          <span className="text-stone-900 font-[900]">RADAR</span>
-          <span className="text-[#ea580c] font-[900] ml-0.5">CONQUISTA</span>
+        {/* RadarConquista text heading precisely stylized as italic bold sans to match the uploaded logo branding */}
+        <div className="flex items-center font-sans font-[950] text-[22px] tracking-[-0.04em] uppercase italic leading-none select-none">
+          <span className="text-[#1d1f23]">RADAR</span>
+          <span className="text-[#bd4c12]">CONQUISTA</span>
         </div>
         
         {/* Elegant sub-title with line bounds exactly like the picture */}
-        <div className="flex items-center gap-1.5 mt-1.5 w-full">
-          <div className="h-[1.5px] bg-[#ea580c] w-3 shrink-0 rounded-full"></div>
-          <span className="text-[7px] font-black tracking-[0.06em] text-stone-500 whitespace-nowrap uppercase select-none font-sans">
+        <div className="flex items-center gap-1.5 mt-1">
+          <div className="h-[1.5px] bg-[#bd4c12] w-2.5 shrink-0 rounded-full"></div>
+          <span className="text-[6.5px] font-black tracking-[0.06em] text-stone-500 whitespace-nowrap uppercase select-none font-sans">
             SISTEMA INTEGRADO DE VENDAS E RELACIONAMENTO
           </span>
-          <div className="h-[1.5px] bg-stone-900 w-3 shrink-0 rounded-full"></div>
+          <div className="h-[1.5px] bg-[#1d1f23] w-2.5 shrink-0 rounded-full"></div>
         </div>
       </div>
     </div>

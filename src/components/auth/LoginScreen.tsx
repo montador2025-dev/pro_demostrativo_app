@@ -26,7 +26,11 @@ import {
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
-export const LoginScreen: React.FC = () => {
+interface LoginScreenProps {
+  onBackToLanding?: () => void;
+}
+
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onBackToLanding }) => {
   const { users, setCurrentUser, usingLocalFallback, addAuditLog } = useAppContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -407,8 +411,16 @@ export const LoginScreen: React.FC = () => {
         className="w-full max-w-md relative z-10"
       >
         {/* Main Brand Logo Section */}
-        <div className="flex flex-col items-center mb-8 text-center px-4">
+        <div className="flex flex-col items-center mb-6 text-center px-4">
           <Logo showText={true} size="lg" className="mb-2" />
+          {onBackToLanding && (
+            <button
+              onClick={onBackToLanding}
+              className="mt-1 text-xs font-bold text-stone-500 hover:text-amber-700 transition-colors flex items-center gap-1 cursor-pointer bg-none border-none outline-none"
+            >
+              &larr; Voltar à Apresentação
+            </button>
+          )}
         </div>
 
         {/* Authentication Card Box */}

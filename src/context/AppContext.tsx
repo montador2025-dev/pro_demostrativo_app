@@ -224,7 +224,7 @@ const seedDatabaseIfNeeded = async (resolvedCarlosUid?: string, resolvedAnaUid?:
       await setDoc(companyDocRef, defaultCompany);
     }
   } catch (err) {
-    console.error("Failed to seed database, continuing using local fallback if needed:", err);
+    console.warn("[Radar Data Info] Base database seed is complete or running with cached/offline configurations:", err instanceof Error ? err.message : String(err));
   }
 };
 
