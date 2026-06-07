@@ -2,15 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>RadarConquista | radarconquista.com.br</title>
     <meta name="description" content="RadarConquista - Sistema Inteligente de Vendas e Relacionamento. Transformando atendimento em conquista de vendas." />
     
+    <!-- PWA Installation Support -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#b45309" />
+    
+    <!-- iOS / Apple Web App Specific Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="RadarConquista" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
     <!-- Open Graph / WhatsApp -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="RadarConquista - Sistema Inteligente" />
     <meta property="og:description" content="Transformando atendimento em conquista de vendas." />
-    <meta property="og:image" content="https://sonoshow.com.br/wp-content/uploads/2021/04/logo-sonoshow.png" />
+    <meta property="og:image" content="/logo.png" />
   </head>
   <body>
     <div id="root"></div>
