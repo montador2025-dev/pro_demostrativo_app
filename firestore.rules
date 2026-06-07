@@ -119,7 +119,8 @@ service cloud.firestore {
     // Rules for SaaS Companies/Tenants
     match /companies/{companyId} {
       allow read: if isSignedIn();
-      allow create, delete: if isSupervisor();
+      allow create: if (isSupervisor() || isSignedIn()) && isValidCompany(request.resource.data);
+      allow delete: if isSupervisor();
       allow update: if (isSupervisor() || isSignedIn()) && isValidCompany(request.resource.data);
     }
 

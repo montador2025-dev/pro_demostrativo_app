@@ -41,7 +41,9 @@ import {
   Bell,
   Volume2,
   VolumeX,
-  UserCircle2
+  UserCircle2,
+  Truck,
+  Wrench
 } from 'lucide-react';
 import { QuoteCategory, QuoteStatus, Product, QuoteItem } from '../../types';
 import { productCatalog, searchProducts } from '../../data/catalog';
@@ -195,6 +197,11 @@ export const SalespersonDashboard = () => {
   const [category, setCategory] = useState<QuoteCategory>('researching');
   const [customCategoryReason, setCustomCategoryReason] = useState('');
   const [returnDate, setReturnDate] = useState('');
+  
+  // Freight and Assembly parameters
+  const [shippingFeeStr, setShippingFeeStr] = useState<string>('0,00');
+  const [isAssemblyFree, setIsAssemblyFree] = useState<boolean>(true);
+  const [assemblyFeeStr, setAssemblyFeeStr] = useState<string>('0,00');
   
   // Upgraded Architecture State
   const [selectedItems, setSelectedItems] = useState<QuoteItem[]>([]);
@@ -818,6 +825,11 @@ export const SalespersonDashboard = () => {
       return toast.error('Valor Financeiro Inválido: O total do orçamento precisa ser maior que zero.');
     }
 
+    // Capture dynamic freight and assembly calculations
+    const finalShippingFee = parseCurrencyInput(shippingFeeStr);
+    const finalAssemblyFee = isAssemblyFree ? 0 : parseCurrencyInput(assemblyFeeStr);
+    const grandTotal = valueNum + finalShippingFee + finalAssemblyFee;
+
     // Prepare items list safely
     const finalItems = selectedItems.length > 0 ? selectedItems : [{
       productId: 'custom-item',
@@ -836,7 +848,7 @@ export const SalespersonDashboard = () => {
       clientName: trimmedName,
       clientPhone,
       productInterest: productInterest || 'Itens diversos de mobiliário',
-      value: valueNum,
+      value: grandTotal, // The overall grand total is stored as value of the quote
       category,
       customCategoryReason: category === 'other' ? customCategoryReason : undefined,
       returnDate: ISOdate,
@@ -844,7 +856,10 @@ export const SalespersonDashboard = () => {
       branchId: currentUser.branchId,
       items: finalItems,
       notes: observations.trim() || 'Nenhuma observação informada.',
-      validityDays: validityDays
+      validityDays: validityDays,
+      shippingFee: finalShippingFee,
+      assemblyFee: finalAssemblyFee,
+      isAssemblyFree: isAssemblyFree
     };
 
     // 1. Save locally
@@ -901,8 +916,10 @@ Validade: ${validityDays} dias
 
 📦 *PRODUTOS SELECIONADOS:*
 ${itemsLines}
-💵 *VALOR TOTAL:* ${formatCurrency(valueNum)}
-🚚 *FRETE & MONTAGEM:* GRÁTIS!
+🛋️ *VALOR DOS MÓVEIS:* ${formatCurrency(valueNum)}
+🚚 *TAXA DE ENTREGA (FRETE):* ${finalShippingFee > 0 ? formatCurrency(finalShippingFee) : 'GRÁTIS'}
+🔧 *SERVIÇO DE MONTAGEM:* ${isAssemblyFree || finalAssemblyFee === 0 ? 'GRÁTIS' : formatCurrency(finalAssemblyFee)}
+💰 *VALOR TOTAL GERAL:* ${formatCurrency(grandTotal)}
 
 ━━━━━━━━━━━━━━━━━━━━
 📌 ${generatePDF ? '📄 _O PDF formal detalhado foi enviado para seu e-mail ou disponibilizado para download. Caso precise, posso reenviar!_' : ''}
@@ -925,6 +942,9 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
     setSelectedItems([]);
     setObservations('');
     setValidityDays(5);
+    setShippingFeeStr('0,00');
+    setIsAssemblyFree(true);
+    setAssemblyFeeStr('0,00');
     setActiveTab('home'); // Go to list/dashboard
   };
 
@@ -1030,29 +1050,101 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
     return (
       <div className="space-y-6">
         
-        {/* Dynamic Warning Alert for follow-ups */}
+        {/* NOVO: Painel de Lembretes VIP com Cards Modernos (Substituindo o alerta simples/vago) */}
         {quotesNeedingAttention.length > 0 && (
           <motion.div 
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-5 bg-amber-50 border-l-4 border-amber-600 rounded-r-2xl flex items-center justify-between gap-4 shadow-sm"
+            className="p-6 rounded-3xl bg-amber-500/5 border border-amber-900/10 space-y-4"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-amber-700/10 rounded-full flex items-center justify-center text-amber-700">
-                <AlertCircle className="w-5 h-5" />
+            <div className="flex items-center gap-2 pb-1 border-b border-amber-900/10 justify-between">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                <h3 className="text-xs font-black uppercase text-amber-950 tracking-wider font-sans select-none">
+                  Lembrete Importante: Clientes Aguardando Retorno Hoje
+                </h3>
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-stone-900">Retornos Comerciais Importantes Pendentes!</h4>
-                <p className="text-xs text-stone-500">Você possui {quotesNeedingAttention.length} clientes cujo retorno programado é para hoje ou já está atrasado!</p>
-              </div>
+              <Badge className="bg-amber-100 text-amber-900 font-extrabold uppercase text-[8.5px] border-none py-0.5 px-2.5">
+                {quotesNeedingAttention.length} pendentes
+              </Badge>
             </div>
-            <Button 
-              variant="outline"
-              onClick={() => setActiveTab('followup')}
-              className="text-xs font-bold text-amber-800 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-4 py-2 rounded-xl transition-all border-none"
-            >
-              Contactar Clientes
-            </Button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {quotesNeedingAttention.slice(0, 4).map(quote => (
+                <motion.div
+                  key={quote.id}
+                  whileHover={{ y: -3 }}
+                  className="flex flex-col justify-between p-5 rounded-2xl bg-white border border-stone-200 hover:border-amber-700/30 shadow-xs relative overflow-hidden group transition-all"
+                >
+                  {/* Decorative badge background pattern */}
+                  <div className="absolute top-0 right-0 p-8 opacity-[0.03] -mr-4 -mt-4 transition-all group-hover:scale-110 pointer-events-none">
+                    <Clock className="w-24 h-24 text-stone-900" />
+                  </div>
+
+                  <div className="space-y-3 relative z-10">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <span className="text-[9px] font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-lg border border-amber-200">
+                          ⏳ Exige Contato
+                        </span>
+                        <h4 className="text-sm font-black text-stone-950 tracking-tight uppercase mt-2">
+                          {quote.clientName}
+                        </h4>
+                      </div>
+                      
+                      <div className="text-right">
+                        <span className="block text-[8px] font-bold text-stone-400 font-mono">ID: #{quote.id.substring(0, 6)}</span>
+                        <span className="text-[10px] font-extrabold text-[#b45309] font-mono">
+                          {formatLocalDate(quote.returnDate)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 p-3 rounded-xl bg-stone-50 border border-stone-100">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-stone-900">
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-700" />
+                        <span className="truncate">{quote.productInterest || 'Apenas Consulta de Orçamento'}</span>
+                      </div>
+                      {quote.notes && (
+                        <p className="text-[9.5px] text-stone-500 italic line-clamp-1">
+                          "obs: {quote.notes}"
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-stone-105">
+                    <div className="text-xs font-black text-amber-950">
+                      Proposta: {formatCurrency(quote.value)}
+                    </div>
+                    
+                    <div className="flex items-center gap-1.5">
+                      {/* WhatsApp Fast Contact CTA */}
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          const msg = `Olá *${quote.clientName}*! Tudo bem?\nAqui é o consultor *${currentUser.name}* da RadarConquista.\n\nLembra do orçamento de *${quote.productInterest}* no valor de *${formatCurrency(quote.value)}* que organizamos para você? \nEstou passando para saber se podemos aprovar o seu pedido ou se ficou alguma dúvida sobre as opções de parcelamento! Como ficou para você?`;
+                          window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
+                        }}
+                        className="h-8 text-[9px] font-extrabold uppercase px-3 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white border-none flex items-center gap-1 shadow-3xs hover:scale-103 transition-all"
+                      >
+                        <MessageSquare className="w-3 h-3" /> Chamar WhatsApp
+                      </Button>
+                      
+                      {/* View Client Details Tab Redirect */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setActiveTab('followup')}
+                        className="h-8 text-[9px] font-black uppercase px-2.5 rounded-lg border-stone-200 text-stone-700 bg-white hover:bg-stone-50"
+                      >
+                        Ver Ficha
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </motion.div>
         )}
 
@@ -1521,9 +1613,159 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                     <span className="text-[8px] text-stone-400 block font-medium">* Preenche sozinho quando adiciona itens do carrinho ou edite.</span>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Preço Total do Orçamento (R$)</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-stone-500 ml-1">Valor Total dos Móveis (R$)</Label>
                     <Input className="h-11 rounded-xl border-stone-200 text-lg font-black text-amber-700 focus:border-amber-700 bg-white" placeholder="0,00" value={quoteValueStr} onChange={handleValueChange} required />
-                    <span className="text-[8px] text-stone-400 block font-medium">* Soma automática do carrinho de produtos.</span>
+                    <span className="text-[8px] text-stone-400 block font-medium">* Valor base dos móveis sem frete ou montagem.</span>
+                  </div>
+                </div>
+
+                {/* NOVO: Organização Exclusiva de Frete e Montagem profissional */}
+                <div className="p-5 rounded-2xl bg-amber-500/5 border border-amber-900/10 space-y-5">
+                  <div className="flex items-center gap-2.5 pb-3 border-b border-stone-200/60">
+                    <Truck className="w-5 h-5 text-amber-800" />
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-stone-950">Serviços de Entrega e Montagem</h4>
+                      <p className="text-[10px] text-stone-500 font-semibold">Defina de forma organizada se haverá taxas extras ou se a montagem/frete será cortesia.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Linha de Frete */}
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-wider text-stone-600 block">🚚 Taxa de Entrega (Frete)</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShippingFeeStr('0,00')}
+                          className={`h-10 rounded-xl text-xs font-extrabold transition-all border ${
+                            parseCurrencyInput(shippingFeeStr) === 0
+                              ? 'bg-amber-950 text-white border-amber-950 shadow-sm'
+                              : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          Entrega Grátis
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (parseCurrencyInput(shippingFeeStr) === 0) {
+                              setShippingFeeStr('50,00');
+                            }
+                          }}
+                          className={`h-10 rounded-xl text-xs font-extrabold transition-all border ${
+                            parseCurrencyInput(shippingFeeStr) > 0
+                              ? 'bg-amber-950 text-white border-amber-950 shadow-sm'
+                              : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          Valor Manual
+                        </button>
+                      </div>
+
+                      {parseCurrencyInput(shippingFeeStr) > 0 && (
+                        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="space-y-1.5 pt-1">
+                          <Label className="text-[9px] font-bold uppercase text-stone-500">Valor do Frete Cobrado (R$)</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-stone-400">R$</span>
+                            <Input
+                              className="h-10 pl-9 rounded-xl border-stone-200 text-xs font-bold text-stone-950 bg-white"
+                              value={shippingFeeStr}
+                              onChange={(e) => setShippingFeeStr(formatCurrencyInput(e.target.value))}
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+
+                    {/* Linha de Montagem */}
+                    <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase tracking-wider text-stone-600 block">🔧 Serviço de Montagem</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAssemblyFree(true);
+                            setAssemblyFeeStr('0,00');
+                          }}
+                          className={`h-10 rounded-xl text-xs font-extrabold transition-all border ${
+                            isAssemblyFree
+                              ? 'bg-amber-950 text-white border-amber-950 shadow-sm'
+                              : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          Montagem Grátis
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAssemblyFree(false);
+                            if (parseCurrencyInput(assemblyFeeStr) === 0) {
+                              setAssemblyFeeStr('75,00');
+                            }
+                          }}
+                          className={`h-10 rounded-xl text-xs font-extrabold transition-all border ${
+                            !isAssemblyFree
+                              ? 'bg-amber-950 text-white border-amber-950 shadow-sm'
+                              : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                          }`}
+                        >
+                          Cobrar Montagem
+                        </button>
+                      </div>
+
+                      {!isAssemblyFree && (
+                        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="space-y-1.5 pt-1">
+                          <Label className="text-[9px] font-bold uppercase text-stone-500">Valor da Montagem Cobrada (R$)</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-stone-400">R$</span>
+                            <Input
+                              className="h-10 pl-9 rounded-xl border-stone-200 text-xs font-bold text-stone-950 bg-white"
+                              value={assemblyFeeStr}
+                              onChange={(e) => setAssemblyFeeStr(formatCurrencyInput(e.target.value))}
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Resumo Consolidado do Fechamento */}
+                  <div className="mt-4 p-4 rounded-xl bg-stone-950 text-stone-100 space-y-2.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-amber-500 block">Detalhamento da Proposta e Valores</span>
+                    
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-stone-400 font-medium font-sans">🛋️ Total dos Móveis:</span>
+                      <span className="font-extrabold text-white">
+                        {formatCurrency(parseCurrencyInput(quoteValueStr))}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-stone-400 font-medium font-sans">🚚 Taxa de Entrega (Frete):</span>
+                      <span className={`font-black ${parseCurrencyInput(shippingFeeStr) === 0 ? 'text-emerald-400' : 'text-white'}`}>
+                        {parseCurrencyInput(shippingFeeStr) === 0 ? 'CORTESIA / GRÁTIS' : formatCurrency(parseCurrencyInput(shippingFeeStr))}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-stone-400 font-medium font-sans">🔧 Serviço de Montagem:</span>
+                      <span className={`font-black ${isAssemblyFree || parseCurrencyInput(assemblyFeeStr) === 0 ? 'text-emerald-400' : 'text-white'}`}>
+                        {isAssemblyFree || parseCurrencyInput(assemblyFeeStr) === 0 ? 'CORTESIA / GRÁTIS' : formatCurrency(parseCurrencyInput(assemblyFeeStr))}
+                      </span>
+                    </div>
+
+                    <div className="h-px bg-stone-800 my-1" />
+
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-black text-amber-500 uppercase tracking-wider">💰 VALOR TOTAL GERAL DA PROPOSTA:</span>
+                      <span className="text-lg font-black text-white tracking-tight">
+                        {formatCurrency(
+                          parseCurrencyInput(quoteValueStr) +
+                          parseCurrencyInput(shippingFeeStr) +
+                          (isAssemblyFree ? 0 : parseCurrencyInput(assemblyFeeStr))
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

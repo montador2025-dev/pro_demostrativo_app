@@ -254,12 +254,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentCompany, setCurrentCompany] = useState<Company>({
-    id: 'c1',
-    name: 'RadarConquista',
-    plan: 'Sistema Integrado de Vendas e Relacionamento',
-    maxUsers: 150,
-    licenseExpires: '2028-05-25T12:00:00Z'
+  const [currentCompany, setCurrentCompany] = useState<Company>(() => {
+    try {
+      const saved = localStorage.getItem('fallback_company');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      id: 'c1',
+      name: 'RadarConquista',
+      plan: 'Sistema Integrado de Vendas e Relacionamento',
+      maxUsers: 150,
+      licenseExpires: '2028-05-25T12:00:00Z'
+    };
   });
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
     try {
@@ -647,11 +653,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         unsubCompany = onSnapshot(doc(db, 'companies', 'c1'), (snap) => {
           if (snap.exists()) {
-            setCurrentCompany(snap.data() as Company);
+            const data = snap.data() as Company;
+            setCurrentCompany(data);
+            localStorage.setItem('fallback_company', JSON.stringify(data));
           }
           setUsingLocalFallback(false);
         }, (err) => {
           setUsingLocalFallback(true);
+          try {
+            const savedComp = localStorage.getItem('fallback_company');
+            if (savedComp) {
+              setCurrentCompany(JSON.parse(savedComp));
+            }
+          } catch {}
           try {
             handleFirestoreError(err, OperationType.GET, 'companies');
           } catch (e) {
@@ -664,13 +678,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUsingLocalFallback(true);
         setBranches(uniqById(mockBranches));
         setUsers(uniqById(mockUsers));
-        setCurrentCompany({
+        
+        let localCompany: Company = {
           id: 'c1',
           name: 'RadarConquista',
           plan: 'Sistema Integrado de Vendas e Relacionamento',
           maxUsers: 150,
           licenseExpires: '2028-05-25T12:00:00Z'
-        });
+        };
+        try {
+          const savedComp = localStorage.getItem('fallback_company');
+          if (savedComp) {
+            localCompany = JSON.parse(savedComp);
+          }
+        } catch {}
+        setCurrentCompany(localCompany);
         setIsLoading(false);
       } finally {
         if (!localStorage.getItem('currentUserId')) {

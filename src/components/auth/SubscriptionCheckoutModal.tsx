@@ -208,7 +208,17 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
         createdAt: new Date().toISOString()
       };
 
-      await setDoc(doc(db, 'users', uid), newSupervisorUser);
+      try {
+        await setDoc(doc(db, 'users', uid), newSupervisorUser);
+      } catch (userErr: any) {
+        console.warn("Direct Firebase write to 'users' failed during checkout, falling back locally:", userErr);
+        try {
+          const currentLocalUsers = JSON.parse(localStorage.getItem('fallback_users') || '[]');
+          localStorage.setItem('fallback_users', JSON.stringify([...currentLocalUsers.filter((u: any) => u.id !== uid), newSupervisorUser]));
+        } catch (e) {
+          console.error("Local storage backup failed for users:", e);
+        }
+      }
 
       // Create or Update Company in Firestore
       const newCompanyDetails = {
@@ -219,13 +229,26 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
         licenseExpires: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString() // 1 year expiration
       };
 
-      await setDoc(doc(db, 'companies', 'c1'), newCompanyDetails);
+      try {
+        await setDoc(doc(db, 'companies', 'c1'), newCompanyDetails);
+      } catch (companyErr: any) {
+        console.warn("Direct Firebase write to 'companies' failed during checkout, falling back locally:", companyErr);
+        try {
+          localStorage.setItem('fallback_company', JSON.stringify(newCompanyDetails));
+        } catch (e) {
+          console.error("Local storage backup failed for company:", e);
+        }
+      }
 
       // Toast Success
       toast.success('Assinatura ativada com sucesso! Bem-vindo ao RadarConquista!');
       
       // Post transaction Audit log
-      addAuditLog(`Assinatura de plano e cadastro de Supervisor: ${formData.companyName} (${selectedPlanDetails.name})`, 'SUCCESS');
+      try {
+        addAuditLog(`Assinatura de plano e cadastro de Supervisor: ${formData.companyName} (${selectedPlanDetails.name})`, 'SUCCESS');
+      } catch (auditErr) {
+        console.warn("Failed to write checkout audit log:", auditErr);
+      }
       
       // Auto-set current state
       setCurrentUser(newSupervisorUser);

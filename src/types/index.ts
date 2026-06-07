@@ -69,6 +69,10 @@ export interface Quote {
   notes?: string;
   validityDays?: number;
   
+  shippingFee?: number;
+  assemblyFee?: number;
+  isAssemblyFree?: boolean;
+  
   createdAt: string;
 }
 

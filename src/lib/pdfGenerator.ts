@@ -332,30 +332,53 @@ export async function generateProfessionalQuotePDF({
     doc.setDrawColor(226, 232, 240);
     doc.rect(rightColX, currentY, 70, 32, 'S');
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.setTextColor(100, 116, 139);
-    doc.text('SUBTOTAL', rightColX + 5, currentY + 6);
-    doc.text(formatReal(quote.value), rightColX + 65, currentY + 6, { align: 'right' });
+    const sFee = quote.shippingFee ?? 0;
+    const aFee = (quote.isAssemblyFree !== false) ? 0 : (quote.assemblyFee ?? 0);
+    const subtotalVal = quote.value - sFee - aFee;
 
-    doc.text('FRETE / MONTAGEM', rightColX + 5, currentY + 12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(34, 197, 94); // Green 500
-    doc.text('GRÁTIS', rightColX + 65, currentY + 12, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('SUBTOTAL (MÓVEIS)', rightColX + 5, currentY + 5.5);
+    doc.text(formatReal(subtotalVal), rightColX + 65, currentY + 5.5, { align: 'right' });
+
+    doc.text('TAXA DE ENTREGA (FRETE)', rightColX + 5, currentY + 10.5);
+    if (sFee > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(formatReal(sFee), rightColX + 65, currentY + 10.5, { align: 'right' });
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(34, 197, 94); // Green
+      doc.text('GRÁTIS', rightColX + 65, currentY + 10.5, { align: 'right' });
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('SERVIÇO DE MONTAGEM', rightColX + 5, currentY + 15.5);
+    if (aFee > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(formatReal(aFee), rightColX + 65, currentY + 15.5, { align: 'right' });
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(34, 197, 94); // Green
+      doc.text('GRÁTIS', rightColX + 65, currentY + 15.5, { align: 'right' });
+    }
 
     // Separation line
     doc.setDrawColor(226, 232, 240);
-    doc.line(rightColX, currentY + 18, rightColX + 70, currentY + 18);
+    doc.line(rightColX, currentY + 20, rightColX + 70, currentY + 20);
 
     // Active Total Box
     doc.setFillColor(2, 6, 23); // Dark slate bg for intense professional total emphasis
-    doc.rect(rightColX, currentY + 18, 70, 14, 'F');
+    doc.rect(rightColX, currentY + 20, 70, 12, 'F');
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(251, 191, 36); // Golden Amber 400
-    doc.setFontSize(10.5);
-    doc.text('TOTAL', rightColX + 5, currentY + 27);
-    doc.text(formatReal(quote.value), rightColX + 65, currentY + 27, { align: 'right' });
+    doc.setFontSize(10);
+    doc.text('TOTAL GERAL', rightColX + 5, currentY + 28);
+    doc.text(formatReal(quote.value), rightColX + 65, currentY + 28, { align: 'right' });
 
     currentY += 40;
 
