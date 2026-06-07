@@ -11,8 +11,10 @@ import {
   Clock, 
   Monitor, 
   FileText, 
-  ShieldCheck
+  ShieldCheck,
+  Check
 } from 'lucide-react';
+import { SubscriptionCheckoutModal } from '../auth/SubscriptionCheckoutModal';
 
 interface LandingPageProps {
   onEnterPortal: () => void;
@@ -21,6 +23,15 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
   // Active pillar for the deep-dive interactive switcher
   const [activeSegment, setActiveSegment] = useState<'sales' | 'manager' | 'supervisor'>('sales');
+  
+  // Checkout modal states
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'individual' | 'store' | 'network'>('store');
+
+  const openCheckout = (plan: 'individual' | 'store' | 'network') => {
+    setSelectedPlan(plan);
+    setIsCheckoutOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-[#faf9f5] text-stone-800 font-sans antialiased selection:bg-amber-100 selection:text-amber-900 overflow-x-hidden">
@@ -422,6 +433,119 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
         </div>
       </section>
 
+      {/* SaaS Pricing Plans Section */}
+      <section id="planos" className="max-w-7xl mx-auto px-4 sm:px-8 py-16 space-y-12 border-t border-stone-200/60">
+        <div className="text-center max-w-2xl mx-auto space-y-3">
+          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Planos de Assinatura Comercial</p>
+          <h2 className="text-3xl sm:text-4xl font-sans font-black text-stone-900 tracking-tight">
+            Preços transparentes para impulsionar suas vendas
+          </h2>
+          <p className="text-stone-500 text-sm sm:text-base">
+            Selecione o plano ideal para sua operação e ative instantaneamente com nossa API de cobrança integrada.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
+          {/* Plan 1 */}
+          <div className="bg-white border border-stone-200 rounded-2xl p-6 sm:p-8 flex flex-col justify-between transition-all hover:shadow-lg shadow-sm">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-extrabold text-stone-400 uppercase tracking-wider">Pessoal</p>
+                <h3 className="text-xl font-extrabold text-stone-800 mt-0.5">Consultor Individual</h3>
+              </div>
+              <p className="text-stone-550 text-xs min-h-[40px]">Perfeito para projetistas autônomos e representantes independentes.</p>
+              <div className="pt-2">
+                <span className="text-3xl font-black text-stone-950 font-mono">R$ 49</span>
+                <span className="text-xs text-stone-400 ml-1">/mês</span>
+              </div>
+              
+              <div className="h-px bg-stone-100" />
+              
+              <ul className="space-y-2.5 pt-2 text-xs text-stone-600">
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Aplicativo móvel completo</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Histórico individual de clientes</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Geração de PDFs ilimitados</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> WhatsApp Link integrado</li>
+              </ul>
+            </div>
+            
+            <button
+              onClick={() => openCheckout('individual')}
+              className="mt-8 w-full py-3 px-4 bg-stone-900 text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl hover:bg-amber-700 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+            >
+              Assinar Plano Consultor
+            </button>
+          </div>
+
+          {/* Plan 2 */}
+          <div className="bg-white border-2 border-amber-700 rounded-2xl p-6 sm:p-8 flex flex-col justify-between transition-all hover:shadow-xl shadow-md relative">
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-700 text-white font-extrabold text-[9px] uppercase tracking-wider rounded-full shadow-md z-10 whitespace-nowrap animate-pulse">
+              Destaque • Loja Completa
+            </span>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-extrabold text-amber-700 uppercase tracking-wider font-sans">Recomendado</p>
+                <h3 className="text-xl font-extrabold text-stone-800 mt-0.5">Plano Loja Única</h3>
+              </div>
+              <p className="text-stone-550 text-xs min-h-[40px]">Controle e auditoria centralizados para a sua loja física e vendedores.</p>
+              <div className="pt-2">
+                <span className="text-3xl font-black text-amber-700 font-mono">R$ 149</span>
+                <span className="text-xs text-stone-400 ml-1">/mês</span>
+              </div>
+              
+              <div className="h-px bg-stone-100" />
+              
+              <ul className="space-y-2.5 pt-2 text-xs text-stone-600 font-medium">
+                <li className="flex items-center gap-2 text-stone-800 font-bold"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Até 15 consultores integrados</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Canal do Supervisor Master</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Reatribuição inteligente de leads</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Configuração de metas de venda</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-emerald-600 shrink-0" /> Auditoria detalhada de logs</li>
+              </ul>
+            </div>
+            
+            <button
+              onClick={() => openCheckout('store')}
+              className="mt-8 w-full py-3.5 px-4 bg-amber-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl hover:bg-amber-800 transition-all cursor-pointer shadow-lg shadow-amber-700/10 active:scale-[0.98]"
+            >
+              Assinar Plano Loja Única
+            </button>
+          </div>
+
+          {/* Plan 3 */}
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 sm:p-8 flex flex-col justify-between transition-all hover:shadow-lg shadow-sm text-stone-200">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-extrabold text-amber-500 uppercase tracking-wider">Escala Corporativa</p>
+                <h3 className="text-xl font-extrabold text-white mt-0.5">Redes & Corporativo</h3>
+              </div>
+              <p className="text-stone-400 text-xs min-h-[40px]">Infraestrutura integrada para grandes marcas, franquias e showrooms corporativos.</p>
+              <div className="pt-2">
+                <span className="text-3xl font-black text-amber-500 font-mono">R$ 389</span>
+                <span className="text-xs text-stone-400 ml-1">/mês</span>
+              </div>
+              
+              <div className="h-px bg-stone-800" />
+              
+              <ul className="space-y-2.5 pt-2 text-xs text-stone-300">
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 shrink-0" /> Filiais e Lojasilimitadas</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 shrink-0" /> Multi-supervisor e gerentes</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 shrink-0" /> Auditoria remota avançada de IPs</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 shrink-0" /> SLA & suporte prioritário VIP</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-amber-500 shrink-0" /> Backups redundantes em nuvem</li>
+              </ul>
+            </div>
+            
+            <button
+              onClick={() => openCheckout('network')}
+              className="mt-8 w-full py-3 px-4 bg-amber-500 text-stone-950 font-black text-[11px] uppercase tracking-wider rounded-xl hover:bg-amber-600 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+            >
+              Assinar Plano Redes
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Bottom Section */}
       <section className="bg-amber-50 py-16 px-4 sm:px-8 text-center relative overflow-hidden">
         <div className="max-w-4xl mx-auto space-y-6 relative z-10">
@@ -435,7 +559,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
             <button
               onClick={onEnterPortal}
               id="landing-bottom-cta-btn"
-              className="px-10 py-4 bg-stone-950 text-white font-extrabold uppercase text-xs tracking-widest rounded-xl hover:bg-amber-700 hover:shadow-xl hover:shadow-amber-700/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 mx-auto cursor-pointer"
+              className="px-10 py-4 bg-stone-950 text-white font-extrabold uppercase text-xs tracking-widest rounded-xl hover:bg-amber-700 hover:shadow-xl hover:shadow-amber-700/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 mx-auto cursor-pointer font-sans"
             >
               Iniciar Painel de Controle 
               <ArrowRight className="w-4 h-4" />
@@ -460,6 +584,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterPortal }) => {
           </p>
         </div>
       </footer>
+
+      {/* Subscription Activation Modal */}
+      <SubscriptionCheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        initialPlan={selectedPlan}
+      />
 
     </div>
   );

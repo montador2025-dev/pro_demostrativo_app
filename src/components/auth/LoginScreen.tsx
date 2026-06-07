@@ -21,10 +21,14 @@ import {
   UserCircle2, 
   Smartphone, 
   HelpCircle,
-  Activity
+  Activity,
+  Sparkles,
+  ArrowRight,
+  CheckCircle2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
+import { SubscriptionCheckoutModal } from './SubscriptionCheckoutModal';
 
 interface LoginScreenProps {
   onBackToLanding?: () => void;
@@ -36,8 +40,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBackToLanding }) => 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'credentials' | 'demo'>('credentials');
+  const [activeTab, setActiveTab] = useState<'credentials' | 'subscribe'>('credentials');
   const [invitedUser, setInvitedUser] = useState<any | null>(null);
+
+  // Checkout modal states
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'individual' | 'store' | 'network'>('store');
+
+  const openCheckout = (plan: 'individual' | 'store' | 'network') => {
+    setSelectedPlan(plan);
+    setIsCheckoutOpen(true);
+  };
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -351,7 +364,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBackToLanding }) => 
         } else if (error.code === 'auth/too-many-requests') {
           errorMsg = 'Acesso temporariamente bloqueado devido a múltiplas tentativas.';
         }
-        toast.error(`${errorMsg} (Dica: Use a aba 'Atalhos Demo' de simulação!)`);
+        toast.error(errorMsg);
       }
     } finally {
       setIsSubmitting(false);
@@ -452,23 +465,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBackToLanding }) => 
                 onClick={() => setActiveTab('credentials')}
                 className={`flex-1 text-center py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
                   activeTab === 'credentials'
-                    ? 'bg-white text-stone-900 shadow-xs ring-1 ring-stone-950/5'
+                    ? 'bg-white text-stone-900 shadow-sm ring-1 ring-stone-950/5'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
-                Credenciais
+                Acesso Seguro
               </button>
               <button
                 type="button"
-                onClick={() => setActiveTab('demo')}
+                onClick={() => setActiveTab('subscribe')}
                 className={`flex-1 text-center py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  activeTab === 'demo'
-                    ? 'bg-white text-stone-900 shadow-xs ring-1 ring-stone-950/5'
+                  activeTab === 'subscribe'
+                    ? 'bg-white text-stone-900 shadow-sm ring-1 ring-stone-950/5'
                     : 'text-stone-500 hover:text-stone-800'
                 }`}
               >
-                <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                Atalhos Demo
+                <Sparkles className="w-3.5 h-3.5 text-amber-750 fill-amber-700/20" />
+                Assinar Plano
               </button>
             </div>
 
@@ -551,75 +564,96 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onBackToLanding }) => 
                   )}
                 </Button>
 
-                {/* Helpful Hints regarding Seed Users */}
+                 {/* Helpful Hints regarding Credentials */}
                 <div className="bg-stone-50 rounded-xl p-3.5 border border-stone-200/50 mt-6 text-xs text-stone-500 leading-relaxed font-sans">
                   <div className="flex items-start gap-2">
-                    <HelpCircle className="w-4.5 h-4.5 text-stone-400 shrink-0 mt-0.5" />
+                    <HelpCircle className="w-4.5 h-4.5 text-amber-700 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-bold text-stone-700">Dica de Desenvolvimento:</p>
-                      <p className="mt-1">Use a aba de <strong>Atalhos Demo</strong> para iniciar sessões diretamente com perfis pré-configurados (Carlos, Ana, etc.) de forma ágil e prática.</p>
-                      <p className="mt-2 text-[10px] text-stone-400">Senha global para testes: <code className="bg-stone-200/80 px-1 py-0.5 rounded text-stone-600 font-bold font-mono">radar123</code></p>
+                      <p className="font-bold text-stone-700">Dica de Acesso:</p>
+                      <p className="mt-1">Digite o seu e-mail corporativo cadastrado (ex: <code className="bg-stone-200/80 px-1 py-0.5 rounded text-stone-600 font-bold font-mono">supervisor@radar.com</code>) e a senha criada para acessar o showroom.</p>
+                      <p className="mt-2 text-[10px] text-stone-400 font-semibold">Seus dados estão 100% integrados em nuvem com o banco Firestore.</p>
                     </div>
                   </div>
                 </div>
               </form>
             )}
-
-            {/* TAB 2: Dynamic Demo Shortcuts */}
-            {activeTab === 'demo' && (
-              <div className="space-y-3.5">
-                <p className="text-xs text-stone-500 font-semibold text-center mb-4">
-                  Selecione um perfil de simulação para acessar instantaneamente:
+ 
+            {/* TAB 2: SaaS Subscription Plans */}
+            {activeTab === 'subscribe' && (
+              <div className="space-y-4 animate-fade-in font-sans">
+                <p className="text-xs text-stone-500 font-semibold text-center mb-2">
+                  Selecione o plano ideal para sua operação e ative sua conta:
                 </p>
-
-                {users.length === 0 ? (
-                  <div className="p-8 text-center text-stone-400 animate-pulse text-xs font-bold uppercase tracking-wider">
-                    Sincronizando banco de dados...
-                  </div>
-                ) : (
-                  users.map((user) => {
-                    const emailString = getEmailForUser(user.name, user.phone, user.id);
-                    
-                    return (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => handleQuickLogin(user)}
-                        disabled={isSubmitting}
-                        className="w-full text-left p-3.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100/70 hover:border-stone-300 active:bg-stone-50 transition-all flex items-center justify-between cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-white border border-stone-200 flex items-center justify-center shadow-xs">
-                            {getRoleIcon(user.role)}
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-stone-900 truncate">
-                              {user.name}
-                            </h4>
-                            <p className="text-[10px] font-mono text-stone-400 truncate mt-0.5">
-                              {emailString}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="shrink-0 pl-2">
-                          {getRoleBadge(user.role)}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
+ 
+                <div className="space-y-3">
+                  {/* Plan Card Option 1 */}
+                  <button
+                    type="button"
+                    onClick={() => openCheckout('individual')}
+                    className="w-full text-left p-3.5 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100/70 hover:border-stone-300 transition-all flex items-center justify-between cursor-pointer"
+                  >
+                    <div>
+                      <h4 className="text-xs font-bold text-stone-800 uppercase">Consultor Avulso</h4>
+                      <p className="text-[10px] text-stone-400 font-medium">Histórico pessoal e PDFs independentes</p>
+                    </div>
+                    <div className="text-right pb-1.5 font-bold text-stone-900 leading-none">
+                      <span className="text-xs font-black font-mono">R$ 49/mês</span>
+                    </div>
+                  </button>
+ 
+                  {/* Plan Card Option 2 */}
+                  <button
+                    type="button"
+                    onClick={() => openCheckout('store')}
+                    className="w-full text-left p-3.5 rounded-xl border-2 border-amber-700 bg-amber-50/10 hover:bg-amber-50/20 transition-all flex items-center justify-between cursor-pointer"
+                  >
+                    <div>
+                      <h4 className="text-xs font-bold text-amber-900 uppercase">Plano Loja Única</h4>
+                      <p className="text-[10px] text-stone-500 font-medium whitespace-nowrap">Até 15 consultores • Recomendado</p>
+                    </div>
+                    <div className="text-right pb-1.5 font-bold text-amber-700 leading-none">
+                      <span className="text-xs font-black font-mono">R$ 149/mês</span>
+                    </div>
+                  </button>
+ 
+                  {/* Plan Card Option 3 */}
+                  <button
+                    type="button"
+                    onClick={() => openCheckout('network')}
+                    className="w-full text-left p-3.5 rounded-xl border border-stone-200 bg-stone-900 hover:bg-stone-850 text-white transition-all flex items-center justify-between cursor-pointer"
+                  >
+                    <div>
+                      <h4 className="text-xs font-bold text-white uppercase">Redes & Corporativo</h4>
+                      <p className="text-[10px] text-stone-400 font-normal">Unidades ilimitadas + IP Auditoria</p>
+                    </div>
+                    <div className="text-right pb-1.5 font-bold text-amber-400 leading-none">
+                      <span className="text-xs font-black font-mono">R$ 389/mês</span>
+                    </div>
+                  </button>
+                </div>
+ 
+                <p className="text-[10px] text-stone-400 leading-relaxed pt-2 text-center font-medium">
+                  Ative o plano para criar de forma automática o seu usuário de Supervisor Master com o nome da sua empresa personalizado.
+                </p>
               </div>
             )}
-
+ 
           </div>
-
+ 
         </Card>
-
+ 
         {/* Footer legalities */}
         <p className="text-center text-[10px] uppercase font-black tracking-widest text-stone-400 mt-8 select-none">
           RadarConquista • AtendePro CRM SaaS v2.5
         </p>
       </motion.div>
+ 
+      {/* Subscription Checkout Modal */}
+      <SubscriptionCheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        initialPlan={selectedPlan}
+      />
     </div>
   );
 };
