@@ -46,7 +46,7 @@ import {
   Wrench
 } from 'lucide-react';
 import { QuoteCategory, QuoteStatus, Product, QuoteItem } from '../../types';
-import { productCatalog, searchProducts } from '../../data/catalog';
+import { productCatalog, searchProducts, getRawCatalogBySegment } from '../../data/catalog';
 import { generateProfessionalQuotePDF } from '../../lib/pdfGenerator';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -215,6 +215,22 @@ export const SalespersonDashboard = () => {
   const [showStatusLegend, setShowStatusLegend] = useState(true);
   const [playedReminderIds, setPlayedReminderIds] = useState<string[]>([]);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  // Dynamic Segment Selector & Custom Category Form State Hooks
+  const [activeSegment, setActiveSegment] = useState<'furniture' | 'clothing' | 'shoes' | 'perfume'>('furniture');
+  const [isCustomFormOpen, setIsCustomFormOpen] = useState(false);
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+  const [customItemCode, setCustomItemCode] = useState('');
+  const [customItemCategory, setCustomItemCategory] = useState('');
+  const [customItemDesc, setCustomItemDesc] = useState('');
+  
+  // Segment-specific manual specifications
+  const [customSize, setCustomSize] = useState('M');
+  const [customColor, setCustomColor] = useState('');
+  const [customMaterial, setCustomMaterial] = useState('');
+  const [customVolume, setCustomVolume] = useState('100ml');
+  const [customBrand, setCustomBrand] = useState('O Boticário');
 
   // MÓDULO 1 & 2: API UNIVERSAL DE CATÁLOGO & BUSCA INTELIGENTE
   const [catalogSearchMode, setCatalogSearchMode] = useState<'local' | 'online'>('online');
@@ -548,19 +564,28 @@ export const SalespersonDashboard = () => {
   };
   const currentBadge = getBadgeTier(wonSalesTotal);
 
+  // --- Real-time Segment-Aware Catalog Retrieval ---
+  const segmentCatalog = useMemo(() => {
+    return getRawCatalogBySegment(activeSegment);
+  }, [activeSegment]);
+
+  // Reset category on segment change to avoid empty queries
+  useEffect(() => {
+    setActiveCatalogCategory('Todos');
+  }, [activeSegment]);
+
   // --- Real-time Catalog Search Query Filter ---
   const filteredCatalogQuery = useMemo(() => {
-    let results = productCatalog;
+    let results = segmentCatalog;
     const isSearching = catalogSearch.trim().length > 0;
 
     if (isSearching) {
-      const globalResults = searchProducts(catalogSearch);
+      const globalResults = searchProducts(catalogSearch, activeSegment);
       if (activeCatalogCategory !== 'Todos') {
         const localResults = globalResults.filter(p => p.category === activeCatalogCategory);
         if (localResults.length > 0) {
           return localResults;
         }
-        // If query search brings nothing in the selected category, search globally to avoid frustrating the salesman
         return globalResults;
       }
       return globalResults;
@@ -570,20 +595,86 @@ export const SalespersonDashboard = () => {
       }
       return results;
     }
-  }, [catalogSearch, activeCatalogCategory]);
+  }, [catalogSearch, activeCatalogCategory, segmentCatalog, activeSegment]);
 
   const isFallbackSearch = useMemo(() => {
     if (!catalogSearch.trim() || activeCatalogCategory === 'Todos') return false;
-    const globalResults = searchProducts(catalogSearch);
+    const globalResults = searchProducts(catalogSearch, activeSegment);
     if (globalResults.length === 0) return false;
     const localResults = globalResults.filter(p => p.category === activeCatalogCategory);
     return localResults.length === 0;
-  }, [catalogSearch, activeCatalogCategory]);
+  }, [catalogSearch, activeCatalogCategory, activeSegment]);
 
   const uniqueCategories = useMemo(() => {
-    const cats = new Set(productCatalog.map(p => p.category));
+    const cats = new Set(segmentCatalog.map(p => p.category));
     return ['Todos', ...Array.from(cats)];
-  }, []);
+  }, [segmentCatalog]);
+
+  const handleAddCustomProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customItemName.trim()) {
+      toast.error("Por favor, digite o nome do produto!");
+      return;
+    }
+    const priceNum = parseFloat(customItemPrice) || 0;
+    if (priceNum <= 0) {
+      toast.error("O preço deve ser superior a zero!");
+      return;
+    }
+
+    // Dynamic specification construction per catalog segment category
+    let specStr = '';
+    if (activeSegment === 'furniture') {
+      const parts = [];
+      if (customMaterial) parts.push(`Material: ${customMaterial}`);
+      if (customVolume) parts.push(`Dimensões: ${customVolume}`);
+      specStr = parts.join(' | ') || 'Design Sob Encomenda';
+    } else if (activeSegment === 'clothing') {
+      const parts = [];
+      if (customSize) parts.push(`Tamanho: ${customSize}`);
+      if (customColor) parts.push(`Cor: ${customColor}`);
+      if (customMaterial) parts.push(`Tecido: ${customMaterial}`);
+      specStr = parts.join(' | ') || 'Vestuário sob medida';
+    } else if (activeSegment === 'shoes') {
+      const parts = [];
+      if (customSize) parts.push(`Numeração: ${customSize}`);
+      if (customColor) parts.push(`Cor: ${customColor}`);
+      if (customMaterial) parts.push(`Acabamento: ${customMaterial}`);
+      specStr = parts.join(' | ') || 'Calçado sob medida';
+    } else if (activeSegment === 'perfume') {
+      const parts = [];
+      if (customVolume) parts.push(`Volumetria: ${customVolume}`);
+      if (customColor) parts.push(`Fragrância: ${customColor}`);
+      if (customBrand) parts.push(`Marca: ${customBrand}`);
+      specStr = parts.join(' | ') || 'Cosmético Perfumaria';
+    }
+
+    const customProd: Product = {
+      id: `custom-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      code: customItemCode.trim() || `PERS${Math.floor(1000 + Math.random() * 9000)}`,
+      name: customItemName.trim(),
+      nickname: customItemName.trim(),
+      description: customItemDesc.trim() || `Item personalizado corporativo (${activeSegment === 'furniture' ? 'Móveis' : activeSegment === 'clothing' ? 'Roupas' : activeSegment === 'shoes' ? 'Calçados' : 'Perfumaria'})`,
+      specifications: specStr,
+      imageUrl: activeSegment === 'clothing'
+        ? 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=120&q=80'
+        : activeSegment === 'shoes'
+        ? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=120&q=80'
+        : activeSegment === 'perfume'
+        ? 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=120&q=80'
+        : 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=120&q=80',
+      category: customItemCategory.trim() || 'Customizado',
+      price: priceNum
+    };
+
+    handleAddProductToCart(customProd);
+
+    // Clean critical fields only
+    setCustomItemName('');
+    setCustomItemPrice('');
+    setCustomItemCode('');
+    setCustomItemDesc('');
+  };
 
   // --- Form & Cart Interactive Handlers ---
   const toggleProductSpecs = (productId: string) => {
@@ -1919,6 +2010,33 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                 </button>
               </div>
 
+              {/* SEGMENT SELECTOR TABS & DYNAMIC SCHEMA INTEGRATION */}
+              <div className="space-y-1.5 border-b border-stone-100 pb-3 mt-1">
+                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider ml-0.5">Selecione o Segmento da Loja:</p>
+                <div className="grid grid-cols-4 gap-1.5 select-none">
+                  {[
+                    { id: 'furniture', label: 'Móveis', icon: '🛋️' },
+                    { id: 'clothing', label: 'Roupas', icon: '👕' },
+                    { id: 'shoes', label: 'Calçados', icon: '👟' },
+                    { id: 'perfume', label: 'Perfumes', icon: '🧴' }
+                  ].map((seg) => (
+                    <button
+                      type="button"
+                      key={seg.id}
+                      onClick={() => setActiveSegment(seg.id as any)}
+                      className={`py-1.5 text-[9.5px] font-black uppercase rounded-xl transition-all border flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                        activeSegment === seg.id
+                          ? 'bg-amber-50 border-amber-700 text-amber-900 ring-1 ring-amber-700'
+                          : 'bg-white border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className="text-base leading-none">{seg.icon}</span>
+                      <span className="text-[9px]">{seg.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Online Site Selector / Editor Target */}
               {catalogSearchMode === 'online' && (
                 <motion.div
@@ -2040,6 +2158,242 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                     <Search className="w-4 h-4" />
                     <span>Buscar</span>
                   </button>
+                )}
+              </div>
+
+              {/* COLLAPSIBLE CUSTOM ITEM FORM */}
+              <div className="bg-stone-50/50 rounded-2xl border border-stone-200/65 overflow-hidden transition-all duration-200">
+                <button
+                  type="button"
+                  onClick={() => setIsCustomFormOpen(!isCustomFormOpen)}
+                  className="w-full text-left px-4 py-3 flex items-center justify-between text-xs font-bold text-stone-700 hover:bg-stone-100 transition-colors border-none"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">➕</span>
+                    <span>Inserir item de venda personalizado ({activeSegment === 'furniture' ? 'Móveis' : activeSegment === 'clothing' ? 'Roupas' : activeSegment === 'shoes' ? 'Calçados' : 'Perfumes'})</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isCustomFormOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isCustomFormOpen && (
+                  <form onSubmit={handleAddCustomProduct} className="p-4 pt-1 border-t border-stone-200/60 space-y-3.5 font-sans">
+                    <p className="text-[10px] text-stone-400 font-medium leading-normal italic">
+                      Cadastre um item avulso que não esteja listado no catálogo geral. Os campos abaixo se adaptam automaticamente ao segmento selecionado.
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Nome do Item *</Label>
+                        <Input
+                          placeholder="Ex: Sofá Chesterfield 3L"
+                          value={customItemName}
+                          onChange={e => setCustomItemName(e.target.value)}
+                          className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Preço Unitário (R$) *</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="Ex: 1450.00"
+                          value={customItemPrice}
+                          onChange={e => setCustomItemPrice(e.target.value)}
+                          className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Código / Ref (Opcional)</Label>
+                        <Input
+                          placeholder="Ex: CHEST03"
+                          value={customItemCode}
+                          onChange={e => setCustomItemCode(e.target.value)}
+                          className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Categoria / Linha</Label>
+                        <Input
+                          placeholder={activeSegment === 'furniture' ? 'Ex: Sofás' : activeSegment === 'clothing' ? 'Ex: Casacos' : activeSegment === 'shoes' ? 'Ex: Social' : 'Ex: Colônias'}
+                          value={customItemCategory}
+                          onChange={e => setCustomItemCategory(e.target.value)}
+                          className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                        />
+                      </div>
+                    </div>
+
+                    {/* DYNAMIC SEGMENT SPECIFIC FIELD FIELDS */}
+                    <div className="p-3 bg-white rounded-xl border border-stone-150 space-y-2.5">
+                      <p className="text-[9px] font-black text-amber-900 uppercase tracking-wider flex items-center gap-1 leading-none border-b border-stone-100 pb-2">
+                        <span>⚙️</span> Ficha Técnica do Segmento: {activeSegment === 'furniture' ? 'Móveis' : activeSegment === 'clothing' ? 'Vestuário' : activeSegment === 'shoes' ? 'Calçados' : 'Perfumaria'}
+                      </p>
+
+                      {/* FURNITURE SPECIFIC FORM */}
+                      {activeSegment === 'furniture' && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Material de Estrutura</Label>
+                            <Input
+                              placeholder="Ex: 100% MDF Premium"
+                              value={customMaterial}
+                              onChange={e => setCustomMaterial(e.target.value)}
+                              className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Dimensões / Tamanho</Label>
+                            <Input
+                              placeholder="Ex: 2.30m x 1.05m"
+                              value={customVolume}
+                              onChange={e => setCustomVolume(e.target.value)}
+                              className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* CLOTHING SPECIFIC FORM */}
+                      {activeSegment === 'clothing' && (
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Tamanho</Label>
+                            <select
+                              value={customSize}
+                              onChange={e => setCustomSize(e.target.value)}
+                              className="w-full h-9 text-xs font-bold border border-stone-200 rounded-lg bg-white px-2.5"
+                            >
+                              {['PP', 'P', 'M', 'G', 'GG', 'XG', 'Único'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Cor / Estampa</Label>
+                            <Input
+                              placeholder="Ex: Azul Escuro"
+                              value={customColor}
+                              onChange={e => setCustomColor(e.target.value)}
+                              className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Tecido / Fios</Label>
+                            <Input
+                              placeholder="Ex: 100% Algodão"
+                              value={customMaterial}
+                              onChange={e => setCustomMaterial(e.target.value)}
+                              className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* SHOES SPECIFIC FORM */}
+                      {activeSegment === 'shoes' && (
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Numeração</Label>
+                            <select
+                              value={customSize}
+                              onChange={e => setCustomSize(e.target.value)}
+                              className="w-full h-9 text-xs font-bold border border-stone-200 rounded-lg bg-white px-2"
+                            >
+                              {['33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Acabamento</Label>
+                            <Input
+                              placeholder="Ex: Café Sfumato"
+                              value={customColor}
+                              onChange={e => setCustomColor(e.target.value)}
+                              className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Material de Sola</Label>
+                            <Input
+                              placeholder="Ex: Couro Legítimo"
+                              value={customMaterial}
+                              onChange={e => setCustomMaterial(e.target.value)}
+                              className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PERFUME SPECIFIC FORM */}
+                      {activeSegment === 'perfume' && (
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Volumetria</Label>
+                            <select
+                              value={customVolume}
+                              onChange={e => setCustomVolume(e.target.value)}
+                              className="w-full h-9 text-xs font-bold border border-stone-200 rounded-lg bg-white px-2"
+                            >
+                              {['50ml', '75ml', '90ml', '100ml', '150ml', '200ml', '400g'].map(t => (
+                                <option key={t} value={t}>{t}</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Fragrância / Família</Label>
+                            <Input
+                              placeholder="Ex: Amadeirado Intenso"
+                              value={customColor}
+                              onChange={e => setCustomColor(e.target.value)}
+                              className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Marca / Fabricante</Label>
+                            <select
+                              value={customBrand}
+                              onChange={e => setCustomBrand(e.target.value)}
+                              className="w-full h-9 text-xs font-bold border border-stone-200 rounded-lg bg-white px-1.5"
+                            >
+                              {['O Boticário', 'Eudora', 'Natura', 'Cacau Show', 'Exótica Imp.', 'Outros'].map(b => (
+                                <option key={b} value={b}>{b}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[9.5px] font-bold text-stone-500 uppercase ml-0.5">Comentários Complementares (No pdf)</Label>
+                      <Input
+                        placeholder="Ex: Acompanha embalagem decorada para presente."
+                        value={customItemDesc}
+                        onChange={e => setCustomItemDesc(e.target.value)}
+                        className="h-9 text-xs font-bold bg-white border-stone-200 rounded-lg"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full h-10 bg-stone-900 border-none hover:bg-amber-700 text-white font-extrabold text-[10.5px] uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer"
+                    >
+                      🛒 Adicionar Item Customizado ao Carrinho
+                    </Button>
+                  </form>
                 )}
               </div>
 

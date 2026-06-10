@@ -25,17 +25,17 @@ import { toast } from 'sonner';
 interface SubscriptionCheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialPlan?: 'individual' | 'store' | 'network';
+  initialPlan?: 'trial' | 'individual' | 'store' | 'network';
 }
 
 export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps> = ({
   isOpen,
   onClose,
-  initialPlan = 'store'
+  initialPlan = 'trial'
 }) => {
-  const { setCurrentUser, addAuditLog } = useAppContext();
+  const { setCurrentUser, addAuditLog, setCurrentCompany } = useAppContext();
   const [activeStep, setActiveStep] = useState<1 | 2 | 3 | 4>(1);
-  const [selectedPlan, setSelectedPlan] = useState<'individual' | 'store' | 'network'>(initialPlan);
+  const [selectedPlan, setSelectedPlan] = useState<'trial' | 'individual' | 'store' | 'network'>(initialPlan);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'pix'>('pix');
   
   // Registration Form
@@ -61,6 +61,22 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
   if (!isOpen) return null;
 
   const plans = {
+    trial: {
+      id: 'trial',
+      name: 'Demonstração de 15 Dias Grátis',
+      price: 0.00,
+      period: '15 dias',
+      maxUsers: 10,
+      subtitle: 'Teste de 15 dias sem compromisso no ecossistema RadarConquista',
+      features: [
+        'Acesso total e instantâneo ao app no celular',
+        'Até 10 vendedores ativos em teste',
+        'Geração de propostas em PDF ilimitadas',
+        'Sincronização na nuvem Firebase',
+        'Apoio VIP Inteligente Google AI Studio',
+        'Não requer cartão de crédito!'
+      ]
+    },
     individual: {
       id: 'individual',
       name: 'Plano Consultor Avulso',
@@ -161,7 +177,7 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
 
   const activateSubscriptionSequence = async () => {
     // Basic CC check if payment method is card
-    if (paymentMethod === 'card') {
+    if (selectedPlan !== 'trial' && paymentMethod === 'card') {
       const { number, name, expiry, cvv } = cardData;
       if (number.length < 15 || !name.trim() || expiry.length < 5 || cvv.length < 3) {
         toast.error('Preencha os dados do cartão de crédito corretamente!');
@@ -171,7 +187,13 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
 
     setIsProcessing(true);
     
-    const steps = [
+    const steps = selectedPlan === 'trial' ? [
+      'Analisando elegibilidade do período de testes gratuito...',
+      'Gerando licença de avaliação de 15 dias sem compromisso...',
+      'Registrando credenciais corporativas no Firebase Auth...',
+      'Sincronizando ambiente do seu supervisor master...',
+      'Iniciando painel da demonstração de teste grátis...'
+    ] : [
       'Comunicando com gateway de pagamento seguro...',
       'Processando cobrança junto à operadora bancária...',
       'Pagamento aprovado! Integrando credenciais no Firebase Auth...',
@@ -224,9 +246,11 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
       const newCompanyDetails = {
         id: 'c1',
         name: formData.companyName,
-        plan: `${selectedPlanDetails.name} • Ativo`,
+        plan: selectedPlan === 'trial' ? 'Demonstração de 15 Dias Grátis • Trial' : `${selectedPlanDetails.name} • Ativo`,
         maxUsers: selectedPlanDetails.maxUsers,
-        licenseExpires: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString() // 1 year expiration
+        licenseExpires: selectedPlan === 'trial'
+          ? new Date(new Date().setDate(new Date().getDate() + 15)).toISOString() // 15 days expiration
+          : new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString() // 1 year expiration
       };
 
       try {
@@ -241,7 +265,7 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
       }
 
       // Toast Success
-      toast.success('Assinatura ativada com sucesso! Bem-vindo ao RadarConquista!');
+      toast.success(selectedPlan === 'trial' ? 'Período de testes de 15 dias ativado com sucesso!' : 'Assinatura ativada com sucesso! Bem-vindo ao RadarConquista!');
       
       // Post transaction Audit log
       try {
@@ -252,6 +276,7 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
       
       // Auto-set current state
       setCurrentUser(newSupervisorUser);
+      setCurrentCompany(newCompanyDetails);
       
       // Force exit and celebration redirect
       setActiveStep(4);
@@ -337,31 +362,36 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                 <p className="text-stone-500 text-xs">Você poderá alterar ou cancelar sua assinatura a qualquer momento com facilidade.</p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {Object.values(plans).map((plan) => (
                   <button
                     key={plan.id}
                     onClick={() => setSelectedPlan(plan.id as any)}
-                    className={`p-4 rounded-xl border text-left transition-all relative flex flex-col justify-between min-h-[160px] cursor-pointer ${
+                    className={`p-3.5 rounded-xl border text-left transition-all relative flex flex-col justify-between min-h-[160px] cursor-pointer ${
                       selectedPlan === plan.id 
                         ? 'border-amber-700 bg-amber-50/20 ring-2 ring-amber-700' 
                         : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50/50'
                     }`}
                   >
+                    {plan.id === 'trial' && (
+                      <span className="absolute -top-2.5 right-3 bg-emerald-600 text-white font-black uppercase text-[8.5px] tracking-wider px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                        Recomendado
+                      </span>
+                    )}
                     {plan.id === 'store' && (
                       <span className="absolute -top-2.5 right-3 bg-amber-700 text-white font-black uppercase text-[8px] tracking-wider px-2 py-0.5 rounded-full shadow-sm">
                         Mais Vendido
                       </span>
                     )}
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-extrabold text-stone-800 uppercase tracking-tight">{plan.name}</p>
-                      <p className="text-[10px] text-stone-400 font-medium leading-none">{plan.subtitle}</p>
+                    <div className="space-y-1.5 pt-1.5">
+                      <p className="text-[11px] font-extrabold text-stone-850 uppercase tracking-tight leading-snug">{plan.name}</p>
+                      <p className="text-[9.5px] text-stone-400 font-semibold leading-normal">{plan.subtitle}</p>
                     </div>
-                    <div className="pt-4 mt-auto">
-                      <span className="text-2xl font-black text-stone-900 font-mono">
-                        R$ {plan.price.toLocaleString('pt-BR')}
+                    <div className="pt-3 mt-auto">
+                      <span className="text-xl font-black text-stone-900 font-mono">
+                        R$ {plan.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
-                      <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider ml-1">/{plan.period}</span>
+                      <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider ml-1">/{plan.period}</span>
                     </div>
                   </button>
                 ))}
@@ -484,11 +514,17 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                 </button>
                 <button
                   onClick={() => {
-                    if (validateStep2()) setActiveStep(3);
+                    if (validateStep2()) {
+                      if (selectedPlan === 'trial') {
+                        activateSubscriptionSequence();
+                      } else {
+                        setActiveStep(3);
+                      }
+                    }
                   }}
                   className="px-6 py-3 bg-stone-900 text-white font-bold rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 hover:bg-amber-700 transition-all cursor-pointer border-none shadow-md"
                 >
-                  Seguir para Pagamento
+                  {selectedPlan === 'trial' ? 'Ativar Teste de 15 Dias Grátis' : 'Seguir para Pagamento'}
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -678,25 +714,75 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
 
           {/* STEP 4: Celebration success screen */}
           {activeStep === 4 && (
-            <div className="py-12 text-center space-y-6 animate-fade-in relative z-10">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 border border-emerald-200 shadow-md">
-                <Check className="w-10 h-10 stroke-[3]" />
+            <div className="py-8 text-center space-y-6 animate-fade-in relative z-10 max-h-[80vh] overflow-y-auto px-1">
+              <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 border border-emerald-200 shadow-md">
+                <Check className="w-8 h-8 stroke-[3]" />
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-2xl font-black text-stone-900 font-sans tracking-tight">
+                <h4 className="text-xl font-black text-stone-900 font-sans tracking-tight">
                   Parabéns, {formData.name}! 🎉
                 </h4>
-                <p className="text-sm text-stone-600 font-medium max-w-md mx-auto leading-relaxed">
-                  Sua empresa <strong className="text-amber-800">{formData.companyName}</strong> está oficialmente licenciada no ecossistema <strong className="text-stone-900">RadarConquista</strong>!
+                <p className="text-xs text-stone-600 font-semibold max-w-md mx-auto leading-relaxed">
+                  Sua empresa <strong className="text-amber-800">{formData.companyName}</strong> já está ativa no ecossistema <strong className="text-stone-900">RadarConquista</strong>!
                 </p>
-                <div className="p-4 bg-stone-50 rounded-xl border border-stone-100 max-w-sm mx-auto text-xs text-stone-500 font-medium">
-                  Ativamos seu plano <strong className="text-stone-700">{selectedPlanDetails.name}</strong>. Você está sendo logado e direcionado ao seu novo Painel Administrativo.
+
+                {/* Email Sent Confirmation banner */}
+                <div className="p-4 bg-emerald-50 text-emerald-950 rounded-2xl border border-emerald-200 text-left space-y-2 max-w-md mx-auto font-sans shadow-3xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">📧</span>
+                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800">
+                      Boas-vindas Enviado com Sucesso!
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-emerald-900 leading-relaxed font-medium">
+                    Enviamos um e-mail oficial para <strong className="font-bold underline select-all">{formData.email}</strong> contendo suas credenciais de acesso, o link seguro do aplicativo de vendas e as instruções do plano {selectedPlan === 'trial' ? 'Demonstração' : selectedPlanDetails.name}.
+                  </p>
+                </div>
+                
+                <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-950/10 max-w-md mx-auto text-left space-y-2.5 font-sans shadow-2xs">
+                  <h5 className="text-[10px] uppercase tracking-wider font-extrabold text-amber-900 flex items-center gap-1.5 leading-none">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                    Suas Credenciais Seguras de Acesso:
+                  </h5>
+                  <div className="space-y-1.5 text-xs font-semibold">
+                    <div className="flex justify-between items-center bg-white px-3 py-1.5 rounded-xl border border-stone-200">
+                      <span className="text-stone-400 text-[10px] uppercase">E-mail de Login:</span>
+                      <span className="text-stone-850 font-bold font-mono tracking-tight select-all">{formData.email}</span>
+                    </div>
+                    <div className="flex justify-between items-center bg-white px-3 py-1.5 rounded-xl border border-stone-200">
+                      <span className="text-stone-400 text-[10px] uppercase">Senha Criptografada:</span>
+                      <span className="text-stone-850 font-bold font-mono tracking-tight text-[11px]">Sua senha pessoal {selectedPlan === 'trial' ? '(Sem custos)' : ''}</span>
+                    </div>
+                  </div>
+                  <p className="text-[9.5px] text-stone-500 font-medium leading-relaxed">
+                    💡 <strong>Entrada Automática:</strong> Para sua comodidade, o sistema já autenticou o seu aparelho atual na nuvem do Firebase! Você já pode navegar diretamente. Para usar em outros celulares, leia as instruções abaixo.
+                  </p>
+                </div>
+
+                {/* Mobile Installation Guide (PWA Step-by-Step) */}
+                <div className="p-4 bg-blue-50/40 text-stone-700 rounded-2xl border border-blue-200/50 text-left space-y-2 max-w-md mx-auto font-sans shadow-3xs">
+                  <h5 className="text-[10.5px] uppercase tracking-wider font-extrabold text-blue-900 flex items-center gap-1.5 leading-none">
+                    📲 Como Deixar Igualzinho Aplicativo no Celular:
+                  </h5>
+                  <p className="text-[10px] text-stone-500 leading-relaxed font-semibold">
+                    Quando você ou seus vendedores abrirem o link do sistema no celular, façam isso para criar o ícone direto na tela sem abrir o navegador:
+                  </p>
+                  <div className="space-y-2 text-[10px] text-stone-600 font-medium">
+                    <div className="flex items-start gap-2 bg-white/50 p-1.5 rounded-lg border border-stone-150">
+                      <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full">iOS</span>
+                      <p className="leading-tight">No iPhone (Safari), toque no botão de <strong>Compartilhar</strong> (ícone de seta) e selecione <strong>"Adicionar à Tela de Início"</strong>.</p>
+                    </div>
+                    <div className="flex items-start gap-2 bg-white/50 p-1.5 rounded-lg border border-stone-150">
+                      <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 rounded-full">Android</span>
+                      <p className="leading-tight">No Android (Chrome), toque nas <strong>três bolinhas de opções</strong> no canto superior e selecione <strong>"Instalar Aplicativo"</strong> ou "Adicionar à Tela".</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-2 animate-pulse text-[10px] text-emerald-600 uppercase tracking-widest font-black leading-none">
-                Redirecionando ao painel corporativo seguro...
+              <div className="pt-1.5 animate-pulse text-[10px] text-emerald-600 uppercase tracking-widest font-black leading-none">
+                Redirecionando ao painel corporativo em instantes...
               </div>
             </div>
           )}
