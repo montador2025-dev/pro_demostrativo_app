@@ -12,6 +12,7 @@ import {
   Send, 
   User, 
   ChevronRight, 
+  ChevronLeft, 
   AlertCircle, 
   Zap, 
   Search, 
@@ -215,6 +216,10 @@ export const SalespersonDashboard = () => {
   const [showStatusLegend, setShowStatusLegend] = useState(true);
   const [playedReminderIds, setPlayedReminderIds] = useState<string[]>([]);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  
+  // Custom Top Reminders Banner States d'accord
+  const [activeReminderIndex, setActiveReminderIndex] = useState<number>(0);
+  const [snoozedReminderIds, setSnoozedReminderIds] = useState<string[]>([]);
 
   // Dynamic Segment Selector & Custom Category Form State Hooks
   const [activeSegment, setActiveSegment] = useState<'furniture' | 'clothing' | 'shoes' | 'perfume'>('furniture');
@@ -461,6 +466,16 @@ export const SalespersonDashboard = () => {
     });
   }, [pendingQuotes, today]);
 
+  const activeReminders = useMemo(() => {
+    return quotesNeedingAttention.filter(q => !snoozedReminderIds.includes(q.id));
+  }, [quotesNeedingAttention, snoozedReminderIds]);
+
+  useEffect(() => {
+    if (activeReminderIndex >= activeReminders.length && activeReminders.length > 0) {
+      setActiveReminderIndex(activeReminders.length - 1);
+    }
+  }, [activeReminders.length, activeReminderIndex]);
+
   // Automatic Audio Reminder Alert System for pending quotes close to returnDate (today or tomorrow)
   const quotesNearReturn = useMemo(() => {
     const tomorrow = new Date(today);
@@ -528,23 +543,16 @@ export const SalespersonDashboard = () => {
         ...unplayed.map(q => q.id)
       ]);
       
-      // Toast notification
+      // Toast notification - kept highly polished and redirects attention to the new premium banner at the top of the screen
       if (unplayed.length === 1) {
-        toast.info(`🔔 Lembrete de Retorno: Fazer contato com ${unplayed[0].clientName}!`, {
-          description: `Interesse: "${unplayed[0].productInterest}"`,
-          action: {
-            label: 'Ver Cliente',
-            onClick: () => setActiveTab('followup')
-          },
-          duration: 7000
+        toast.info(`🔔 Novo retorno: ${unplayed[0].clientName}`, {
+          description: `Orçamento visível no painel do topo!`,
+          duration: 6000
         });
       } else {
-        toast.info(`🔔 Você tem ${unplayed.length} propostas pendentes precisando de retorno hoje ou amanhã!`, {
-          action: {
-            label: 'Fazer Follow-ups',
-            onClick: () => setActiveTab('followup')
-          },
-          duration: 7000
+        toast.info(`🔔 Você tem ${unplayed.length} retornos hoje`, {
+          description: `Consulte os detalhes no painel do topo.`,
+          duration: 6500
         });
       }
     }
@@ -3237,6 +3245,207 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
           <Clock className="w-3.5 h-3.5 text-stone-400" /> Atualizado: Hoje, às {today.toLocaleDateString('pt-BR')}
         </div>
       </motion.div>
+
+      {/* PERSISTENT TOP REMINDERS BANNER - High-end style resembling the user's uploaded banner illustration */}
+      {activeReminders.length > 0 && (() => {
+        const currentQuote = activeReminders[activeReminderIndex];
+        if (!currentQuote) return null;
+        
+        return (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.98, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="p-5 md:p-6 rounded-[2rem] bg-gradient-to-br from-slate-900 via-[#121110] to-[#1a1510] border border-amber-500/35 hover:border-amber-500/50 shadow-xl relative overflow-hidden group transition-all"
+          >
+            {/* Background glowing/decorative ambient light */}
+            <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-amber-500/15 transition-all" />
+            <div className="absolute bottom-0 left-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-indigo-500/15 transition-all" />
+            
+            <div className="flex flex-col lg:flex-row gap-6 relative z-10 items-stretch">
+              {/* Left Column: Visual Illustration that mimics the "Questionário de cliente" design in brand colors */}
+              <div className="w-full lg:w-5/12 shrink-0 select-none pb-4 lg:pb-0 border-b lg:border-b-0 lg:border-r border-white/5 lg:pr-6">
+                <div className="relative w-full h-36 md:h-40 bg-zinc-950/80 rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center shadow-lg">
+                  {/* Grid Lines/Window Pane Pattern (matches user image) */}
+                  <div className="absolute inset-0 bg-[radial-gradient(#ffffff07_1px,transparent_1px)] [background-size:12px_12px] opacity-75" />
+                  <div className="absolute inset-y-0 h-full w-[1px] bg-white/5 left-[33%]" />
+                  <div className="absolute inset-y-0 h-full w-[1px] bg-white/5 left-[66%]" />
+                  <div className="absolute inset-x-0 w-full h-[1px] bg-white/5 top-[35%]" />
+                  <div className="absolute inset-x-0 w-full h-[1px] bg-white/5 top-[70%]" />
+
+                  {/* Flat Wall Clock (From user image, top-left) */}
+                  <div className="absolute top-3 left-3 w-8 h-8 rounded-full border border-amber-400/40 bg-indigo-950/80 flex items-center justify-center shadow-md">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <div className="absolute top-2 right-[14px] w-0.5 h-3 bg-amber-400 origin-bottom transform rotate-[45deg]" />
+                    <div className="absolute top-[14px] left-2 w-2.5 h-0.5 bg-amber-400 origin-right" />
+                  </div>
+
+                  {/* Stacked Delivery/Furniture cardboard boxes in contrasting colors (From user image: green & orange boxes) */}
+                  <div className="absolute bottom-3 left-3 flex items-end gap-2 scale-100 origin-bottom-left">
+                    {/* Green Box 1 (Front/Left) */}
+                    <div className="w-6 h-6 bg-emerald-600 rounded-lg relative flex items-center justify-center shadow-md border-t border-emerald-400/20">
+                      <div className="w-full h-1.5 bg-emerald-700 absolute top-1" />
+                      <div className="w-1 h-2 bg-stone-950/50 rounded-2xs mt-1" />
+                    </div>
+                    {/* Orange Box 2 (Back/Right, larger) */}
+                    <div className="w-8 h-10 bg-amber-700 rounded-lg relative flex items-center justify-center shadow-md border-t border-amber-500/45">
+                      <div className="w-full h-2 bg-amber-800 absolute top-1.5" />
+                      <div className="w-1.5 h-4 bg-stone-950/45 rounded-2xs mt-2" />
+                    </div>
+                  </div>
+
+                  {/* Person Silhouette/Stylized Operator (From user image: leaning work persona with orange skin, dark hair/bun) */}
+                  <div className="absolute bottom-3 right-14 w-16 h-20 flex items-end justify-center">
+                    <div className="relative w-12 h-11 rounded-t-2xl bg-[#5850ec]/30 shadow-lg border-t border-indigo-400/20 flex items-center justify-center">
+                      {/* Face profile/details - flat style */}
+                      <div className="absolute -top-[22px] w-5.5 h-5.5 rounded-full bg-amber-550 border border-amber-400/20" />
+                      {/* Dark hair styled with a mini bun on the right */}
+                      <div className="absolute -top-[30px] w-6.5 h-4.5 bg-stone-900 rounded-full" />
+                      <div className="absolute -top-[26px] -right-1 w-2.5 h-2.5 bg-stone-900 rounded-full" />
+                    </div>
+                    {/* Leaning arm reaching laptop */}
+                    <div className="absolute bottom-5 right-1 w-8 h-2 bg-amber-550 origin-left transform -rotate-[10deg] rounded-full" />
+                  </div>
+
+                  {/* Desktop Workstation with Laptop (From user image: blue laptop with dark screen and glowing interface) */}
+                  <div className="absolute bottom-3 right-3 w-22 h-13 bg-indigo-950/40 rounded-xl border border-white/10 flex items-center justify-center backdrop-blur-xs">
+                    <div className="absolute bottom-0 w-full h-0.5 bg-indigo-400/50 rounded-full" />
+                    {/* Laptop Screen */}
+                    <div className="absolute bottom-1 w-15 h-10 bg-slate-950 rounded border border-indigo-455/60 flex flex-col justify-between p-1 overflow-hidden shadow-inner font-sans">
+                      {/* Top bar indicators */}
+                      <div className="w-full h-1 bg-amber-400/20 rounded-2xs flex justify-between px-0.5 items-center">
+                        <div className="w-4 h-0.5 bg-amber-400 rounded-full" />
+                        <div className="w-1.5 h-0.5 bg-emerald-400 rounded-full animate-pulse" />
+                      </div>
+                      {/* Active Screen text or drawing */}
+                      <div className="w-full h-5 bg-indigo-500/10 rounded-2xs flex items-center justify-center border border-white/5">
+                        <span className="text-[5.5px] font-mono font-black text-amber-450 animate-pulse uppercase tracking-wider">G-ATENDE</span>
+                      </div>
+                    </div>
+                    {/* Laptop bottom bar */}
+                    <div className="absolute bottom-0 w-18 h-1 bg-indigo-400/70 rounded-b-md" />
+                  </div>
+                </div>
+
+                {/* Carousel navigation header bar if multiple notifications */}
+                {activeReminders.length > 1 && (
+                  <div className="flex items-center justify-between mt-3 text-[10px] font-black text-stone-400 uppercase tracking-wider">
+                    <span>Sincronizados Hoje</span>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setActiveReminderIndex(prev => prev > 0 ? prev - 1 : activeReminders.length - 1);
+                        }}
+                        className="h-6 w-6 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white flex items-center justify-center cursor-pointer transition-all"
+                        title="Anterior"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span>{activeReminderIndex + 1} de {activeReminders.length}</span>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setActiveReminderIndex(prev => prev < activeReminders.length - 1 ? prev + 1 : 0);
+                        }}
+                        className="h-6 w-6 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-white flex items-center justify-center cursor-pointer transition-all"
+                        title="Próximo"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Informative text contents describing Client Name, Interests, Value */}
+              <div className="flex-1 flex flex-col justify-between space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="space-y-1.5">
+                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-[#f59e0b] bg-[#451a03]/80 px-3 py-1 rounded-full border border-amber-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b] animate-ping shrink-0" />
+                        🔔 Lembrete de Retorno
+                      </span>
+                      <h2 className="text-xl md:text-2xl font-black text-white uppercase tracking-tight select-all leading-tight">
+                        Fazer contato com <span className="text-amber-500 underline decoration-amber-500/30 underline-offset-3">{currentQuote.clientName}</span>!
+                      </h2>
+                    </div>
+
+                    {/* Snooze / Hide Banner Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSnoozedReminderIds(prev => [...prev, currentQuote.id]);
+                        toast.info(`Lembrete de ${currentQuote.clientName} ocultado temporariamente nesta sessão.`);
+                      }}
+                      className="h-8 w-8 rounded-full bg-white/5 border border-white/10 text-stone-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-all cursor-pointer shrink-0"
+                      title="Ocultar lembrete temporariamente"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Details Card */}
+                  <div className="p-3 bg-white/5 border border-white/8 rounded-2xl space-y-1.5 select-text backdrop-blur-md">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-stone-300 uppercase tracking-widest pb-1 border-b border-white/5">
+                      <div className="flex items-center gap-1.5">
+                        <ShoppingBag className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Móvel / Interesse do Cliente</span>
+                      </div>
+                      <span className="text-stone-400 font-mono text-[9px]">Cód: #{currentQuote.id.substring(0, 6)}</span>
+                    </div>
+
+                    <p className="text-sm font-black text-white uppercase truncate flex items-center gap-2 pt-0.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />
+                      {currentQuote.productInterest || 'Pesquisa de Móveis'}
+                    </p>
+
+                    {currentQuote.notes && (
+                      <p className="text-[10px] leading-relaxed text-stone-300 italic">
+                        Obs: "{currentQuote.notes}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom value overview and call to action CTAs */}
+                <div className="flex flex-col sm:flex-row gap-3 items-center justify-between pt-3 border-t border-white/5">
+                  <div className="w-full sm:w-auto text-left flex items-baseline gap-1.5 select-all">
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider font-sans">Orçamento:</span>
+                    <span className="text-lg md:text-xl font-black text-white font-mono tracking-tight">
+                      {formatCurrency(currentQuote.value)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 select-none">
+                    {/* WhatsApp CTA */}
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const msg = `Olá *${currentQuote.clientName}*! Tudo bem?\nAqui é o consultor *${currentUser.name}* da Sono Show Móveis.\n\nLembra do orçamento de *${currentQuote.productInterest}* no valor de *${formatCurrency(currentQuote.value)}* que organizamos para você? \nEstou passando para saber se podemos aprovar o seu pedido ou se ficou alguma dúvida sobre as opções de parcelamento! Como ficou para você?`;
+                        window.open(generateWhatsAppLink(currentQuote.clientPhone, msg), '_blank');
+                      }}
+                      className="flex-1 sm:flex-none h-10 text-[10px] font-black uppercase px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] hover:scale-[1.02] hover:shadow-lg hover:shadow-[#25D366]/20 transition-all text-white border-none flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <MessageSquare className="w-4 h-4 text-white" /> Chamar WhatsApp
+                    </Button>
+
+                    {/* View Details tab */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setActiveTab('followup')}
+                      className="h-10 text-[10px] font-black uppercase px-4 rounded-xl border-white/15 text-white bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer"
+                    >
+                      Ver Ficha
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      })()}
 
       {/* Salesperson Personalized Warm Welcoming Hero Banner */}
       <motion.div 
