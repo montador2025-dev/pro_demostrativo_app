@@ -446,7 +446,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.log("[Radar Auth] Verifying Firebase / Internet reachability...");
         const isReachable = await Promise.race([
           testConnection(true),
-          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000))
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 10000))
         ]).catch(() => false);
 
         if (!isReachable) {
@@ -732,7 +732,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     unsubQuotes = onSnapshot(quotesQuery, (snap) => {
       const list: Quote[] = [];
       snap.forEach(docSnap => list.push(docSnap.data() as Quote));
-      setQuotes(uniqById(list));
+      
+      setQuotes((prevQuotes) => {
+        const cloudIds = new Set(list.map(q => q.id));
+        const localOnlyQuotes = prevQuotes.filter(q => q && q.id && !q.id.startsWith('q_mock') && q.id !== 'q1' && !cloudIds.has(q.id));
+        
+        if (localOnlyQuotes.length > 0) {
+          console.log(`[Auto-Sync] Found ${localOnlyQuotes.length} unsaved local quotes. Syncing to Firestore...`);
+          localOnlyQuotes.forEach((localQuote) => {
+            setDoc(doc(db, 'quotes', localQuote.id), localQuote)
+              .then(() => console.log(`[Auto-Sync] Saved local quote ${localQuote.id} to Firestore.`))
+              .catch((err) => console.warn(`[Auto-Sync] Could not save local quote ${localQuote.id}:`, err));
+          });
+          return uniqById([...list, ...localOnlyQuotes]);
+        }
+        return uniqById(list);
+      });
+      
       setUsingLocalFallback(false);
     }, (err) => {
       const filteredMocks = mockQuotes.filter(q => {
@@ -1220,6 +1236,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     if (usingLocalFallback) {
+      try {
+        await setDoc(doc(db, 'quotes', id), newQuote);
+        setUsingLocalFallback(false);
+        await addAuditLog(`Proposta Registrada: Orçamento criado para o cliente "${quoteInput.clientName}" no valor de R$ ${quoteInput.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`);
+        return;
+      } catch (err) {
+        console.warn("[Auto-Sync Error] Fallback write direct attempt failed, staying local:", err);
+      }
       executeLocal();
       return;
     }
