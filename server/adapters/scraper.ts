@@ -12,7 +12,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&q=80",
     category: "Estofados",
     sku: "SSH-SOF-001",
-    url: "https://catalogo.sonoshowmoveis.com.br/sala-de-estar/sofás"
+    url: "https://www.sonoshowmoveis.com.br/sala_de_estar/sofas"
   },
   {
     name: "Cama Box Conjugada Casal Ortobom Ortopédica",
@@ -21,7 +21,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=500&q=80",
     category: "Colchões & Camas",
     sku: "SSH-CAM-002",
-    url: "https://catalogo.sonoshowmoveis.com.br/colchao---cama---box/"
+    url: "https://www.sonoshowmoveis.com.br/colchao---cama---box/"
   },
   {
     name: "Guarda-Roupa Casal Premium 6 Portas com Espelho",
@@ -30,7 +30,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-1595428774223-ef52624120d2?w=500&q=80",
     category: "Quarto",
     sku: "SSH-GUA-003",
-    url: "https://catalogo.sonoshowmoveis.com.br/quarto/guarda-roupa"
+    url: "https://www.sonoshowmoveis.com.br/quarto/guarda-roupa"
   },
   {
     name: "Mesa de Jantar Viena 1.60m com 6 Cadeiras Suede",
@@ -39,7 +39,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-1577140917170-285929fb55b7?w=500&q=80",
     category: "Sala de Jantar",
     sku: "SSH-MES-004",
-    url: "https://catalogo.sonoshowmoveis.com.br/sala-de-jantar"
+    url: "https://www.sonoshowmoveis.com.br/sala-de-jantar"
   },
   {
     name: "Painel Home para TV até 65 Polegadas com LED",
@@ -48,7 +48,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-16074730318d2-672e68192974?w=500&q=80",
     category: "Estantes e Painéis",
     sku: "SSH-PAI-005",
-    url: "https://catalogo.sonoshowmoveis.com.br/sala-de-estar"
+    url: "https://www.sonoshowmoveis.com.br/sala-de-estar"
   },
   {
     name: "Poltrona do Papai Reclinável Classic Suede",
@@ -57,7 +57,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=500&q=80",
     category: "Estofados",
     sku: "SSH-POL-006",
-    url: "https://catalogo.sonoshowmoveis.com.br/sala-de-estar"
+    url: "https://www.sonoshowmoveis.com.br/sala-de-estar"
   },
   {
     name: "Armário Modular Cozinha Compacta Línea 4 Peças",
@@ -66,7 +66,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=500&q=80",
     category: "Cozinha",
     sku: "SSH-COZ-007",
-    url: "https://catalogo.sonoshowmoveis.com.br/copa-e-cozinha"
+    url: "https://www.sonoshowmoveis.com.br/copa-e-cozinha"
   },
   {
     name: "Escrivaninha Office com Gaveteiro e Prateleira",
@@ -75,7 +75,7 @@ const SONOSHOW_OFFLINE_PRODUCTS: CatalogProduct[] = [
     image: "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?w=500&q=80",
     category: "Escritório",
     sku: "SSH-ESC-008",
-    url: "https://catalogo.sonoshowmoveis.com.br/"
+    url: "https://www.sonoshowmoveis.com.br/"
   }
 ];
 

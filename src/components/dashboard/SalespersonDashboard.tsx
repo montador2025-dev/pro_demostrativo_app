@@ -234,7 +234,7 @@ export const SalespersonDashboard = () => {
 
   // MÓDULO 1 & 2: API UNIVERSAL DE CATÁLOGO & BUSCA INTELIGENTE
   const [catalogSearchMode, setCatalogSearchMode] = useState<'local' | 'online'>('online');
-  const [onlineCatalogUrl, setOnlineCatalogUrl] = useState('catalogo.sonoshowmoveis.com.br');
+  const [onlineCatalogUrl, setOnlineCatalogUrl] = useState('www.sonoshowmoveis.com.br');
   const [isOnlineCatalogSearching, setIsOnlineCatalogSearching] = useState(false);
   const [onlineProducts, setOnlineProducts] = useState<any[]>([]);
   const [onlineError, setOnlineError] = useState('');
@@ -247,7 +247,7 @@ export const SalespersonDashboard = () => {
     }
 
     // Protect custom e-commerce URLs from keystroke-level floods
-    if (onlineCatalogUrl !== 'catalogo.sonoshowmoveis.com.br') {
+    if (onlineCatalogUrl !== 'www.sonoshowmoveis.com.br' && onlineCatalogUrl !== 'catalogo.sonoshowmoveis.com.br') {
       return;
     }
 
@@ -1160,77 +1160,145 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
               </Badge>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {quotesNeedingAttention.slice(0, 4).map(quote => (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {quotesNeedingAttention.map(quote => (
                 <motion.div
                   key={quote.id}
-                  whileHover={{ y: -3 }}
-                  className="flex flex-col justify-between p-5 rounded-2xl bg-white border border-stone-200 hover:border-amber-700/30 shadow-xs relative overflow-hidden group transition-all"
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  className="flex flex-col md:flex-row justify-between p-5 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-stone-900 border border-amber-500/30 hover:border-amber-500/60 shadow-lg relative overflow-hidden group transition-all"
                 >
-                  {/* Decorative badge background pattern */}
-                  <div className="absolute top-0 right-0 p-8 opacity-[0.03] -mr-4 -mt-4 transition-all group-hover:scale-110 pointer-events-none">
-                    <Clock className="w-24 h-24 text-stone-900" />
-                  </div>
+                  {/* Glowing background ambience to match system standard + illustration */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/15 transition-all" />
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-indigo-500/15 transition-all" />
 
-                  <div className="space-y-3 relative z-10">
-                    <div className="flex justify-between items-start gap-2">
-                      <div>
-                        <span className="text-[9px] font-black uppercase tracking-wider text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-lg border border-amber-200">
-                          ⏳ Exige Contato
-                        </span>
-                        <h4 className="text-sm font-black text-stone-950 tracking-tight uppercase mt-2">
-                          {quote.clientName}
-                        </h4>
-                      </div>
+                  {/* Left Column: Stylized Flat Vector Illustration (Matches the user's uploaded banner concept) */}
+                  <div className="flex md:flex-col gap-4 items-center md:items-start shrink-0 mb-4 md:mb-0 md:mr-4 select-none pb-3 md:pb-0 border-b border-white/5 md:border-b-0">
+                    <div className="relative w-36 h-24 bg-slate-950/70 rounded-2xl border border-white/10 overflow-hidden flex items-center justify-center shadow-lg">
+                      {/* Grid Lines Pattern for tech feel */}
+                      <div className="absolute inset-0 bg-[radial-gradient(#ffffff07_1px,transparent_1px)] [background-size:10px_10px] opacity-70" />
                       
-                      <div className="text-right">
-                        <span className="block text-[8px] font-bold text-stone-400 font-mono">ID: #{quote.id.substring(0, 6)}</span>
-                        <span className="text-[10px] font-extrabold text-[#b45309] font-mono">
-                          {formatLocalDate(quote.returnDate)}
-                        </span>
+                      {/* Flat Wall Clock (From user image) */}
+                      <div className="absolute top-2 left-3 w-7 h-7 rounded-full border border-amber-400/30 bg-indigo-950/65 flex items-center justify-center shadow-inner">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        <div className="absolute top-1.5 right-[13px] w-0.5 h-2.5 bg-amber-400 origin-bottom transform rotate-[45deg]" />
+                        <div className="absolute top-[13px] left-2 w-2 h-0.5 bg-amber-400 origin-right" />
                       </div>
+
+                      {/* Stacked Furniture/Delivery Boxes (From user image) */}
+                      <div className="absolute bottom-2 left-2 flex items-end gap-1.5 scale-90 origin-bottom-left">
+                        {/* Box 1 */}
+                        <div className="w-5 h-5 bg-emerald-600 rounded-md relative flex items-center justify-center shadow-md">
+                          <div className="w-full h-1 bg-emerald-700 absolute top-1" />
+                          <div className="w-1 h-2 bg-amber-900/40 rounded-xs" />
+                        </div>
+                        {/* Box 2 (Larger) */}
+                        <div className="w-6 h-8 bg-amber-700 rounded-md relative flex items-center justify-center shadow-md border-t border-amber-500/40">
+                          <div className="w-full h-1 bg-amber-800 absolute top-1.5" />
+                          <div className="w-1 h-3.5 bg-stone-900/30 rounded-xs" />
+                        </div>
+                      </div>
+
+                      {/* Person silhouettes/desk workspace (From user image) */}
+                      <div className="absolute bottom-2 right-2 w-16 h-10 bg-indigo-900/30 rounded-lg border border-white/10 flex items-center justify-center">
+                        {/* Minimalist Laptop screen */}
+                        <div className="absolute bottom-1 w-11 h-1 bg-stone-300 rounded-full" />
+                        <div className="absolute bottom-2 w-9 h-6 bg-slate-900 rounded border border-indigo-400/50 flex flex-col justify-between p-1 overflow-hidden">
+                          <div className="w-full h-1 bg-amber-400/20 rounded-2xs flex justify-between px-0.5">
+                            <div className="w-2 h-0.5 bg-amber-400 rounded-full" />
+                            <div className="w-1 h-0.5 bg-indigo-400 rounded-full" />
+                          </div>
+                          <div className="w-full h-2.5 bg-emerald-500/10 rounded-2xs flex items-center justify-center">
+                            <span className="text-[5px] font-sans text-emerald-400 font-extrabold leading-0">OK</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* User Working Silhouette Glow */}
+                      <div className="absolute bottom-1 right-12 w-6 h-7 rounded-t-full bg-gradient-to-t from-[#5850ec] to-amber-500/50 opacity-90 shadow-md" />
                     </div>
 
-                    <div className="space-y-1 p-3 rounded-xl bg-stone-50 border border-stone-100">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-stone-900">
-                        <ShoppingBag className="w-3.5 h-3.5 text-amber-700" />
-                        <span className="truncate">{quote.productInterest || 'Apenas Consulta de Orçamento'}</span>
+                    <div className="hidden md:block">
+                      <span className="block text-[8px] font-extrabold text-amber-500/70 font-mono tracking-widest">SISTEMA ATIVO</span>
+                      <span className="block text-[10px] font-black text-white font-mono mt-0.5">
+                        {formatLocalDate(quote.returnDate)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Information & Actions */}
+                  <div className="flex-1 flex flex-col justify-between space-y-3.5 min-w-0">
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-amber-300 bg-amber-950/80 px-2.5 py-0.5 rounded-lg border border-amber-500/30">
+                            📢 Retorno Pendente
+                          </span>
+                          <h4 className="text-md md:text-lg font-black text-white tracking-tight uppercase mt-2 font-sans truncate drop-shadow-sm select-all">
+                            {quote.clientName}
+                          </h4>
+                        </div>
+                        <div className="text-right md:hidden">
+                          <span className="block text-[9px] font-black text-amber-400 font-mono">
+                            {formatLocalDate(quote.returnDate)}
+                          </span>
+                        </div>
                       </div>
-                      {quote.notes && (
-                        <p className="text-[9.5px] text-stone-500 italic line-clamp-1">
-                          "obs: {quote.notes}"
+
+                      {/* Glassmorphism item selection container */}
+                      <div className="p-3 bg-white/5 border border-white/10 hover:border-white/15 rounded-2xl space-y-2 select-text backdrop-blur-md transition-all">
+                        <div className="flex items-center justify-between text-[9px] font-bold text-stone-300 uppercase tracking-widest pb-1 border-b border-white/5">
+                          <div className="flex items-center gap-1">
+                            <ShoppingBag className="w-3 h-3 text-amber-400" />
+                            <span>Interesse Principal</span>
+                          </div>
+                          <span className="text-amber-400 font-mono">ID: #{quote.id.substring(0, 6)}</span>
+                        </div>
+                        
+                        <p className="text-sm font-black text-white uppercase truncate flex items-center gap-1.5 mt-1">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shadow-sm" />
+                          {quote.productInterest || 'Consulta Geral'}
                         </p>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-stone-105">
-                    <div className="text-xs font-black text-amber-950">
-                      Proposta: {formatCurrency(quote.value)}
+                        {quote.notes && (
+                          <p className="text-[10px] text-stone-300 italic opacity-95">
+                            Obs: "{quote.notes}"
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    
-                    <div className="flex items-center gap-1.5">
-                      {/* WhatsApp Fast Contact CTA */}
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          const msg = `Olá *${quote.clientName}*! Tudo bem?\nAqui é o consultor *${currentUser.name}* da RadarConquista.\n\nLembra do orçamento de *${quote.productInterest}* no valor de *${formatCurrency(quote.value)}* que organizamos para você? \nEstou passando para saber se podemos aprovar o seu pedido ou se ficou alguma dúvida sobre as opções de parcelamento! Como ficou para você?`;
-                          window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
-                        }}
-                        className="h-8 text-[9px] font-extrabold uppercase px-3 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white border-none flex items-center gap-1 shadow-3xs hover:scale-103 transition-all"
-                      >
-                        <MessageSquare className="w-3 h-3" /> Chamar WhatsApp
-                      </Button>
+
+                    {/* Bottom value overview & CTAs */}
+                    <div className="flex flex-col sm:flex-row gap-3 items-center justify-between pt-2.5 border-t border-white/5">
+                      <div className="w-full sm:w-auto text-left flex items-baseline gap-1 select-all">
+                        <span className="text-[9px] font-bold text-stone-300 uppercase tracking-wider">Orcamento:</span>
+                        <span className="text-base font-black text-white font-mono tracking-tight">
+                          {formatCurrency(quote.value)}
+                        </span>
+                      </div>
                       
-                      {/* View Client Details Tab Redirect */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setActiveTab('followup')}
-                        className="h-8 text-[9px] font-black uppercase px-2.5 rounded-lg border-stone-200 text-stone-700 bg-white hover:bg-stone-50"
-                      >
-                        Ver Ficha
-                      </Button>
+                      <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 select-none">
+                        {/* WhatsApp CTA Action */}
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const msg = `Olá *${quote.clientName}*! Tudo bem?\nAqui é o consultor *${currentUser.name}* da Sono Show Móveis.\n\nLembra do orçamento de *${quote.productInterest}* no valor de *${formatCurrency(quote.value)}* que organizamos para você? \nEstou passando para saber se podemos aprovar o seu pedido ou se ficou alguma dúvida sobre as opções de parcelamento! Como ficou para você?`;
+                            window.open(generateWhatsAppLink(quote.clientPhone, msg), '_blank');
+                          }}
+                          className="flex-1 sm:flex-none h-9 text-[9px] font-black uppercase px-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] hover:scale-102 hover:shadow-lg hover:shadow-[#25D366]/20 transition-all text-white border-none flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" /> Chamar WhatsApp
+                        </Button>
+                        
+                        {/* View Client Details Action */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setActiveTab('followup')}
+                          className="h-9 text-[9px] font-black uppercase px-3 rounded-xl border-white/10 text-white bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all cursor-pointer"
+                        >
+                          Ver Ficha
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -2047,7 +2115,7 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                   <div className="flex flex-col sm:flex-row gap-2">
                     <div className="sm:w-5/12">
                       <select
-                        value={['catalogo.sonoshowmoveis.com.br'].includes(onlineCatalogUrl) ? onlineCatalogUrl : 'custom'}
+                        value={['www.sonoshowmoveis.com.br', 'catalogo.sonoshowmoveis.com.br'].includes(onlineCatalogUrl) ? onlineCatalogUrl : 'custom'}
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === 'custom') {
@@ -2065,7 +2133,8 @@ Ficamos à inteira disposição para aprovar seu pedido hoje mesmo e liberar sua
                           backgroundSize: '14px'
                         }}
                       >
-                        <option value="catalogo.sonoshowmoveis.com.br">🇧🇷 Catálogo RadarConquista</option>
+                        <option value="www.sonoshowmoveis.com.br">🇧🇷 Loja Oficial Sono Show</option>
+                        <option value="catalogo.sonoshowmoveis.com.br">🌍 Catálogo Sono Show Antigo</option>
                         <option value="custom">🌐 Outro e-Commerce...</option>
                       </select>
                     </div>
